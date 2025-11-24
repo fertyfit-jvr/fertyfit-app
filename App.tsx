@@ -867,11 +867,13 @@ function AppContent() {
   };
 
   const fetchNotifications = async (userId: string) => {
-    console.log('Fetching notifications for:', userId);
-    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    if (error) console.error('Error fetching notifications:', error);
+    console.log('🔍 INICIO fetchNotifications para:', userId);
+    const { data, error, status, statusText } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+
+    console.log('📡 Respuesta Supabase:', { status, statusText, error, dataLength: data?.length });
+
+    if (error) console.error('❌ Error fetching notifications:', error);
     if (data) {
-      console.log('Notifications fetched:', data.length, data);
       setNotifications(data);
     }
   };
@@ -882,6 +884,8 @@ function AppContent() {
   };
 
   const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'daily' = 'daily') => {
+    console.log('🤖 INICIO analyzeLogsWithAI', { context, logsCount: recentLogs.length });
+
     // Prepare data for AI
     const logSummary = recentLogs.slice(0, 14).map(log => ({
       date: log.date,
@@ -898,12 +902,15 @@ function AppContent() {
       const apiKey = import.meta.env.VITE_OPEN_EYE;
       const assistantId = import.meta.env.VITE_ASSISTANT_ID;
 
+      console.log('🔑 Config:', { hasApiKey: !!apiKey, hasAssistantId: !!assistantId });
+
       if (!apiKey || !assistantId) {
         console.warn('OpenAI API key or Assistant ID not configured');
         return;
       }
 
       // Step 1: Create a thread
+      console.log('🧵 Creating thread...');
       const threadResponse = await fetch('https://api.openai.com/v1/threads', {
         method: 'POST',
         headers: {
@@ -912,6 +919,8 @@ function AppContent() {
           'OpenAI-Beta': 'assistants=v2'
         }
       });
+
+      console.log('🧵 Thread response:', threadResponse.status);
 
       if (!threadResponse.ok) {
         console.error('Error creating thread:', await threadResponse.text());
