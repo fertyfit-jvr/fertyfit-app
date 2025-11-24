@@ -2,7 +2,7 @@ import React, { Component, useState, useEffect, ErrorInfo, ReactNode } from 'rea
 import {
   Heart, Activity, BookOpen, FileText, User, LogOut, AlertCircle,
   Moon, Sun, PlayCircle, FileText as PdfIcon,
-  Lock, Database, Copy, X, Star, Award, Mail, Key, CheckSquare, Download, ChevronDown, ChevronUp, Settings, ArrowRight, Smile, Play,
+  Lock, X, Star, Award, Mail, Key, CheckSquare, Download, ChevronDown, ChevronUp, ArrowRight, Smile, Play,
   CheckCircle, WineOff, Calendar, Stethoscope, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles
 } from 'lucide-react';
 
@@ -50,71 +50,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-// --- SQL Script ---
-const SQL_SETUP_SCRIPT = `
--- SCRIPT MAESTRO V12: FINAL FIX
-
--- 1. LIMPIEZA DE DATOS DE USUARIO (Reset)
-TRUNCATE TABLE public.daily_logs CASCADE;
-TRUNCATE TABLE public.consultation_forms CASCADE;
-TRUNCATE TABLE public.user_progress CASCADE;
-TRUNCATE TABLE public.admin_reports CASCADE;
-
--- Limpiar perfil pero mantener cuenta
-UPDATE public.profiles 
-SET weight = NULL, height = NULL, main_objective = NULL, method_start_date = NULL, 
-    partner_status = NULL, cycle_length = NULL, last_period_date = NULL, diagnoses = NULL;
-
--- 2. LIMPIEZA DE CONTENIDO
-DELETE FROM public.content_lessons;
-DELETE FROM public.content_modules;
-
--- 3. ACTUALIZACIÓN DE ESTRUCTURA (Schema)
-alter table public.profiles add column if not exists role text default 'user';
-alter table public.profiles add column if not exists method_start_date timestamp with time zone;
-alter table public.profiles add column if not exists main_objective text;
-
-alter table public.daily_logs add column if not exists cervix_height text;
-alter table public.daily_logs add column if not exists cervix_firmness text;
-alter table public.daily_logs add column if not exists cervix_openness text;
-alter table public.daily_logs alter column date type date using date::date;
-
-alter table public.content_modules add column if not exists phase int default 1;
-alter table public.content_lessons add column if not exists description text;
-
--- 4. CREAR MÓDULOS (12 Semanas)
-INSERT INTO public.content_modules (id, title, description, order_index, phase) VALUES
-(0, 'Bienvenida: El Inicio', 'Lo que necesitas saber antes de empezar.', 0, 0),
-(1, 'Semana 1: Punto de Partida', 'Conciencia y registro de biomarcadores.', 1, 1),
-(2, 'Semana 2: Ciclo y Ventana Fértil', 'Identificación de tu patrón ovulatorio.', 2, 1),
-(3, 'Semana 3: Detox y Entorno', 'Eliminando disruptores (BPA, Ftalatos).', 3, 1),
-(4, 'Semana 4: Nutrición Base', 'Suplementos iniciales y alimentación.', 4, 1),
-(5, 'Semana 5: Analíticas Hormonales', 'Interpretando AMH, FSH, TSH.', 5, 2),
-(6, 'Semana 6: Nutrición Aplicada', 'Ajuste por fase del ciclo.', 6, 2),
-(7, 'Semana 7: Microbiota', 'Restauración intestinal y vaginal.', 7, 2),
-(8, 'Semana 8: Manejo del Estrés', 'Plan de bienestar emocional.', 8, 2),
-(9, 'Semana 9: Carpeta Pre-Consulta', 'Organización y plan de acción.', 9, 3),
-(10, 'Semana 10: Preparación Emocional', 'Relato clínico (3 minutos).', 10, 3),
-(11, 'Semana 11: Decisión de Ruta', 'Natural vs Reproducción Asistida.', 11, 3),
-(12, 'Semana 12: Integración', 'Plan Maestro a 60 días.', 12, 3);
-
-SELECT setval('content_modules_id_seq', (SELECT MAX(id) FROM content_modules));
-
--- 5. CREAR LECCIONES (Video + PDF en cada módulo)
--- Usamos un video de Meditación seguro que permite embed
-INSERT INTO public.content_lessons (module_id, title, duration, type, content_url, description)
-SELECT id, 'Masterclass: ' || title, '15 min', 'video', 'https://www.youtube.com/embed/inpok4MKVLM', 
-'En esta lección fundamental exploraremos los conceptos clave de la semana. Aprenderás las bases fisiológicas y prácticas para aplicar el método FertyFit en tu día a día. Toma apuntes y busca un lugar tranquilo.'
-FROM public.content_modules;
-
-INSERT INTO public.content_lessons (module_id, title, duration, type, content_url, description)
-SELECT id, 'Guía de Trabajo: ' || title, 'Lectura', 'pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-'Descarga tu cuaderno de trabajo semanal. Incluye checklist de hábitos, recetas recomendadas para esta fase y ejercicios de reflexión para profundizar en tu proceso.'
-FROM public.content_modules;
-
--- 6. RECARGA DE CACHÉ
-NOTIFY pgrst, 'reload schema';
-`;
 
 // --- Helpers ---
 const mapLogFromDB = (dbLog: any): DailyLog => ({
@@ -702,7 +637,6 @@ function AppContent() {
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [dbMissing, setDbMissing] = useState(false);
   const [specialistMode, setSpecialistMode] = useState(false); // Toggle for Admin view
   const [pendingForms, setPendingForms] = useState<ConsultationForm[]>([]);
   const [submittedForms, setSubmittedForms] = useState<ConsultationForm[]>([]);
@@ -736,7 +670,7 @@ function AppContent() {
       if (session?.user) {
         const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
-        if (error && error.code === '42P01') { setDbMissing(true); setLoading(false); return; }
+        if (error && error.code === '42P01') { setLoading(false); return; }
 
         if (error && (error.code === 'PGRST116' || !profile)) {
           // CREATE NEW PROFILE WITH NAME FROM METADATA OR EMAIL
@@ -753,7 +687,7 @@ function AppContent() {
           });
 
           if (createError) {
-            if (createError.code === '42P01') setDbMissing(true);
+
             console.error("Profile creation failed:", createError);
           } else {
             // RECURSIVELY CALL CHECKUSER TO LOAD STATE WITHOUT RELOAD
@@ -867,10 +801,7 @@ function AppContent() {
   };
 
   const fetchNotifications = async (userId: string) => {
-    console.log('🔍 INICIO fetchNotifications para:', userId);
     const { data, error, status, statusText } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-
-    console.log('📡 Respuesta Supabase:', { status, statusText, error, dataLength: data?.length });
 
     if (error) console.error('❌ Error fetching notifications:', error);
     if (data) {
@@ -884,8 +815,6 @@ function AppContent() {
   };
 
   const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'daily' = 'daily') => {
-    console.log('🤖 INICIO analyzeLogsWithAI', { context, logsCount: recentLogs.length });
-
     // Prepare data for AI
     const logSummary = recentLogs.slice(0, 14).map(log => ({
       date: log.date,
@@ -902,15 +831,12 @@ function AppContent() {
       const apiKey = import.meta.env.VITE_OPEN_EYE;
       const assistantId = import.meta.env.VITE_ASSISTANT_ID;
 
-      console.log('🔑 Config:', { hasApiKey: !!apiKey, hasAssistantId: !!assistantId });
-
       if (!apiKey || !assistantId) {
         console.warn('OpenAI API key or Assistant ID not configured');
         return;
       }
 
       // Step 1: Create a thread
-      console.log('🧵 Creating thread...');
       const threadResponse = await fetch('https://api.openai.com/v1/threads', {
         method: 'POST',
         headers: {
@@ -919,8 +845,6 @@ function AppContent() {
           'OpenAI-Beta': 'assistants=v2'
         }
       });
-
-      console.log('🧵 Thread response:', threadResponse.status);
 
       if (!threadResponse.ok) {
         console.error('Error creating thread:', await threadResponse.text());
@@ -987,8 +911,7 @@ function AppContent() {
         attempts++;
 
         if (runStatus === 'failed') {
-          console.error('❌ Assistant run failed. Error details:', statusData.last_error);
-          console.log('Full run object:', statusData);
+          console.error('Assistant run failed:', statusData.last_error);
           return;
         }
       }
@@ -1584,8 +1507,7 @@ function AppContent() {
             setUser(prev => prev ? ({ ...prev, ...updates }) : null);
           }
 
-          // Generate welcome notification with AI only if it's a new submission
-          console.log('🚀 Llamando a analyzeLogsWithAI desde handleSubmit (F0)...');
+          // Generate welcome notification with AI
           analyzeLogsWithAI(user.id, [], 'f0');
         }
         showNotif(submittedForm ? "Formulario actualizado correctamente." : "Formulario enviado correctamente.", 'success');
@@ -1877,20 +1799,6 @@ function AppContent() {
     );
   }
 
-  if (dbMissing) {
-    return (
-      <div className="min-h-screen bg-[#4A4A4A] p-8 text-white flex flex-col items-center justify-center">
-        <Database size={48} className="text-[#C7958E] mb-4" />
-        <h1 className="text-2xl font-bold mb-4">Actualización de Sistema</h1>
-        <p className="text-stone-400 text-center mb-6 text-sm">Hemos mejorado la base de datos. Por favor, ejecuta este script.</p>
-        <div className="bg-black/50 p-4 rounded-xl text-[10px] font-mono text-emerald-400 w-full h-64 overflow-auto mb-4 border border-stone-600 select-all custom-scrollbar">
-          {SQL_SETUP_SCRIPT}
-        </div>
-        <button onClick={() => navigator.clipboard.writeText(SQL_SETUP_SCRIPT)} className="bg-white text-[#4A4A4A] px-6 py-3 rounded-full font-bold mb-2 flex items-center gap-2 hover:bg-stone-200 transition-colors"><Copy size={16} /> Copiar Código SQL</button>
-        <button onClick={() => window.location.reload()} className="mt-8 text-stone-400 underline hover:text-white text-sm">Ya lo he ejecutado, volver.</button>
-      </div>
-    );
-  }
 
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-[#F4F0ED]">
@@ -1981,10 +1889,6 @@ function AppContent() {
             <span>Importante: Te enviaremos un email de confirmación.</span>
           </div>
         )}
-
-        <button onClick={() => setDbMissing(true)} className="w-full mt-8 text-[10px] text-stone-300 hover:text-stone-400 flex items-center justify-center gap-1">
-          <Settings size={10} />
-        </button>
       </div>
     </div>
   );
@@ -2285,9 +2189,7 @@ function AppContent() {
                 <LogOut size={20} /> Cerrar Sesión
               </button>
 
-              {/* DEV / ADMIN TOOLS TOGGLE */}
               <div className="mt-10 text-center flex items-center justify-center gap-4">
-                <button onClick={() => setDbMissing(true)} className="text-[10px] text-stone-300 flex items-center justify-center gap-1 hover:text-stone-400 uppercase tracking-widest"><Database size={10} /> Admin SQL</button>
                 <button onClick={() => setSpecialistMode(!specialistMode)} className={`text-[10px] flex items-center justify-center gap-1 uppercase tracking-widest transition-colors ${specialistMode ? 'text-emerald-500 font-bold' : 'text-stone-300'}`}><Stethoscope size={10} /> Modo Especialista</button>
               </div>
             </div>
