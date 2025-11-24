@@ -1743,6 +1743,14 @@ function AppContent() {
                       )}
                     </div>
 
+                    {/* LAST LOG */}
+                    {logs.length > 0 && (
+                      <div>
+                        <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Último Registro</h3>
+                        <LogHistoryItem log={logs[0]} />
+                      </div>
+                    )}
+
                     {/* QUICK ACCESS */}
                     <div>
                       <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Acceso Rápido</h3>
