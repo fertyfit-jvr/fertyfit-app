@@ -393,8 +393,8 @@ const FORM_DEFINITIONS = {
       { id: 'q6_cycle', text: "Duración ciclo promedio:", type: 'stepper', min: 21, max: 40, unit: 'días' },
       { id: 'q7_regularity', text: "¿Ciclos regulares?", type: 'buttons', options: ['Regulares', 'Irregulares'] },
       { id: 'q8_last_period', text: "Fecha última regla:", type: 'date' },
-      { id: 'q9_diagnoses', text: "Diagnósticos relevantes (SOP, Endo, etc):", type: 'textarea' },
-      { id: 'q13_supplements', text: "¿Tomas suplementos o medicamentos actualmente?", type: 'textarea' },
+      { id: 'q9_diagnoses', text: "Diagnósticos relevantes (SOP, Endo, etc):", type: 'textarea', optional: true },
+      { id: 'q13_supplements', text: "¿Tomas suplementos o medicamentos actualmente?", type: 'textarea', optional: true },
       { id: 'q15_stress', text: "Nivel de Estrés:", type: 'segmented', min: 1, max: 5 },
       { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' },
       { id: 'q17_smoker', text: "¿Fumas?", type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'] },
@@ -407,9 +407,9 @@ const FORM_DEFINITIONS = {
       { id: 'q1_confirm_tracker', text: "Confirma que has completado el registro de biomarcadores (30 días).", type: 'yesno' },
       { id: 'q2_cycle_length', text: "¿Cuál es la duración promedio de tu ciclo (en días)?", type: 'number' },
       { id: 'q3_immediate_changes', text: "¿Has implementado los 3 cambios inmediatos (sueño, caminar, sin azúcar)?", type: 'yesno' },
-      { id: 'q4_supplements', text: "Suplementos iniciados y dosis:", type: 'text' },
+      { id: 'q4_supplements', text: "Suplementos iniciados y dosis:", type: 'text', optional: true },
       { id: 'q5_detox', text: "¿Has realizado la Auditoría de hogar (Detox)?", type: 'yesno' },
-      { id: 'q6_symptoms', text: "Describe síntomas nuevos o cambios importantes:", type: 'textarea' },
+      { id: 'q6_symptoms', text: "Describe síntomas nuevos o cambios importantes:", type: 'textarea', optional: true },
       { id: 'q7_doubt', text: "¿Cuál es tu mayor duda ahora mismo?", type: 'textarea' }
     ]
   },
@@ -422,12 +422,12 @@ const FORM_DEFINITIONS = {
       { id: 'q4_prog', text: "Valor Progesterona (Fase Lútea):", type: 'text' },
       { id: 'q5_vitd', text: "Valor Vitamina D:", type: 'text' },
       { id: 'q6_afc', text: "Recuento Folículos Antrales:", type: 'text' },
-      { id: 'q7_male', text: "Resumen Seminograma Pareja:", type: 'textarea' },
-      { id: 'q8_microbiota', text: "Resumen Test Microbiota (si aplica):", type: 'textarea' },
+      { id: 'q7_male', text: "Resumen Seminograma Pareja:", type: 'textarea', optional: true },
+      { id: 'q8_microbiota', text: "Resumen Test Microbiota (si aplica):", type: 'textarea', optional: true },
       { id: 'q9_nutrition', text: "% Adherencia Nutricional estimada (0-100):", type: 'number' },
       { id: 'q10_supp_adj', text: "¿Ajustaste suplementación tras analíticas?", type: 'yesno' },
       { id: 'q11_emotional', text: "Práctica emocional y frecuencia:", type: 'text' },
-      { id: 'q12_changes', text: "¿Cambios en bienestar tras protocolos?", type: 'textarea' },
+      { id: 'q12_changes', text: "¿Cambios en bienestar tras protocolos?", type: 'textarea', optional: true },
       { id: 'q13_doubt', text: "Duda principal tras resultados:", type: 'textarea' }
     ]
   },
@@ -441,7 +441,7 @@ const FORM_DEFINITIONS = {
       { id: 'q5_route', text: "Ruta Estratégica Decidida:", type: 'select', options: ['Concepción Natural', 'Reproducción Asistida', 'Pausa'] },
       { id: 'q6_next_action', text: "Fecha y detalle próxima acción clave:", type: 'text' },
       { id: 'q7_needs', text: "¿Qué necesitas de FertyFit a futuro?", type: 'textarea' },
-      { id: 'q8_testimonial', text: "Testimonio / Feedback (Opcional):", type: 'textarea' }
+      { id: 'q8_testimonial', text: "Testimonio / Feedback (Opcional):", type: 'textarea', optional: true }
     ]
   }
 };
@@ -1471,14 +1471,19 @@ function AppContent() {
     const handleSubmit = async () => {
       if (!user?.id) return;
 
-      // Validation: Check if at least some questions are answered
-      const answeredCount = Object.keys(answers).filter(key => {
-        const value = answers[key];
-        return value !== undefined && value !== null && value !== '';
-      }).length;
+      // Validation: Check required fields
+      const missingRequired = definition.questions.filter(q => {
+        // @ts-ignore - optional property exists in our definition but might not be in type definition yet
+        if (q.optional) return false;
+        const value = answers[q.id];
+        return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+      });
 
-      if (answeredCount === 0) {
-        showNotif('Por favor, responde al menos una pregunta antes de enviar.', 'error');
+      if (missingRequired.length > 0) {
+        const missingText = missingRequired.length > 3
+          ? `${missingRequired.length} campos obligatorios`
+          : missingRequired.map(q => q.text.replace(':', '')).join(', ');
+        showNotif(`Faltan campos obligatorios: ${missingText}`, 'error');
         return;
       }
 
@@ -1969,28 +1974,6 @@ function AppContent() {
               </header>
 
 
-              {/* AI NOTIFICATIONS */}
-              {notifications.filter(n => !n.is_read).length > 0 && (
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-3xl p-6 border border-purple-200 shadow-sm">
-                  <h3 className="font-bold text-purple-900 mb-4 flex items-center gap-2 text-sm">
-                    <Sparkles size={20} className="text-purple-600" /> Insights Personalizados
-                  </h3>
-                  <div className="space-y-3">
-                    {notifications.filter(n => !n.is_read).slice(0, 2).map(notif => (
-                      <div key={notif.id} className="bg-white rounded-xl p-4 shadow-sm border border-purple-100">
-                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{notif.message}</p>
-                        <button
-                          onClick={() => markNotificationRead(notif.id)}
-                          className="text-xs text-purple-600 mt-3 hover:text-purple-800 font-medium transition-colors"
-                        >
-                          ✓ Marcar como leída
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* DASHBOARD REDESIGN */}
               {(() => {
                 const scores = calculateFertyScore(user, logs);
@@ -2097,8 +2080,27 @@ function AppContent() {
                     {/* ALERTS & OPPORTUNITIES */}
                     <div>
                       <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Alertas y Oportunidades</h3>
-                      {alerts.length > 0 ? (
+                      {(alerts.length > 0 || notifications.filter(n => !n.is_read).length > 0) ? (
                         <div className="flex overflow-x-auto gap-4 pb-4 snap-x custom-scrollbar">
+                          {/* AI Notifications */}
+                          {notifications.filter(n => !n.is_read).map(notif => (
+                            <div key={notif.id} className="snap-center min-w-[280px] p-5 rounded-2xl shadow-sm border flex flex-col justify-between bg-gradient-to-br from-purple-600 to-indigo-600 text-white border-purple-500">
+                              <div>
+                                <div className="flex items-center gap-2 mb-2 font-bold text-xs uppercase tracking-wider opacity-90">
+                                  <Sparkles size={14} className="text-yellow-300" />
+                                  {notif.title}
+                                </div>
+                                <p className="text-sm font-medium leading-snug opacity-95 whitespace-pre-wrap">{notif.message}</p>
+                              </div>
+                              <button
+                                onClick={() => markNotificationRead(notif.id)}
+                                className="mt-4 text-xs bg-white/20 hover:bg-white/30 py-1.5 px-3 rounded-lg self-start transition-colors backdrop-blur-sm"
+                              >
+                                Marcar como leída
+                              </button>
+                            </div>
+                          ))}
+
                           {alerts.map((alert, i) => (
                             <div key={i} className={`snap-center min-w-[280px] p-5 rounded-2xl shadow-sm border flex flex-col justify-between ${alert.type === 'alert' ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-[#9ECCB4] text-white border-[#9ECCB4]'}`}>
                               <div>
