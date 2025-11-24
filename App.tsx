@@ -915,6 +915,15 @@ function AppContent() {
 
   const startMethod = async () => {
     if (!user?.id) return;
+
+    // Check if F0 is completed
+    const hasF0 = submittedForms.some(f => f.form_type === 'F0');
+    if (!hasF0) {
+      showNotif('Debes completar el formulario F0 antes de iniciar el método.', 'error');
+      setView('CONSULTATIONS');
+      return;
+    }
+
     const startDate = new Date().toISOString();
     const { error } = await supabase.from('profiles').update({ method_start_date: startDate }).eq('id', user.id);
     if (!error) {
@@ -1716,7 +1725,7 @@ function AppContent() {
                     const hasF0 = submittedForms.some(f => f.form_type === 'F0');
                     if (!hasF0) {
                       showNotif('Debes completar el F0 antes de registrar datos diarios', 'error');
-                      setView('FORMS');
+                      setView('CONSULTATIONS');
                     } else {
                       setView('TRACKER');
                     }
