@@ -1058,6 +1058,10 @@ function AppContent() {
   const saveDailyLog = async () => {
     if (!user?.id) return;
     if (!todayLog.date) { showNotif("La fecha es obligatoria", 'error'); return; }
+    if (!todayLog.bbt) { showNotif("La temperatura (BBT) es obligatoria", 'error'); return; }
+    if (!todayLog.mucus) { showNotif("El registro de moco cervical es obligatorio", 'error'); return; }
+    if (!todayLog.stressLevel) { showNotif("El nivel de estrés es obligatorio", 'error'); return; }
+    if (todayLog.sleepHours === undefined || todayLog.sleepHours === null) { showNotif("Las horas de sueño son obligatorias", 'error'); return; }
     const validDate = formatDateForDB(todayLog.date);
     const formattedLog = { ...todayLog, date: validDate };
 
