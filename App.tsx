@@ -1675,6 +1675,30 @@ function AppContent() {
 
                 return (
                   <div className="space-y-6">
+                    {/* START METHOD CARD - Only shown when method not started */}
+                    {!user.methodStartDate && (
+                      <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-8 rounded-[2rem] shadow-xl text-white text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
+                        <div className="relative z-10">
+                          <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+                            <Activity size={32} className="text-white" />
+                          </div>
+                          <h3 className="text-2xl font-bold mb-2">¡Comienza Tu Viaje!</h3>
+                          <p className="text-sm opacity-90 mb-6 leading-relaxed">
+                            Inicia el Método FertyFit y empieza a registrar tu progreso hacia la fertilidad óptima.
+                          </p>
+                          <button
+                            onClick={startMethod}
+                            className="bg-white text-[#C7958E] px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
+                          >
+                            <Activity size={20} />
+                            Iniciar Método
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* MAIN SCORE CARD */}
                     <div className="bg-[#F9F6F4] p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] text-center relative overflow-hidden">
                       <h3 className="text-lg font-sans text-[#5D7180] mb-2">Ferty Score</h3>
