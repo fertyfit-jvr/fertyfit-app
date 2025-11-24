@@ -1584,6 +1584,7 @@ function AppContent() {
           }
 
           // Generate welcome notification with AI only if it's a new submission
+          console.log('🚀 Llamando a analyzeLogsWithAI desde handleSubmit (F0)...');
           analyzeLogsWithAI(user.id, [], 'f0');
         }
         showNotif(submittedForm ? "Formulario actualizado correctamente." : "Formulario enviado correctamente.", 'success');
