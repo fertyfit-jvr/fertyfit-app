@@ -876,9 +876,7 @@ function AppContent() {
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
   };
 
-  const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[]) => {
-    if (recentLogs.length < 3) return; // Need at least 3 days
-
+  const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'daily' = 'daily') => {
     // Prepare data for AI
     const logSummary = recentLogs.slice(0, 14).map(log => ({
       date: log.date,
@@ -893,49 +891,124 @@ function AppContent() {
 
     try {
       const apiKey = import.meta.env.VITE_OPEN_EYE;
-      if (!apiKey) {
-        console.warn('OpenAI API key not configured');
+      const assistantId = import.meta.env.VITE_ASSISTANT_ID;
+
+      if (!apiKey || !assistantId) {
+        console.warn('OpenAI API key or Assistant ID not configured');
         return;
       }
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Step 1: Create a thread
+      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'Eres un asistente experto en fertilidad y salud reproductiva. Analiza los datos de registro diario y genera 1-2 insights breves y personalizados (máximo 100 palabras cada uno). Enfócate en patrones importantes como: ventana fértil, estrés alto, sueño insuficiente, o señales positivas. Sé empática y motivadora.'
-            },
-            {
-              role: 'user',
-              content: `Analiza estos ${recentLogs.length} días de registros y genera insights relevantes:\n${JSON.stringify(logSummary, null, 2)}`
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 300
-        })
+          'Authorization': `Bearer ${apiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        }
       });
 
-      if (!response.ok) {
-        console.error('OpenAI API error:', await response.text());
+      if (!threadResponse.ok) {
+        console.error('Error creating thread:', await threadResponse.text());
         return;
       }
 
-      const data = await response.json();
-      const aiMessage = data.choices[0].message.content;
+      const thread = await threadResponse.json();
+
+      // Step 2: Add message to thread
+      const messageContent = context === 'f0'
+        ? `Nueva usuaria completó su perfil inicial (F0). Genera un mensaje de bienvenida personalizado y motivador basado en sus datos.`
+        : `Analiza estos ${recentLogs.length} días de registros y genera insights relevantes:\n${JSON.stringify(logSummary, null, 2)}`;
+
+      await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content: messageContent
+        })
+      });
+
+      // Step 3: Run the assistant
+      const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({
+          assistant_id: assistantId
+        })
+      });
+
+      if (!runResponse.ok) {
+        console.error('Error running assistant:', await runResponse.text());
+        return;
+      }
+
+      const run = await runResponse.json();
+
+      // Step 4: Poll for completion
+      let runStatus = run.status;
+      let attempts = 0;
+      const maxAttempts = 30;
+
+      while (runStatus !== 'completed' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'OpenAI-Beta': 'assistants=v2'
+          }
+        });
+
+        const statusData = await statusResponse.json();
+        runStatus = statusData.status;
+        attempts++;
+
+        if (runStatus === 'failed' || runStatus === 'cancelled' || runStatus === 'expired') {
+          console.error('Assistant run failed:', statusData);
+          return;
+        }
+      }
+
+      if (runStatus !== 'completed') {
+        console.error('Assistant run timed out');
+        return;
+      }
+
+      // Step 5: Get the assistant's response
+      const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        }
+      });
+
+      const messages = await messagesResponse.json();
+      const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
+
+      if (!assistantMessage) {
+        console.error('No assistant message found');
+        return;
+      }
+
+      const aiMessage = assistantMessage.content[0].text.value;
 
       // Save notification to Supabase
+      const title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '💡 Análisis de tus datos';
       const { error } = await supabase.from('notifications').insert({
         user_id: userId,
-        title: '💡 Análisis de tus datos',
+        title,
         message: aiMessage,
-        type: 'insight',
-        priority: 2
+        type: context === 'f0' ? 'celebration' : 'insight',
+        priority: context === 'f0' ? 3 : 2
       });
 
       if (!error) {
@@ -993,10 +1066,10 @@ function AppContent() {
       showNotif("Registro guardado con éxito", 'success');
       await fetchLogs(user.id);
 
-      // Trigger AI analysis every 3 days if we have enough data
+      // Trigger AI analysis if we have enough data (>= 3 days)
       const updatedLogs = await supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: false });
-      if (updatedLogs.data && updatedLogs.data.length >= 7 && updatedLogs.data.length % 3 === 0) {
-        analyzeLogsWithAI(user.id, updatedLogs.data.map(mapLogFromDB));
+      if (updatedLogs.data && updatedLogs.data.length >= 3) {
+        analyzeLogsWithAI(user.id, updatedLogs.data.map(mapLogFromDB), 'daily');
       }
 
       setView('DASHBOARD');
@@ -1447,6 +1520,9 @@ function AppContent() {
             // Force update local state immediately for UI
             setUser(prev => prev ? ({ ...prev, ...updates }) : null);
           }
+
+          // Generate welcome notification with AI
+          analyzeLogsWithAI(user.id, [], 'f0');
         }
         showNotif("Formulario enviado correctamente.", 'success');
         setAnswers({});
