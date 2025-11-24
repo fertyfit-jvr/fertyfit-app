@@ -1002,13 +1002,18 @@ function AppContent() {
       } else {
         // 2. If no prev log, try to use F0 last period date
         const f0 = submittedForms.find(f => f.form_type === 'F0');
-        if (f0 && f0.answers && f0.answers['q8_last_period']) {
-          const lastPeriodDate = new Date(f0.answers['q8_last_period']);
-          const cycleDuration = parseInt(f0.answers['q6_cycle'] as string) || 28;
+        if (f0 && f0.answers) {
+          const lastPeriodAnswer = f0.answers.find((a: any) => a.questionId === 'q8_last_period');
+          const cycleDurationAnswer = f0.answers.find((a: any) => a.questionId === 'q6_cycle');
 
-          const diff = Math.floor((new Date(newDate).getTime() - lastPeriodDate.getTime()) / (1000 * 3600 * 24));
-          if (diff >= 0) {
-            newCycleDay = (diff % cycleDuration) + 1;
+          if (lastPeriodAnswer && lastPeriodAnswer.answer) {
+            const lastPeriodDate = new Date(lastPeriodAnswer.answer as string);
+            const cycleDuration = cycleDurationAnswer ? parseInt(cycleDurationAnswer.answer as string) : 28;
+
+            const diff = Math.floor((new Date(newDate).getTime() - lastPeriodDate.getTime()) / (1000 * 3600 * 24));
+            if (diff >= 0) {
+              newCycleDay = (diff % cycleDuration) + 1;
+            }
           }
         }
       }
