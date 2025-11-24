@@ -396,7 +396,9 @@ const FORM_DEFINITIONS = {
       { id: 'q9_diagnoses', text: "Diagnósticos relevantes (SOP, Endo, etc):", type: 'textarea' },
       { id: 'q13_supplements', text: "¿Tomas suplementos o medicamentos actualmente?", type: 'textarea' },
       { id: 'q15_stress', text: "Nivel de Estrés:", type: 'segmented', min: 1, max: 5 },
-      { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' }
+      { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' },
+      { id: 'q17_smoker', text: "¿Fumas?", type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'] },
+      { id: 'q18_alcohol', text: "¿Consumo de alcohol?", type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'] }
     ]
   },
   F1: {
@@ -1294,6 +1296,8 @@ function AppContent() {
           if (answers['q2_weight']) updates.weight = parseFloat(answers['q2_weight']);
           if (answers['q2_height']) updates.height = parseFloat(answers['q2_height']);
           if (answers['q4_objective']) updates.main_objective = answers['q4_objective'];
+          if (answers['q17_smoker']) updates.smoker = answers['q17_smoker'];
+          if (answers['q18_alcohol']) updates.alcohol_consumption = answers['q18_alcohol'];
 
           if (Object.keys(updates).length > 0) {
             await supabase.from('profiles').update(updates).eq('id', user.id);
