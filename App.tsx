@@ -1711,7 +1711,20 @@ function AppContent() {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setView('TRACKER')} className="bg-[#C7958E] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"><Activity size={20} /></button>
+                <button
+                  onClick={() => {
+                    const hasF0 = submittedForms.some(f => f.form_type === 'F0');
+                    if (!hasF0) {
+                      showNotif('Debes completar el F0 antes de registrar datos diarios', 'error');
+                      setView('FORMS');
+                    } else {
+                      setView('TRACKER');
+                    }
+                  }}
+                  className="bg-[#C7958E] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"
+                >
+                  <Activity size={20} />
+                </button>
               </header>
 
               {/* DASHBOARD REDESIGN */}
@@ -1905,6 +1918,22 @@ function AppContent() {
                   </div>
                 ) : (
                   <p className="text-xs text-[#5D7180] italic">Aún no tienes informes generados.</p>
+                )}
+                {user.methodStartDate && (
+                  <button
+                    onClick={async () => {
+                      if (confirm('¿Estás seguro de que quieres reiniciar el método? Esto borrará tu fecha de inicio actual.')) {
+                        const { error } = await supabase.from('profiles').update({ method_start_date: null }).eq('id', user.id);
+                        if (!error) {
+                          setUser({ ...user, methodStartDate: null });
+                          showNotif('Método reiniciado correctamente', 'success');
+                        }
+                      }
+                    }}
+                    className="w-full border-2 border-amber-400/30 text-amber-600 py-2 rounded-xl font-bold hover:bg-amber-50 transition-colors flex items-center justify-center gap-2 mt-4"
+                  >
+                    <Activity size={16} /> Reiniciar
+                  </button>
                 )}
               </div>
 
