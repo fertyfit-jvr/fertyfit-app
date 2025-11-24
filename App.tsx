@@ -1004,8 +1004,12 @@ function AppContent() {
         const f0 = submittedForms.find(f => f.form_type === 'F0');
         if (f0 && f0.answers && f0.answers['q8_last_period']) {
           const lastPeriodDate = new Date(f0.answers['q8_last_period']);
-          const diff = Math.ceil((new Date(newDate).getTime() - lastPeriodDate.getTime()) / (1000 * 3600 * 24));
-          newCycleDay = diff + 1;
+          const cycleDuration = parseInt(f0.answers['q6_cycle'] as string) || 28;
+
+          const diff = Math.floor((new Date(newDate).getTime() - lastPeriodDate.getTime()) / (1000 * 3600 * 24));
+          if (diff >= 0) {
+            newCycleDay = (diff % cycleDuration) + 1;
+          }
         }
       }
 
@@ -1057,13 +1061,14 @@ function AppContent() {
         <div className="space-y-6">
           <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
 
-          {/* Cycle Day Stepper */}
+          {/* Cycle Day Display (Auto-calculated) */}
           <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">
-            <span className="text-sm font-bold text-[#5D7180]">Día del Ciclo</span>
+            <div>
+              <span className="text-sm font-bold text-[#5D7180] block">Día del Ciclo</span>
+              <span className="text-[10px] text-[#C7958E] font-bold bg-[#C7958E]/10 px-2 py-0.5 rounded-full">Automático</span>
+            </div>
             <div className="flex items-center gap-4">
-              <button onClick={() => setTodayLog({ ...todayLog, cycleDay: Math.max(1, (todayLog.cycleDay || 1) - 1) })} className="p-2 bg-white rounded-full shadow-sm text-[#95706B] hover:scale-110 transition-transform"><Minus size={18} /></button>
-              <span className="text-2xl font-bold text-[#4A4A4A] w-8 text-center">{todayLog.cycleDay || 1}</span>
-              <button onClick={() => setTodayLog({ ...todayLog, cycleDay: (todayLog.cycleDay || 1) + 1 })} className="p-2 bg-white rounded-full shadow-sm text-[#95706B] hover:scale-110 transition-transform"><Plus size={18} /></button>
+              <span className="text-3xl font-bold text-[#4A4A4A] w-12 text-center">{todayLog.cycleDay || 1}</span>
             </div>
           </div>
 
@@ -1287,15 +1292,48 @@ function AppContent() {
 
     const handleSubmit = async () => {
       if (!user?.id) return;
+
+      // Validation: Check if at least some questions are answered
+      const answeredCount = Object.keys(answers).filter(key => {
+        const value = answers[key];
+        return value !== undefined && value !== null && value !== '';
+      }).length;
+
+      if (answeredCount === 0) {
+        showNotif('Por favor, responde al menos una pregunta antes de enviar.', 'error');
+        return;
+      }
+
       const formattedAnswers = definition.questions.map(q => ({ questionId: q.id, question: q.text, answer: answers[q.id] || '' }));
       const { error } = await supabase.from('consultation_forms').insert({ user_id: user.id, form_type: formType, answers: formattedAnswers, status: 'pending', snapshot_stats: calculateAverages(logs) });
       if (!error) {
         // IF F0, UPDATE PROFILE SYNC IMMEDIATELY
         if (formType === 'F0') {
           const updates: any = {};
+
+          // Basic info
+          if (answers['q1_age']) updates.age = parseInt(answers['q1_age'] as string);
           if (answers['q2_weight']) updates.weight = parseFloat(answers['q2_weight']);
           if (answers['q2_height']) updates.height = parseFloat(answers['q2_height']);
+          if (answers['q3_time_trying']) updates.time_trying = `${answers['q3_time_trying']} meses`;
+
+          // Objectives and status
           if (answers['q4_objective']) updates.main_objective = answers['q4_objective'];
+          if (answers['q5_partner']) updates.partner_status = answers['q5_partner'];
+
+          // Cycle info
+          if (answers['q6_cycle']) updates.cycle_length = parseInt(answers['q6_cycle'] as string);
+          if (answers['q7_regularity']) updates.cycle_regularity = answers['q7_regularity'];
+          if (answers['q8_last_period']) updates.last_period_date = answers['q8_last_period'];
+
+          // Health info
+          if (answers['q9_diagnoses']) {
+            const diagnosesText = answers['q9_diagnoses'] as string;
+            updates.diagnoses = diagnosesText.split(',').map((d: string) => d.trim()).filter((d: string) => d);
+          }
+          if (answers['q13_supplements']) updates.supplements = answers['q13_supplements'];
+
+          // Lifestyle
           if (answers['q17_smoker']) updates.smoker = answers['q17_smoker'];
           if (answers['q18_alcohol']) updates.alcohol_consumption = answers['q18_alcohol'];
 
