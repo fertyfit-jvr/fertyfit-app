@@ -384,19 +384,19 @@ const FORM_DEFINITIONS = {
     title: "F0: Ficha Personal Inicial",
     description: "Esta información es la base de tu protocolo personalizado.",
     questions: [
-      { id: 'q1_age', text: "Tu edad actual:", type: 'number' },
-      { id: 'q2_height', text: "Altura (cm):", type: 'number' },
-      { id: 'q2_weight', text: "Peso (kg):", type: 'number' },
-      { id: 'q3_time_trying', text: "Tiempo buscando embarazo (Meses):", type: 'number' },
-      { id: 'q4_objective', text: "Objetivo principal:", type: 'select', options: ['Concepción natural', 'Reproducción Asistida'] },
-      { id: 'q5_partner', text: "¿Buscas en pareja o solitario?", type: 'select', options: ['Pareja', 'Solitario'] },
-      { id: 'q6_cycle', text: "Duración ciclo promedio (Días):", type: 'number' },
-      { id: 'q7_regularity', text: "¿Ciclos regulares?", type: 'select', options: ['Regulares', 'Irregulares'] },
+      { id: 'q1_age', text: "Tu edad actual:", type: 'stepper', min: 18, max: 50, unit: 'años' },
+      { id: 'q2_height', text: "Altura:", type: 'slider', min: 140, max: 200, unit: 'cm' },
+      { id: 'q2_weight', text: "Peso:", type: 'slider', min: 40, max: 150, unit: 'kg' },
+      { id: 'q3_time_trying', text: "Tiempo buscando embarazo:", type: 'stepper', min: 0, max: 60, unit: 'meses' },
+      { id: 'q4_objective', text: "Objetivo principal:", type: 'buttons', options: ['Concepción natural', 'Reproducción Asistida'] },
+      { id: 'q5_partner', text: "¿Buscas en pareja o solitario?", type: 'buttons', options: ['Pareja', 'Solitario'] },
+      { id: 'q6_cycle', text: "Duración ciclo promedio:", type: 'stepper', min: 21, max: 40, unit: 'días' },
+      { id: 'q7_regularity', text: "¿Ciclos regulares?", type: 'buttons', options: ['Regulares', 'Irregulares'] },
       { id: 'q8_last_period', text: "Fecha última regla:", type: 'date' },
       { id: 'q9_diagnoses', text: "Diagnósticos relevantes (SOP, Endo, etc):", type: 'textarea' },
-      { id: 'q13_supplements', text: "¿Tomas suplementos actualmente?", type: 'textarea' },
-      { id: 'q15_stress', text: "Nivel de Estrés (1-5):", type: 'number' },
-      { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'number' }
+      { id: 'q13_supplements', text: "¿Tomas suplementos o medicamentos actualmente?", type: 'textarea' },
+      { id: 'q15_stress', text: "Nivel de Estrés:", type: 'segmented', min: 1, max: 5 },
+      { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' }
     ]
   },
   F1: {
@@ -1357,19 +1357,93 @@ function AppContent() {
                 <div key={q.id}>
                   <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
                   {q.type === 'textarea' ? (
-                    <textarea className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all" onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />
+                    <textarea
+                      value={answers[q.id] || ''}
+                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
+                      onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
+                    />
                   ) : q.type === 'yesno' ? (
                     <div className="flex gap-3">
                       <button onClick={() => setAnswers({ ...answers, [q.id]: 'Sí' })} className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === 'Sí' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}>Sí</button>
                       <button onClick={() => setAnswers({ ...answers, [q.id]: 'No' })} className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === 'No' ? 'bg-rose-50 border-rose-400 text-rose-500' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}>No</button>
                     </div>
-                  ) : q.type === 'select' ? (
-                    <select className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-white text-[#5D7180] outline-none focus:ring-2 focus:ring-[#C7958E]/20" onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}>
-                      <option value="">Seleccionar...</option>
-                      {q.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
+                  ) : q.type === 'buttons' ? (
+                    <div className="flex gap-3">
+                      {q.options?.map(option => (
+                        <button
+                          key={option}
+                          onClick={() => setAnswers({ ...answers, [q.id]: option })}
+                          className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === option ? 'bg-[#C7958E] border-[#C7958E] text-white' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  ) : q.type === 'stepper' ? (
+                    <div className="flex items-center justify-center gap-4 bg-[#F4F0ED]/30 rounded-xl p-4">
+                      <button
+                        onClick={() => setAnswers({ ...answers, [q.id]: Math.max((q.min || 0), (parseInt(answers[q.id]) || q.min || 0) - 1) })}
+                        className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
+                      >
+                        −
+                      </button>
+                      <div className="text-center min-w-[100px]">
+                        <div className="text-3xl font-bold text-[#4A4A4A]">{answers[q.id] || q.min || 0}</div>
+                        <div className="text-xs text-[#5D7180] mt-1">{q.unit}</div>
+                      </div>
+                      <button
+                        onClick={() => setAnswers({ ...answers, [q.id]: Math.min((q.max || 100), (parseInt(answers[q.id]) || q.min || 0) + 1) })}
+                        className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : q.type === 'slider' ? (
+                    <div className="bg-[#F4F0ED]/30 rounded-xl p-4">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-bold text-[#5D7180]">{q.text.replace(':', '')}</span>
+                        <span className="text-sm font-bold text-[#4A4A4A]">{answers[q.id] || q.min || 0} {q.unit}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={q.min || 0}
+                        max={q.max || 100}
+                        step={q.step || 1}
+                        value={answers[q.id] || q.min || 0}
+                        onChange={e => setAnswers({ ...answers, [q.id]: parseFloat(e.target.value) })}
+                        className="w-full accent-[#C7958E] h-2 bg-white rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-stone-400 mt-1">
+                        <span>{q.min} {q.unit}</span>
+                        <span>{q.max} {q.unit}</span>
+                      </div>
+                    </div>
+                  ) : q.type === 'segmented' ? (
+                    <div className="flex gap-2">
+                      {Array.from({ length: (q.max || 5) - (q.min || 1) + 1 }, (_, i) => i + (q.min || 1)).map(n => (
+                        <button
+                          key={n}
+                          onClick={() => setAnswers({ ...answers, [q.id]: n })}
+                          className={`flex-1 h-12 rounded-xl font-bold transition-all ${answers[q.id] === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200'}`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  ) : q.type === 'date' ? (
+                    <input
+                      type="date"
+                      value={answers[q.id] || ''}
+                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                      onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
+                    />
                   ) : (
-                    <input type={q.type === 'number' ? 'number' : q.type === 'date' ? 'date' : 'text'} className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all" onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />
+                    <input
+                      type={q.type === 'number' ? 'number' : 'text'}
+                      value={answers[q.id] || ''}
+                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                      onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
+                    />
                   )}
                 </div>
               ))}
