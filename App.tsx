@@ -988,14 +988,23 @@ function AppContent() {
       setTodayLog(existingLog);
     } else {
       // Auto-calculate cycle day
-      // Find the most recent log before this new date
+      // 1. Try to find the most recent log before this new date
       const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       const prevLog = sortedLogs.find(l => new Date(l.date) < new Date(newDate));
 
       let newCycleDay = 1;
+
       if (prevLog) {
         const diff = Math.ceil((new Date(newDate).getTime() - new Date(prevLog.date).getTime()) / (1000 * 3600 * 24));
         newCycleDay = (prevLog.cycleDay || 0) + diff;
+      } else {
+        // 2. If no prev log, try to use F0 last period date
+        const f0 = submittedForms.find(f => f.form_type === 'F0');
+        if (f0 && f0.answers && f0.answers['q8_last_period']) {
+          const lastPeriodDate = new Date(f0.answers['q8_last_period']);
+          const diff = Math.ceil((new Date(newDate).getTime() - lastPeriodDate.getTime()) / (1000 * 3600 * 24));
+          newCycleDay = diff + 1;
+        }
       }
 
       setTodayLog({
@@ -1875,7 +1884,18 @@ function AppContent() {
                     <div>
                       <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Acceso Rápido</h3>
                       <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => setView('TRACKER')} className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex items-center gap-4 hover:border-[#C7958E] transition-colors group text-left">
+                        <button
+                          onClick={() => {
+                            const hasF0 = submittedForms.some(f => f.form_type === 'F0');
+                            if (!hasF0) {
+                              showNotif('Debes completar el F0 antes de registrar datos diarios', 'error');
+                              setView('CONSULTATIONS');
+                            } else {
+                              setView('TRACKER');
+                            }
+                          }}
+                          className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex items-center gap-4 hover:border-[#C7958E] transition-colors group text-left"
+                        >
                           <div className="bg-[#C7958E]/10 p-3 rounded-full text-[#C7958E] group-hover:bg-[#C7958E] group-hover:text-white transition-colors"><Plus size={24} /></div>
                           <div>
                             <span className="block text-sm font-bold text-[#4A4A4A]">Registrar Diario</span>
@@ -1939,9 +1959,9 @@ function AppContent() {
                         }
                       }
                     }}
-                    className="w-full border-2 border-amber-400/30 text-amber-600 py-2 rounded-xl font-bold hover:bg-amber-50 transition-colors flex items-center justify-center gap-2 mt-4"
+                    className="w-full py-2 text-xs text-stone-400 hover:text-[#C7958E] transition-colors underline mt-4"
                   >
-                    <Activity size={16} /> Reiniciar
+                    Reiniciar Método
                   </button>
                 )}
               </div>
@@ -1961,7 +1981,20 @@ function AppContent() {
       </div>
       <nav className="fixed bottom-0 max-w-md w-full bg-white border-t border-[#F4F0ED] px-6 py-2 flex justify-between rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
         <NavButton active={view === 'DASHBOARD'} onClick={() => setView('DASHBOARD')} icon={Heart} label="Inicio" />
-        <NavButton active={view === 'TRACKER'} onClick={() => setView('TRACKER')} icon={Activity} label="Diario" />
+        <NavButton
+          active={view === 'TRACKER'}
+          onClick={() => {
+            const hasF0 = submittedForms.some(f => f.form_type === 'F0');
+            if (!hasF0) {
+              showNotif('Debes completar el F0 antes de registrar datos diarios', 'error');
+              setView('CONSULTATIONS');
+            } else {
+              setView('TRACKER');
+            }
+          }}
+          icon={Activity}
+          label="Diario"
+        />
         <NavButton active={view === 'EDUCATION'} onClick={() => setView('EDUCATION')} icon={BookOpen} label="Aprende" />
         {specialistMode ? (
           <NavButton active={view === 'SPECIALIST'} onClick={() => setView('SPECIALIST')} icon={Stethoscope} label="Especialista" />
