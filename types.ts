@@ -98,10 +98,13 @@ export interface ConsultationForm {
   user_id?: string;
   form_type: 'F0' | 'F1' | 'F2' | 'F3';
   submitted_at?: string;
-  snapshot_stats: any;
+
   answers: FormAnswer[]; // Structured answers
   observations: string;
   status: 'pending' | 'reviewed';
+  snapshot_stats?: any;
+  generated_pdf_url?: string;
+  pdf_generated_at?: string;
   report_url?: string; // URL to the PDF report if reviewed
 }
 

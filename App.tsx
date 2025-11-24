@@ -867,8 +867,13 @@ function AppContent() {
   };
 
   const fetchNotifications = async (userId: string) => {
-    const { data } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    if (data) setNotifications(data);
+    console.log('Fetching notifications for:', userId);
+    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (error) console.error('Error fetching notifications:', error);
+    if (data) {
+      console.log('Notifications fetched:', data.length, data);
+      setNotifications(data);
+    }
   };
 
   const markNotificationRead = async (notifId: number) => {
@@ -1471,13 +1476,33 @@ function AppContent() {
 
     // Check if already submitted
     const submittedForm = submittedForms.find(f => f.form_type === formType);
+    const isPdfGenerated = submittedForm?.generated_pdf_url;
+
+    useEffect(() => {
+      if (submittedForm) {
+        const loaded: Record<string, any> = {};
+        if (Array.isArray(submittedForm.answers)) {
+          submittedForm.answers.forEach((a: any) => {
+            loaded[a.questionId] = a.answer;
+          });
+        }
+        setAnswers(loaded);
+      } else {
+        setAnswers({});
+      }
+    }, [formType, submittedForm]);
 
     const handleSubmit = async () => {
       if (!user?.id) return;
 
+      if (isPdfGenerated) {
+        showNotif("El informe ya ha sido generado. No se pueden modificar los datos.", 'error');
+        return;
+      }
+
       // Validation: Check required fields
       const missingRequired = definition.questions.filter(q => {
-        // @ts-ignore - optional property exists in our definition but might not be in type definition yet
+        // @ts-ignore
         if (q.optional) return false;
         const value = answers[q.id];
         return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
@@ -1492,7 +1517,26 @@ function AppContent() {
       }
 
       const formattedAnswers = definition.questions.map(q => ({ questionId: q.id, question: q.text, answer: answers[q.id] || '' }));
-      const { error } = await supabase.from('consultation_forms').insert({ user_id: user.id, form_type: formType, answers: formattedAnswers, status: 'pending', snapshot_stats: calculateAverages(logs) });
+
+      let error;
+      if (submittedForm) {
+        const { error: updateError } = await supabase.from('consultation_forms').update({
+          answers: formattedAnswers,
+          status: 'pending',
+          snapshot_stats: calculateAverages(logs)
+        }).eq('id', submittedForm.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from('consultation_forms').insert({
+          user_id: user.id,
+          form_type: formType,
+          answers: formattedAnswers,
+          status: 'pending',
+          snapshot_stats: calculateAverages(logs)
+        });
+        error = insertError;
+      }
+
       if (!error) {
         // IF F0, UPDATE PROFILE SYNC IMMEDIATELY
         if (formType === 'F0') {
@@ -1530,11 +1574,13 @@ function AppContent() {
             setUser(prev => prev ? ({ ...prev, ...updates }) : null);
           }
 
-          // Generate welcome notification with AI
-          analyzeLogsWithAI(user.id, [], 'f0');
+          // Generate welcome notification with AI only if it's a new submission
+          if (!submittedForm) {
+            analyzeLogsWithAI(user.id, [], 'f0');
+          }
         }
-        showNotif("Formulario enviado correctamente.", 'success');
-        setAnswers({});
+        showNotif(submittedForm ? "Formulario actualizado correctamente." : "Formulario enviado correctamente.", 'success');
+        // setAnswers({}); // Don't clear answers so user can see what they submitted/updated
         fetchUserForms(user.id);
       } else {
         showNotif(error.message, 'error');
@@ -1563,7 +1609,7 @@ function AppContent() {
               <Activity size={12} /> Tu progreso actual: {daysActive} días
             </div>
           </div>
-        ) : submittedForm ? (
+        ) : (submittedForm && isPdfGenerated) ? (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
             <div className="flex justify-between items-center mb-4 border-b border-[#F4F0ED] pb-4">
               <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.title}</h3>
@@ -1601,7 +1647,15 @@ function AppContent() {
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
             <h3 className="font-bold text-lg text-[#C7958E] mb-1">{definition.title}</h3>
             {/* @ts-ignore */}
+            {/* @ts-ignore */}
             <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">{definition.description || "Rellena los datos para tu evaluación."}</p>
+
+            {submittedForm && !isPdfGenerated && (
+              <div className="mb-6 bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-center gap-3 text-xs text-yellow-800">
+                <AlertCircle size={16} />
+                <span>Puedes editar tus respuestas hasta que el especialista genere el informe.</span>
+              </div>
+            )}
             <div className="space-y-6">
               {definition.questions.map(q => (
                 <div key={q.id}>
