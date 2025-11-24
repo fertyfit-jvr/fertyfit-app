@@ -192,6 +192,193 @@ const getEmbedUrl = (url: string) => {
   return embedUrl;
 };
 
+const calculateStandardDeviation = (values: number[]) => {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+  return Math.sqrt(variance);
+};
+
+const calculateFertyScore = (user: UserProfile, logs: DailyLog[]) => {
+  // Pre-calculate averages for use in multiple pillars
+  const recentLogs = logs.slice(0, 14);
+  const avgs = recentLogs.length > 0 ? calculateAverages(recentLogs) : { sleep: '0', veggies: '0', stress: '0' };
+
+  // 1. BASE SCORE (20%)
+  let baseScore = 100;
+
+  // IMC Logic
+  const bmi = calculateBMI(user.weight, user.height);
+  const bmiVal = parseFloat(bmi);
+  if (!isNaN(bmiVal)) {
+    if (bmiVal < 20) baseScore -= (20 - bmiVal) * 5;
+    else if (bmiVal > 25) baseScore -= (bmiVal - 25) * 2;
+  }
+
+  // Age Logic (Penalty starts at 25)
+  if (user.age > 25) {
+    baseScore -= (user.age - 25) * 1;
+  }
+
+  // Diagnoses Logic
+  const riskyDiagnoses = ['SOP', 'Endometriosis', 'Ovarios Poliquísticos'];
+  if (user.diagnoses && user.diagnoses.some(d => riskyDiagnoses.some(rd => d.includes(rd)))) {
+    baseScore -= 15;
+  }
+
+  // Smoking Penalty (Base)
+  if (user.smoker && user.smoker.toLowerCase() !== 'no') {
+    baseScore -= 15;
+  }
+
+  // Cycle Regularity Penalty
+  if (user.cycleRegularity === 'Irregular') {
+    baseScore -= 10;
+  }
+
+  // Chronic Stress Penalty (Base)
+  if (parseFloat(avgs.stress) > 3) {
+    baseScore -= 10;
+  }
+
+  // Chronic Sleep Deprivation Penalty (Base)
+  if (parseFloat(avgs.sleep) > 0 && parseFloat(avgs.sleep) < 6) {
+    baseScore -= 10;
+  }
+
+  baseScore = Math.max(0, Math.min(100, baseScore));
+
+  // 2. LIFESTYLE SCORE (40%)
+  let lifestyleScore = 0;
+
+  if (recentLogs.length > 0) {
+    // Sleep (Target 7.5)
+    const sleepScore = Math.min(100, (parseFloat(avgs.sleep) / 7.5) * 100);
+
+    // Stress (1=100, 5=0) -> Inverse
+    // 1->100, 2->75, 3->50, 4->25, 5->0
+    const stressVal = parseFloat(avgs.stress);
+    const stressScore = Math.max(0, (5 - stressVal) * 25);
+
+    // Veggies (Target 5)
+    const veggieScore = Math.min(100, (parseFloat(avgs.veggies) / 5) * 100);
+
+    lifestyleScore = (sleepScore + stressScore + veggieScore) / 3;
+
+    // Alcohol Penalty (> 2 days in last 14)
+    const alcoholDays = recentLogs.filter(l => l.alcohol).length;
+    if (alcoholDays > 2) {
+      lifestyleScore -= 15;
+    }
+  }
+  lifestyleScore = Math.max(0, Math.min(100, lifestyleScore));
+
+  // 3. HORMONAL SCORE (40%)
+  let hormonalScore = 0;
+
+  // BBT Stability (SD)
+  // Get BBT values from last 14 days
+  const bbtValues = recentLogs.map(l => l.bbt).filter(b => b !== undefined && b > 0) as number[];
+  let bbtScore = 0;
+  if (bbtValues.length >= 3) {
+    const sd = calculateStandardDeviation(bbtValues);
+    // SD < 0.2 = 100, SD > 0.5 = 0
+    if (sd <= 0.2) bbtScore = 100;
+    else if (sd >= 0.5) bbtScore = 0;
+    else {
+      // Linear interpolation between 0.2 (100) and 0.5 (0)
+      // Slope = (0 - 100) / (0.5 - 0.2) = -100 / 0.3 = -333.33
+      bbtScore = 100 - ((sd - 0.2) * 333.33);
+    }
+  }
+
+  // Regularity
+  // Use actual user data if available, else placeholder
+  const regularityScore = user.cycleRegularity === 'Regular' ? 100 : (user.cycleRegularity === 'Irregular' ? 60 : 80);
+
+  hormonalScore = (bbtScore + regularityScore) / 2;
+  hormonalScore = Math.max(0, Math.min(100, hormonalScore));
+
+  // TOTAL WEIGHTED SCORE
+  const totalScore = (baseScore * 0.2) + (lifestyleScore * 0.4) + (hormonalScore * 0.4);
+
+  return {
+    total: Math.round(totalScore),
+    base: Math.round(baseScore),
+    lifestyle: Math.round(lifestyleScore),
+    hormonal: Math.round(hormonalScore)
+  };
+};
+
+
+
+const getAlertsAndOpportunities = (user: UserProfile, logs: DailyLog[], scores: any) => {
+  const items = [];
+  const recentLogs = logs.slice(0, 14);
+
+  // ALERTS (Red)
+  // Alcohol
+  const alcoholDays = recentLogs.filter(l => l.alcohol).length;
+  if (alcoholDays > 2) {
+    items.push({
+      type: 'alert',
+      title: 'Hábito Nocivo Detectado',
+      desc: 'Has registrado consumo de alcohol frecuente. Esto reduce tu FertyScore.',
+      action: 'Ver Módulo 3',
+      link: 'EDUCATION'
+    });
+  }
+
+  // Low Sleep
+  const avgSleep = parseFloat(calculateAverages(recentLogs).sleep);
+  if (avgSleep < 6 && avgSleep > 0) {
+    items.push({
+      type: 'alert',
+      title: 'Déficit de Sueño',
+      desc: 'Tu promedio de sueño es bajo (<6h). Prioriza el descanso.',
+      action: 'Tips de Sueño',
+      link: 'EDUCATION'
+    });
+  }
+
+  // OPPORTUNITIES (Green)
+  // Report Due
+  if (user.methodStartDate) {
+    const start = new Date(user.methodStartDate);
+    start.setHours(0, 0, 0, 0);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+
+    const nextReportDay = days <= 28 ? 28 : (days <= 56 ? 56 : 84);
+    const daysLeft = nextReportDay - days;
+
+    if (daysLeft <= 14 && daysLeft > 0) {
+      items.push({
+        type: 'opportunity',
+        title: `Próximo Informe F${days <= 28 ? '1' : (days <= 56 ? '2' : '3')} en...`,
+        desc: `¡Te quedan ${daysLeft} días! Revisa tus objetivos.`,
+        action: `Ver Módulo ${days <= 28 ? '4' : (days <= 56 ? '8' : '12')}`,
+        link: 'EDUCATION'
+      });
+    }
+  }
+
+  // Positive Reinforcement (Good Sleep)
+  const avgSleepGood = parseFloat(calculateAverages(recentLogs).sleep);
+  if (avgSleepGood >= 7.5) {
+    items.push({
+      type: 'opportunity',
+      title: '¡Gran Descanso!',
+      desc: 'Tu sueño es óptimo. Esto es clave para tu equilibrio hormonal.',
+      action: '',
+      link: ''
+    });
+  }
+
+  return items;
+};
+
 const FORM_DEFINITIONS = {
   F0: {
     title: "F0: Ficha Personal Inicial",
@@ -457,7 +644,15 @@ const LogHistoryItem: React.FC<{ log: DailyLog }> = ({ log }) => {
 };
 
 const ProfileHeader = ({ user, logsCount }: { user: UserProfile, logsCount: number }) => {
-  const daysActive = user.methodStartDate ? Math.floor((new Date().getTime() - new Date(user.methodStartDate).getTime()) / (1000 * 3600 * 24)) + 1 : 0;
+  const getDaysActive = () => {
+    if (!user.methodStartDate) return 0;
+    const start = new Date(user.methodStartDate);
+    start.setHours(0, 0, 0, 0);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+  };
+  const daysActive = getDaysActive();
   const level = logsCount > 30 ? "Experta" : (logsCount > 7 ? "Comprometida" : "Iniciada");
   const currentWeek = daysActive > 0 ? Math.ceil(daysActive / 7) : 0;
 
@@ -583,7 +778,11 @@ function AppContent() {
           // Determine phase
           let phase = 0;
           if (profile.method_start_date) {
-            const days = Math.floor((new Date().getTime() - new Date(profile.method_start_date).getTime()) / (1000 * 3600 * 24));
+            const start = new Date(profile.method_start_date);
+            start.setHours(0, 0, 0, 0);
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
             const week = Math.ceil(days / 7) || 1;
             if (week >= 1 && week <= 4) phase = 1;
             else if (week >= 5 && week <= 8) phase = 2;
@@ -675,7 +874,11 @@ function AppContent() {
 
     let currentWeek = 0;
     if (methodStart) {
-      const days = Math.floor((new Date().getTime() - new Date(methodStart).getTime()) / (1000 * 3600 * 24));
+      const start = new Date(methodStart);
+      start.setHours(0, 0, 0, 0);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
       currentWeek = Math.ceil(days / 7) || 1;
     }
 
@@ -770,6 +973,34 @@ function AppContent() {
     setShowPhaseModal(false);
   };
 
+  const handleDateChange = (newDate: string) => {
+    const existingLog = logs.find(l => l.date === newDate);
+    if (existingLog) {
+      setTodayLog(existingLog);
+    } else {
+      // Auto-calculate cycle day
+      // Find the most recent log before this new date
+      const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const prevLog = sortedLogs.find(l => new Date(l.date) < new Date(newDate));
+
+      let newCycleDay = 1;
+      if (prevLog) {
+        const diff = Math.ceil((new Date(newDate).getTime() - new Date(prevLog.date).getTime()) / (1000 * 3600 * 24));
+        newCycleDay = (prevLog.cycleDay || 0) + diff;
+      }
+
+      setTodayLog({
+        date: newDate,
+        cycleDay: newCycleDay > 0 ? newCycleDay : 1,
+        symptoms: [],
+        alcohol: false,
+        activityMinutes: 0,
+        sunMinutes: 0,
+        lhTest: 'No realizado'
+      });
+    }
+  };
+
   // --- Sub-Views ---
 
   const DisclaimerView = () => (
@@ -793,8 +1024,10 @@ function AppContent() {
         <h2 className="text-xl font-bold text-[#4A4A4A]">Registro Diario</h2>
         <input
           type="date"
+          max={new Date().toISOString().split('T')[0]}
+          min={new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
           value={todayLog.date || ''}
-          onChange={(e) => setTodayLog({ ...todayLog, date: e.target.value })}
+          onChange={(e) => handleDateChange(e.target.value)}
           className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#5D7180] shadow-sm font-medium outline-none focus:ring-2 focus:ring-[#C7958E]"
         />
       </div>
@@ -814,21 +1047,26 @@ function AppContent() {
             </div>
           </div>
 
-          {/* BBT Slider */}
-          <div className="bg-[#F4F0ED]/50 p-4 rounded-2xl">
-            <div className="flex justify-between mb-2">
-              <span className="text-sm font-bold text-[#5D7180]">Temperatura Basal</span>
-              <span className="text-lg font-bold text-[#C7958E]">{todayLog.bbt?.toFixed(2) || '--'}°C</span>
+          {/* BBT Input (Stepper + Precision) */}
+          <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">
+            <span className="text-sm font-bold text-[#5D7180]">Temperatura Basal</span>
+            <div className="flex items-center gap-4">
+              <button onClick={() => setTodayLog({ ...todayLog, bbt: parseFloat(Math.max(35.0, (todayLog.bbt || 36.5) - 0.1).toFixed(2)) })} className="p-2 bg-white rounded-full shadow-sm text-[#95706B] hover:scale-110 transition-transform"><Minus size={18} /></button>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="35.00"
+                  max="40.00"
+                  placeholder="36.50"
+                  value={todayLog.bbt || ''}
+                  onChange={e => setTodayLog({ ...todayLog, bbt: parseFloat(e.target.value) })}
+                  className="w-20 text-center bg-transparent text-2xl font-bold text-[#C7958E] outline-none border-b border-transparent focus:border-[#C7958E] transition-colors p-0"
+                />
+                <span className="absolute -right-4 top-1 text-xs font-bold text-[#95706B]">°C</span>
+              </div>
+              <button onClick={() => setTodayLog({ ...todayLog, bbt: parseFloat(Math.min(40.0, (todayLog.bbt || 36.5) + 0.1).toFixed(2)) })} className="p-2 bg-white rounded-full shadow-sm text-[#95706B] hover:scale-110 transition-transform"><Plus size={18} /></button>
             </div>
-            <input
-              type="range"
-              min="35.50"
-              max="37.50"
-              step="0.01"
-              value={todayLog.bbt || 36.50}
-              onChange={e => setTodayLog({ ...todayLog, bbt: parseFloat(e.target.value) })}
-              className="w-full accent-[#C7958E] h-3 bg-white rounded-lg appearance-none cursor-pointer shadow-inner"
-            />
           </div>
 
           <InputField label="Moco Cervical"><div className="flex flex-wrap gap-2">{MUCUS_OPTIONS.map(o => <button key={o} onClick={() => setTodayLog({ ...todayLog, mucus: o as MucusType })} className={`text-xs px-4 py-2 rounded-full border transition-all font-medium ${todayLog.mucus === o ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-white border-[#F4F0ED] text-[#5D7180] hover:border-[#C7958E]'}`}>{o}</button>)}</div></InputField>
@@ -872,13 +1110,14 @@ function AppContent() {
             <div className="flex justify-between text-[10px] text-stone-400 mt-1"><span>0h</span><span>6h</span><span>12h</span></div>
           </div>
 
-          {/* Stress Stars */}
+          {/* Stress Segmented Control */}
           <div>
             <span className="text-sm font-bold text-[#5D7180] block mb-2">Nivel de Estrés</span>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map(n => (
-                <button key={n} onClick={() => setTodayLog({ ...todayLog, stressLevel: n })} className="transition-transform hover:scale-110">
-                  <Star size={28} className={n <= (todayLog.stressLevel || 0) ? "text-amber-400 fill-amber-400" : "text-stone-200"} />
+                <button key={n} onClick={() => setTodayLog({ ...todayLog, stressLevel: n })}
+                  className={`flex-1 h-10 rounded-xl font-bold transition-all ${todayLog.stressLevel === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200'}`}>
+                  {n}
                 </button>
               ))}
             </div>
@@ -931,7 +1170,7 @@ function AppContent() {
 
           <div className="flex items-center justify-between bg-white border border-[#F4F0ED] p-4 rounded-xl">
             <span className="font-bold text-[#5D7180] text-sm">Consumo de Alcohol</span>
-            <button onClick={() => setTodayLog({ ...todayLog, alcohol: !todayLog.alcohol })} className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${todayLog.alcohol ? 'bg-[#C7958E]' : 'bg-emerald-400'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${todayLog.alcohol ? 'left-7' : 'left-1'}`}></div></button>
+            <button onClick={() => setTodayLog({ ...todayLog, alcohol: !todayLog.alcohol })} className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${todayLog.alcohol ? 'bg-[#C7958E]' : 'bg-stone-200'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${todayLog.alcohol ? 'left-7' : 'left-1'}`}></div></button>
           </div>
         </div>
 
@@ -1386,7 +1625,14 @@ function AppContent() {
                     <span className={`w-2 h-2 rounded-full ${user.methodStartDate ? 'bg-[#C7958E] animate-pulse' : 'bg-stone-300'}`}></span>
                     <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
                       {user.methodStartDate
-                        ? `Día ${Math.floor((new Date().getTime() - new Date(user.methodStartDate).getTime()) / (1000 * 3600 * 24)) + 1} del Método`
+                        ? (() => {
+                          const start = new Date(user.methodStartDate);
+                          start.setHours(0, 0, 0, 0);
+                          const now = new Date();
+                          now.setHours(0, 0, 0, 0);
+                          const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+                          return `Día ${days} del Método`;
+                        })()
                         : 'Método no iniciado'}
                     </p>
                   </div>
@@ -1394,95 +1640,132 @@ function AppContent() {
                 <button onClick={() => setView('TRACKER')} className="bg-[#C7958E] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"><Activity size={20} /></button>
               </header>
 
-              {/* START METHOD CTA */}
-              {!user.methodStartDate && (
-                <div className="bg-gradient-to-r from-[#C7958E] to-[#95706B] p-6 rounded-3xl shadow-xl text-white relative overflow-hidden animate-in slide-in-from-top duration-500">
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-white/20 p-2 rounded-full"><Play size={20} fill="currentColor" /></div>
-                      <h3 className="font-bold text-lg">Tu viaje comienza hoy</h3>
-                    </div>
-                    <p className="text-xs text-rose-50 mb-6 leading-relaxed opacity-90">
-                      Cuando estés lista para empezar el conteo de las 12 semanas, pulsa este botón.
-                    </p>
-                    <button onClick={startMethod} className="w-full bg-white text-[#95706B] py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-rose-50 transition-colors">
-                      🌸 INICIAR MÉTODO (Día 1)
-                    </button>
-                  </div>
-                  <img src={BRAND_ASSETS.phase0} className="absolute -bottom-4 -right-4 w-32 h-32 opacity-20 rotate-12" />
-                </div>
-              )}
+              {/* DASHBOARD REDESIGN */}
+              {(() => {
+                const scores = calculateFertyScore(user, logs);
+                const alerts = getAlertsAndOpportunities(user, logs, scores);
 
-              {/* BODY & VITALITY CARDS (PRO) */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* BMI CARD */}
-                {(() => {
-                  const { status, color, bg } = getBMIStatus(calculateBMI(user.weight, user.height));
-                  return (
-                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col justify-between h-full">
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-[10px] text-[#5D7180] font-bold uppercase tracking-wider block">Tu Cuerpo</span>
-                          <Scale size={16} className="text-[#C7958E]" />
+                const getDaysActive = () => {
+                  if (!user.methodStartDate) return 0;
+                  const start = new Date(user.methodStartDate);
+                  start.setHours(0, 0, 0, 0);
+                  const now = new Date();
+                  now.setHours(0, 0, 0, 0);
+                  return Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+                };
+                const daysActive = getDaysActive();
+                const progressPercent = Math.min(100, (daysActive / 90) * 100);
+
+                // Score Color Logic
+                const getScoreColor = (s: number) => {
+                  if (s < 40) return 'text-rose-500';
+                  if (s < 70) return 'text-amber-500';
+                  return 'text-emerald-500';
+                };
+                const getScoreBg = (s: number) => {
+                  if (s < 40) return 'bg-rose-500';
+                  if (s < 70) return 'bg-amber-500';
+                  return 'bg-emerald-500';
+                };
+                const getScoreBorder = (s: number) => {
+                  if (s < 40) return 'border-rose-100';
+                  if (s < 70) return 'border-amber-100';
+                  return 'border-emerald-100';
+                };
+
+                return (
+                  <div className="space-y-6">
+                    {/* MAIN SCORE CARD */}
+                    <div className="bg-[#F9F6F4] p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] text-center relative overflow-hidden">
+                      <h3 className="text-lg font-sans text-[#5D7180] mb-2">Ferty Score</h3>
+                      <div className={`text-7xl font-bold mb-2 ${getScoreColor(scores.total)}`}>{scores.total}</div>
+                      <p className="text-sm text-[#4A4A4A] font-medium mb-6">
+                        {scores.total >= 70 ? '¡Estás optimizando tu cuerpo para el embarazo!' : (scores.total >= 40 ? 'Vas por buen camino, sigue mejorando.' : 'Hay oportunidades de mejora importantes.')}
+                      </p>
+
+                      <div className="bg-white p-4 rounded-xl shadow-sm">
+                        <div className="flex justify-between text-xs text-[#95706B] font-bold mb-2 uppercase tracking-wide">
+                          <span>Progreso del Método</span>
+                          <span>{Math.round(progressPercent)}%</span>
                         </div>
-                        <span className="text-3xl font-bold text-[#4A4A4A]">{calculateBMI(user.weight, user.height)}</span>
-                        <span className="text-[10px] text-stone-400 ml-1">IMC</span>
-                      </div>
-                      <div className={`text-[9px] font-bold ${color} ${bg} px-2 py-1 rounded-md w-fit mt-2`}>
-                        {status}
+                        <div className="h-2 w-full bg-[#F4F0ED] rounded-full overflow-hidden">
+                          <div className="h-full bg-[#9ECCB4] rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-[#5D7180] mt-1">
+                          <span>{daysActive}/90 días</span>
+                        </div>
                       </div>
                     </div>
-                  );
-                })()}
 
-                {/* VITALITY CARD */}
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col justify-between h-full">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] text-[#5D7180] font-bold uppercase tracking-wider block">Vitalidad (7d)</span>
-                      <Sun size={16} className="text-amber-500" />
+                    {/* KEY FACTORS */}
+                    <div>
+                      <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Tus Factores Clave</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
+                          <Activity size={20} className="text-[#C7958E] mb-2" />
+                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Salud Hormonal</span>
+                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.hormonal}/100)</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
+                          <Leaf size={20} className="text-[#9ECCB4] mb-2" />
+                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Estilo de Vida</span>
+                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.lifestyle}/100)</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
+                          <Scale size={20} className="text-[#E6B89C] mb-2" />
+                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Salud Base</span>
+                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.base}/100)</span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-3xl font-bold text-[#4A4A4A]">{calculateVitalityStats(logs)}</span>
-                    <span className="text-[10px] text-stone-400 ml-1">Batería</span>
-                  </div>
-                  <div className="text-[9px] text-[#5D7180] bg-stone-50 px-2 py-1 rounded-md w-fit mt-2 flex items-center gap-1">
-                    <Activity size={8} /> Sol + Movimiento
-                  </div>
-                </div>
-              </div>
 
-              {/* LAST LOG DETAIL */}
-              <div>
-                <h3 className="font-bold text-[#4A4A4A] mb-2 text-sm uppercase tracking-wider opacity-80 flex items-center justify-between">
-                  Último Registro
-                  <span className="text-[10px] bg-stone-100 px-2 py-0.5 rounded-full text-stone-500">{logs.length > 0 ? getLastLogDetails(logs).date : '-'}</span>
-                </h3>
-                {logs.length > 0 ? <LogHistoryItem log={logs[0]} /> : (
-                  <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-300 text-center text-stone-400 text-sm">
-                    No hay registros aún. Empieza tu diario hoy.
+                    {/* ALERTS & OPPORTUNITIES */}
+                    <div>
+                      <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Alertas y Oportunidades</h3>
+                      {alerts.length > 0 ? (
+                        <div className="flex overflow-x-auto gap-4 pb-4 snap-x custom-scrollbar">
+                          {alerts.map((alert, i) => (
+                            <div key={i} className={`snap-center min-w-[280px] p-5 rounded-2xl shadow-sm border flex flex-col justify-between ${alert.type === 'alert' ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-[#9ECCB4] text-white border-[#9ECCB4]'}`}>
+                              <div>
+                                <div className="flex items-center gap-2 mb-2 font-bold text-xs uppercase tracking-wider opacity-90">
+                                  {alert.type === 'alert' ? <AlertCircle size={14} /> : <Star size={14} />}
+                                  {alert.title}
+                                </div>
+                                <p className="text-sm font-medium leading-snug opacity-95">{alert.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
+                          Todo se ve tranquilo por aquí. ¡Sigue así!
+                        </div>
+                      )}
+                    </div>
+
+                    {/* QUICK ACCESS */}
+                    <div>
+                      <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Acceso Rápido</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button onClick={() => setView('TRACKER')} className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex items-center gap-4 hover:border-[#C7958E] transition-colors group text-left">
+                          <div className="bg-[#C7958E]/10 p-3 rounded-full text-[#C7958E] group-hover:bg-[#C7958E] group-hover:text-white transition-colors"><Plus size={24} /></div>
+                          <div>
+                            <span className="block text-sm font-bold text-[#4A4A4A]">Registrar Diario</span>
+                            <span className="text-[10px] text-[#5D7180]">Añadir datos hoy</span>
+                          </div>
+                        </button>
+                        <button onClick={() => setView('EDUCATION')} className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex items-center gap-4 hover:border-[#C7958E] transition-colors group text-left">
+                          <div className="bg-[#95706B]/10 p-3 rounded-full text-[#95706B] group-hover:bg-[#95706B] group-hover:text-white transition-colors"><BookOpen size={24} /></div>
+                          <div>
+                            <span className="block text-sm font-bold text-[#4A4A4A]">Ver Módulos</span>
+                            <span className="text-[10px] text-[#5D7180]">Continuar curso</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <StatCard title="Racha Sin Alcohol" value={calculateAlcoholFreeStreak(logs)} unit="días" icon={WineOff} hideTarget={true} />
-                <StatCard title="Sueño Promedio" value={calculateAverages(logs).sleep} target="7.5" unit="h" icon={Moon} />
-                <StatCard title="Nivel Estrés" value={calculateAverages(logs).stress} target="2.0" unit="/5" icon={Smile} />
-              </div>
-
-              <div>
-                <h3 className="font-bold text-[#4A4A4A] mb-4 text-sm uppercase tracking-wider opacity-80">Acceso Rápido</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => setView('EDUCATION')} className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center gap-2 hover:border-[#C7958E] transition-colors group">
-                    <div className="bg-[#C7958E]/10 p-3 rounded-full text-[#C7958E] group-hover:bg-[#C7958E] group-hover:text-white transition-colors"><BookOpen size={20} /></div>
-                    <span className="text-xs font-bold text-[#5D7180]">Aprende</span>
-                  </button>
-                  <button onClick={() => setView('CONSULTATIONS')} className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center gap-2 hover:border-[#C7958E] transition-colors group">
-                    <div className="bg-[#95706B]/10 p-3 rounded-full text-[#95706B] group-hover:bg-[#95706B] group-hover:text-white transition-colors"><FileText size={20} /></div>
-                    <span className="text-xs font-bold text-[#5D7180]">Consultas</span>
-                  </button>
-                </div>
-              </div>
+                );
+              })()}
             </div>
           )}
           {view === 'TRACKER' && <TrackerView />}
@@ -1532,7 +1815,7 @@ function AppContent() {
           )}
         </div>
       </div>
-      <nav className="absolute bottom-0 w-full bg-white border-t border-[#F4F0ED] px-6 py-2 flex justify-between rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
+      <nav className="fixed bottom-0 max-w-md w-full bg-white border-t border-[#F4F0ED] px-6 py-2 flex justify-between rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
         <NavButton active={view === 'DASHBOARD'} onClick={() => setView('DASHBOARD')} icon={Heart} label="Inicio" />
         <NavButton active={view === 'TRACKER'} onClick={() => setView('TRACKER')} icon={Activity} label="Diario" />
         <NavButton active={view === 'EDUCATION'} onClick={() => setView('EDUCATION')} icon={BookOpen} label="Aprende" />
