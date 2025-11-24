@@ -41,7 +41,7 @@ export interface DailyLog {
   user_id?: string;
   date: string; // ISO string YYYY-MM-DD
   cycleDay: number;
-  
+
   // Physiological
   bbt: number | null; // Basal Body Temp
   mucus: MucusType | '';
@@ -82,7 +82,7 @@ export interface CourseModule {
   phase: 0 | 1 | 2 | 3; // Phase 0 is Welcome
   lessons: Lesson[];
   // UI Helper props
-  completedLessons: number[]; 
+  completedLessons: number[];
   isCompleted?: boolean;
   isLocked?: boolean; // UI state
 }
@@ -98,7 +98,7 @@ export interface ConsultationForm {
   user_id?: string;
   form_type: 'F0' | 'F1' | 'F2' | 'F3';
   submitted_at?: string;
-  snapshot_stats: any; 
+  snapshot_stats: any;
   answers: FormAnswer[]; // Structured answers
   observations: string;
   status: 'pending' | 'reviewed';
@@ -110,6 +110,18 @@ export interface AdminReport {
   title: string;
   report_url: string;
   created_at: string;
+}
+
+export interface AppNotification {
+  id: number;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'insight' | 'alert' | 'tip' | 'celebration';
+  priority: 1 | 2 | 3;
+  is_read: boolean;
+  created_at: string;
+  metadata?: any;
 }
 
 export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'SPECIALIST';

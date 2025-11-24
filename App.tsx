@@ -3,10 +3,10 @@ import {
   Heart, Activity, BookOpen, FileText, User, LogOut, AlertCircle,
   Moon, Sun, PlayCircle, FileText as PdfIcon,
   Lock, Database, Copy, X, Star, Award, Mail, Key, CheckSquare, Download, ChevronDown, ChevronUp, Settings, ArrowRight, Smile, Play,
-  CheckCircle, WineOff, Calendar, Stethoscope, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus
+  CheckCircle, WineOff, Calendar, Stethoscope, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles
 } from 'lucide-react';
 
-import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson } from './types';
+import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus } from './services/dataService';
 import { supabase } from './services/supabase';
@@ -701,6 +701,7 @@ function AppContent() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [dbMissing, setDbMissing] = useState(false);
   const [specialistMode, setSpecialistMode] = useState(false); // Toggle for Admin view
   const [pendingForms, setPendingForms] = useState<ConsultationForm[]>([]);
@@ -775,6 +776,7 @@ function AppContent() {
           await fetchLogs(session.user.id);
           await fetchEducation(session.user.id, profile.method_start_date);
           await fetchReports(session.user.id);
+          await fetchNotifications(session.user.id);
           await fetchUserForms(session.user.id);
 
           // Determine phase
@@ -864,6 +866,87 @@ function AppContent() {
     if (data) setReports(data);
   };
 
+  const fetchNotifications = async (userId: string) => {
+    const { data } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (data) setNotifications(data);
+  };
+
+  const markNotificationRead = async (notifId: number) => {
+    await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+  };
+
+  const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[]) => {
+    if (recentLogs.length < 3) return; // Need at least 3 days
+
+    // Prepare data for AI
+    const logSummary = recentLogs.slice(0, 14).map(log => ({
+      date: log.date,
+      cycleDay: log.cycleDay,
+      bbt: log.bbt,
+      mucus: log.mucus,
+      stress: log.stressLevel,
+      sleep: log.sleepHours,
+      symptoms: log.symptoms,
+      lhTest: log.lhTest
+    }));
+
+    try {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey) {
+        console.warn('OpenAI API key not configured');
+        return;
+      }
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'Eres un asistente experto en fertilidad y salud reproductiva. Analiza los datos de registro diario y genera 1-2 insights breves y personalizados (máximo 100 palabras cada uno). Enfócate en patrones importantes como: ventana fértil, estrés alto, sueño insuficiente, o señales positivas. Sé empática y motivadora.'
+            },
+            {
+              role: 'user',
+              content: `Analiza estos ${recentLogs.length} días de registros y genera insights relevantes:\n${JSON.stringify(logSummary, null, 2)}`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 300
+        })
+      });
+
+      if (!response.ok) {
+        console.error('OpenAI API error:', await response.text());
+        return;
+      }
+
+      const data = await response.json();
+      const aiMessage = data.choices[0].message.content;
+
+      // Save notification to Supabase
+      const { error } = await supabase.from('notifications').insert({
+        user_id: userId,
+        title: '💡 Análisis de tus datos',
+        message: aiMessage,
+        type: 'insight',
+        priority: 2
+      });
+
+      if (!error) {
+        fetchNotifications(userId);
+      }
+
+    } catch (error) {
+      console.error('Error analyzing with AI:', error);
+    }
+  };
+
   const fetchUserForms = async (userId: string) => {
     const { data } = await supabase.from('consultation_forms').select('*').eq('user_id', userId);
     if (data) setSubmittedForms(data);
@@ -909,6 +992,13 @@ function AppContent() {
     if (!error) {
       showNotif("Registro guardado con éxito", 'success');
       await fetchLogs(user.id);
+
+      // Trigger AI analysis every 3 days if we have enough data
+      const updatedLogs = await supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: false });
+      if (updatedLogs.data && updatedLogs.data.length >= 7 && updatedLogs.data.length % 3 === 0) {
+        analyzeLogsWithAI(user.id, updatedLogs.data.map(mapLogFromDB));
+      }
+
       setView('DASHBOARD');
     } else {
       showNotif("Error al guardar: " + error.message, 'error');
@@ -1801,6 +1891,29 @@ function AppContent() {
                   <Activity size={20} />
                 </button>
               </header>
+
+
+              {/* AI NOTIFICATIONS */}
+              {notifications.filter(n => !n.is_read).length > 0 && (
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-3xl p-6 border border-purple-200 shadow-sm">
+                  <h3 className="font-bold text-purple-900 mb-4 flex items-center gap-2 text-sm">
+                    <Sparkles size={20} className="text-purple-600" /> Insights Personalizados
+                  </h3>
+                  <div className="space-y-3">
+                    {notifications.filter(n => !n.is_read).slice(0, 2).map(notif => (
+                      <div key={notif.id} className="bg-white rounded-xl p-4 shadow-sm border border-purple-100">
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{notif.message}</p>
+                        <button
+                          onClick={() => markNotificationRead(notif.id)}
+                          className="text-xs text-purple-600 mt-3 hover:text-purple-800 font-medium transition-colors"
+                        >
+                          ✓ Marcar como leída
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* DASHBOARD REDESIGN */}
               {(() => {
