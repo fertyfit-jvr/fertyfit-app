@@ -1584,9 +1584,7 @@ function AppContent() {
           }
 
           // Generate welcome notification with AI only if it's a new submission
-          if (!submittedForm) {
-            analyzeLogsWithAI(user.id, [], 'f0');
-          }
+          analyzeLogsWithAI(user.id, [], 'f0');
         }
         showNotif(submittedForm ? "Formulario actualizado correctamente." : "Formulario enviado correctamente.", 'success');
         // setAnswers({}); // Don't clear answers so user can see what they submitted/updated
