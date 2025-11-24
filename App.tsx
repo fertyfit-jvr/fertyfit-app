@@ -892,7 +892,7 @@ function AppContent() {
     }));
 
     try {
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      const apiKey = import.meta.env.VITE_OPEN_EYE;
       if (!apiKey) {
         console.warn('OpenAI API key not configured');
         return;
