@@ -986,8 +986,9 @@ function AppContent() {
         runStatus = statusData.status;
         attempts++;
 
-        if (runStatus === 'failed' || runStatus === 'cancelled' || runStatus === 'expired') {
-          console.error('Assistant run failed:', statusData);
+        if (runStatus === 'failed') {
+          console.error('❌ Assistant run failed. Error details:', statusData.last_error);
+          console.log('Full run object:', statusData);
           return;
         }
       }
