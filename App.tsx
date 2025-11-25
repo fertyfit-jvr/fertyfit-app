@@ -135,113 +135,145 @@ const calculateStandardDeviation = (values: number[]) => {
 };
 
 const calculateFertyScore = (user: UserProfile, logs: DailyLog[]) => {
-  // Pre-calculate averages for use in multiple pillars
   const recentLogs = logs.slice(0, 14);
   const avgs = recentLogs.length > 0 ? calculateAverages(recentLogs) : { sleep: '0', veggies: '0', stress: '0' };
 
-  // 1. BASE SCORE (20%)
-  let baseScore = 100;
+  // ========================================
+  // PILAR 1: FUNCTION (25%) - Physical Health
+  // ========================================
+  let functionScore = 100;
 
-  // IMC Logic
+  // BMI Logic (optimal 20-25)
   const bmi = calculateBMI(user.weight, user.height);
   const bmiVal = parseFloat(bmi);
   if (!isNaN(bmiVal)) {
-    if (bmiVal < 20) baseScore -= (20 - bmiVal) * 5;
-    else if (bmiVal > 25) baseScore -= (bmiVal - 25) * 2;
+    if (bmiVal < 18.5) functionScore -= (18.5 - bmiVal) * 8; // Underweight penalty
+    else if (bmiVal >= 18.5 && bmiVal <= 25) functionScore = 100; // Optimal
+    else if (bmiVal > 25) functionScore -= (bmiVal - 25) * 3; // Overweight penalty
   }
 
-  // Age Logic (Penalty starts at 25)
-  if (user.age > 25) {
-    baseScore -= (user.age - 25) * 1;
+  // Age Logic (optimal <35)
+  if (user.age > 35) {
+    functionScore -= (user.age - 35) * 2;
+  } else if (user.age < 25) {
+    functionScore -= (25 - user.age) * 1;
   }
 
-  // Diagnoses Logic
-  const riskyDiagnoses = ['SOP', 'Endometriosis', 'Ovarios Poliquísticos'];
+  // Diagnoses Impact
+  const riskyDiagnoses = ['SOP', 'Endometriosis', 'Ovarios Poliquísticos', 'PCOS'];
   if (user.diagnoses && user.diagnoses.some(d => riskyDiagnoses.some(rd => d.includes(rd)))) {
-    baseScore -= 15;
+    functionScore -= 20;
   }
 
-  // Smoking Penalty (Base)
+  // Smoking (major impact on function)
   if (user.smoker && user.smoker.toLowerCase() !== 'no') {
-    baseScore -= 15;
+    functionScore -= 25;
   }
 
-  // Cycle Regularity Penalty
-  if (user.cycleRegularity === 'Irregular') {
-    baseScore -= 10;
-  }
+  functionScore = Math.max(0, Math.min(100, functionScore));
 
-  // Chronic Stress Penalty (Base)
-  if (parseFloat(avgs.stress) > 3) {
-    baseScore -= 10;
-  }
-
-  // Chronic Sleep Deprivation Penalty (Base)
-  if (parseFloat(avgs.sleep) > 0 && parseFloat(avgs.sleep) < 6) {
-    baseScore -= 10;
-  }
-
-  baseScore = Math.max(0, Math.min(100, baseScore));
-
-  // 2. LIFESTYLE SCORE (40%)
-  let lifestyleScore = 0;
+  // ========================================
+  // PILAR 2: FOOD (25%) - Nutrition & Habits
+  // ========================================
+  let foodScore = 0;
 
   if (recentLogs.length > 0) {
-    // Sleep (Target 7.5)
-    const sleepScore = Math.min(100, (parseFloat(avgs.sleep) / 7.5) * 100);
-
-    // Stress (1=100, 5=0) -> Inverse
-    // 1->100, 2->75, 3->50, 4->25, 5->0
-    const stressVal = parseFloat(avgs.stress);
-    const stressScore = Math.max(0, (5 - stressVal) * 25);
-
-    // Veggies (Target 5)
+    // Vegetable intake (target 5 servings)
     const veggieScore = Math.min(100, (parseFloat(avgs.veggies) / 5) * 100);
 
-    lifestyleScore = (sleepScore + stressScore + veggieScore) / 3;
-
-    // Alcohol Penalty (> 2 days in last 14)
+    // Alcohol penalty (>2 days in 14 = bad)
     const alcoholDays = recentLogs.filter(l => l.alcohol).length;
-    if (alcoholDays > 2) {
-      lifestyleScore -= 15;
-    }
-  }
-  lifestyleScore = Math.max(0, Math.min(100, lifestyleScore));
+    const alcoholScore = alcoholDays > 2 ? Math.max(0, 100 - (alcoholDays * 10)) : 100;
 
-  // 3. HORMONAL SCORE (40%)
-  let hormonalScore = 0;
+    // Supplements bonus (if taking supplements)
+    // TODO: Add supplements tracking from F0
+    const supplementsScore = 80; // Placeholder - will be calculated from F0 data
 
-  // BBT Stability (SD)
-  // Get BBT values from last 14 days
-  const bbtValues = recentLogs.map(l => l.bbt).filter(b => b !== undefined && b > 0) as number[];
-  let bbtScore = 0;
-  if (bbtValues.length >= 3) {
-    const sd = calculateStandardDeviation(bbtValues);
-    // SD < 0.2 = 100, SD > 0.5 = 0
-    if (sd <= 0.2) bbtScore = 100;
-    else if (sd >= 0.5) bbtScore = 0;
-    else {
-      // Linear interpolation between 0.2 (100) and 0.5 (0)
-      // Slope = (0-100) / (0.5-0.2) = -100 / 0.3 = -333.33
-      bbtScore = 100 - ((sd - 0.2) * 333.33);
-    }
+    foodScore = (veggieScore * 0.4) + (alcoholScore * 0.4) + (supplementsScore * 0.2);
+  } else {
+    foodScore = 70; // Default baseline
   }
 
-  // Regularity
-  // Use actual user data if available, else placeholder
-  const regularityScore = user.cycleRegularity === 'Regular' ? 100 : (user.cycleRegularity === 'Irregular' ? 60 : 80);
+  foodScore = Math.max(0, Math.min(100, foodScore));
 
-  hormonalScore = (bbtScore + regularityScore) / 2;
-  hormonalScore = Math.max(0, Math.min(100, hormonalScore));
+  // ========================================
+  // PILAR 3: FLORA (25%) - Microbiota & Rest
+  // ========================================
+  let floraScore = 0;
 
-  // TOTAL WEIGHTED SCORE
-  const totalScore = (baseScore * 0.2) + (lifestyleScore * 0.4) + (hormonalScore * 0.4);
+  if (recentLogs.length > 0) {
+    // Sleep quality (target 7.5 hours)
+    const sleepVal = parseFloat(avgs.sleep);
+    let sleepScore = 0;
+    if (sleepVal >= 7 && sleepVal <= 9) {
+      sleepScore = 100; // Optimal
+    } else if (sleepVal < 7) {
+      sleepScore = Math.max(0, (sleepVal / 7) * 100);
+    } else {
+      sleepScore = Math.max(0, 100 - ((sleepVal - 9) * 10));
+    }
+
+    // Digestive health (based on symptoms)
+    // TODO: Track digestive symptoms in daily logs
+    const digestiveScore = 80; // Placeholder
+
+    // Probiotics/Gut health
+    // TODO: Add from F0 supplements
+    const gutHealthScore = 75; // Placeholder
+
+    floraScore = (sleepScore * 0.5) + (digestiveScore * 0.3) + (gutHealthScore * 0.2);
+  } else {
+    floraScore = 70; // Default baseline
+  }
+
+  floraScore = Math.max(0, Math.min(100, floraScore));
+
+  // ========================================
+  // PILAR 4: FLOW (25%) - Stress & Emotional
+  // ========================================
+  let flowScore = 0;
+
+  if (recentLogs.length > 0) {
+    // Stress levels (1=best, 5=worst)
+    const stressVal = parseFloat(avgs.stress);
+    const stressScore = Math.max(0, ((5 - stressVal) / 4) * 100);
+
+    // Cycle regularity
+    const regularityScore = user.cycleRegularity === 'Regular' ? 100 :
+      (user.cycleRegularity === 'Irregular' ? 50 : 75);
+
+    // BBT Stability (hormonal flow)
+    const bbtValues = recentLogs.map(l => l.bbt).filter(b => b !== undefined && b > 0) as number[];
+    let bbtScore = 75; // Default
+    if (bbtValues.length >= 3) {
+      const sd = calculateStandardDeviation(bbtValues);
+      if (sd <= 0.2) bbtScore = 100;
+      else if (sd >= 0.5) bbtScore = 40;
+      else bbtScore = 100 - ((sd - 0.2) * 200);
+    }
+
+    // Emotional wellbeing
+    // TODO: Add happiness/mood tracking
+    const emotionalScore = 80; // Placeholder
+
+    flowScore = (stressScore * 0.3) + (regularityScore * 0.3) + (bbtScore * 0.2) + (emotionalScore * 0.2);
+  } else {
+    flowScore = 70; // Default baseline
+  }
+
+  flowScore = Math.max(0, Math.min(100, flowScore));
+
+  // ========================================
+  // TOTAL SCORE (Equal weight: 25% each)
+  // ========================================
+  const totalScore = (functionScore * 0.25) + (foodScore * 0.25) + (floraScore * 0.25) + (flowScore * 0.25);
 
   return {
     total: Math.round(totalScore),
-    base: Math.round(baseScore),
-    lifestyle: Math.round(lifestyleScore),
-    hormonal: Math.round(hormonalScore)
+    function: Math.round(functionScore),
+    food: Math.round(foodScore),
+    flora: Math.round(floraScore),
+    flow: Math.round(flowScore)
   };
 };
 
@@ -711,7 +743,7 @@ const LogHistoryItem: React.FC<{ log: DailyLog }> = ({ log }) => {
   );
 };
 
-const ProfileHeader = ({ user, logsCount }: { user: UserProfile, logsCount: number }) => {
+const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserProfile, logsCount: number, logs: DailyLog[], submittedForms: ConsultationForm[] }) => {
   const getDaysActive = () => {
     if (!user.methodStartDate) return 0;
     const start = new Date(user.methodStartDate);
@@ -724,35 +756,87 @@ const ProfileHeader = ({ user, logsCount }: { user: UserProfile, logsCount: numb
   const level = logsCount > 30 ? "Experta" : (logsCount > 7 ? "Comprometida" : "Iniciada");
   const currentWeek = daysActive > 0 ? Math.ceil(daysActive / 7) : 0;
 
+  // Calculate FertyScore
+  const scores = calculateFertyScore(user, logs);
+
+  // Get time trying from F0
+  const getMonthsTrying = () => {
+    const f0Form = submittedForms.find(f => f.form_type === 'F0');
+    if (!f0Form) return null;
+
+    const timeTryingAnswer = f0Form.answers.find(a => a.questionId === 'q3_time_trying');
+    if (timeTryingAnswer && timeTryingAnswer.answer) {
+      return parseInt(timeTryingAnswer.answer as string);
+    }
+    return null;
+  };
+
+  const monthsTrying = getMonthsTrying();
+
   return (
     <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] pt-10 pb-8 px-6 rounded-b-[2.5rem] shadow-lg mb-6 text-white relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-      <div className="relative z-10 flex items-center gap-5 mb-6">
-        <div className="w-18 h-18 bg-white text-[#C7958E] rounded-full flex items-center justify-center text-2xl font-bold border-4 border-white/20 shadow-inner">
-          {user.name.charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
-          <div className="flex items-center gap-1 text-rose-50 bg-black/10 px-3 py-1 rounded-full w-fit mt-1 backdrop-blur-sm">
-            <Award size={12} />
-            <span className="text-xs font-medium">Nivel {level}</span>
+
+      <div className="relative z-10">
+        {/* Header with name and badge */}
+        <div className="flex items-center gap-5 mb-3">
+          <div className="w-18 h-18 bg-white text-[#C7958E] rounded-full flex items-center justify-center text-2xl font-bold border-4 border-white/20 shadow-inner">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
+            <div className="flex items-center gap-1 text-rose-50 bg-black/10 px-3 py-1 rounded-full w-fit mt-1 backdrop-blur-sm">
+              <Award size={12} />
+              <span className="text-xs font-medium">Nivel {level}</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="relative z-10 flex justify-between bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10">
-        <div className="text-center">
-          <p className="text-2xl font-bold">{daysActive}</p>
-          <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Días Método</p>
+
+        {/* Integrated Profile Info - Like a description */}
+        <div className="mb-6 text-sm text-white/90 space-y-1 ml-1">
+          <p className="flex items-center gap-2">
+            <span className="opacity-75">Objetivo:</span>
+            <span className="font-semibold">{user.mainObjective || '-'}</span>
+            <span className="opacity-50">•</span>
+            <span className="opacity-75">Estado:</span>
+            <span className="font-semibold">{user.partnerStatus || '-'}</span>
+          </p>
+          {monthsTrying !== null && (
+            <p className="flex items-center gap-2">
+              <span className="opacity-75">Tiempo buscando:</span>
+              <span className="font-semibold">{monthsTrying} {monthsTrying === 1 ? 'mes' : 'meses'}</span>
+            </p>
+          )}
+          {/* FertyScore - Total on one line */}
+          <p className="flex items-center gap-2 mt-2">
+            <span className="opacity-75">FertyScore:</span>
+            <span className="font-bold text-lg">{scores.total}</span>
+          </p>
+          {/* 4 Pillars on second line */}
+          <p className="flex items-center gap-3 ml-4">
+            <span className="text-xs opacity-75">💪 Function: {scores.function}</span>
+            <span className="text-xs opacity-75">🥗 Food: {scores.food}</span>
+            <span className="text-xs opacity-75">🌿 Flora: {scores.flora}</span>
+            <span className="text-xs opacity-75">💧 Flow: {scores.flow}</span>
+          </p>
         </div>
-        <div className="w-px bg-white/20"></div>
-        <div className="text-center">
-          <p className="text-2xl font-bold">{logsCount}</p>
-          <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Registros</p>
-        </div>
-        <div className="w-px bg-white/20"></div>
-        <div className="text-center">
-          <p className="text-2xl font-bold">{currentWeek}</p>
-          <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Semana</p>
+
+        {/* Stats Row - Only box */}
+        <div className="flex justify-between bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10">
+          <div className="text-center">
+            <p className="text-2xl font-bold">{daysActive}</p>
+            <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Días Método</p>
+          </div>
+          <div className="w-px bg-white/20"></div>
+          <div className="text-center">
+            <p className="text-2xl font-bold">{logsCount}</p>
+            <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Registros</p>
+          </div>
+          <div className="w-px bg-white/20"></div>
+          <div className="text-center">
+            <p className="text-2xl font-bold">{currentWeek}</p>
+            <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Semana</p>
+          </div>
         </div>
       </div>
     </div>
@@ -782,6 +866,7 @@ function AppContent() {
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [todayLog, setTodayLog] = useState<Partial<DailyLog>>({ date: formatDateForDB(new Date()), cycleDay: 1, symptoms: [], alcohol: false, activityMinutes: 0, sunMinutes: 0, lhTest: 'No realizado' });
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
+  const [profileTab, setProfileTab] = useState<'PROFILE' | 'HISTORIA'>('PROFILE');
 
   useEffect(() => { checkUser(); }, []);
 
@@ -967,13 +1052,13 @@ function AppContent() {
 
   const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'f0_update' | 'daily' = 'daily') => {
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API || import.meta.env.GEMINI_API;
+      const apiKey = import.meta.env.VITE_GEMINI_API;
+      console.log('🤖 AI Analysis triggered:', { context, userId, apiKey: apiKey ? '✅ Found' : '❌ Missing' });
 
       if (!apiKey) {
-        console.warn('Gemini API key not configured');
+        console.error('❌ Gemini API key not configured. Check .env file for VITE_GEMINI_API');
         return;
       }
-
       if (context === 'f0' || context === 'f0_update') {
         // F0 notifications (single message)
         let title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '✨ Perfil Actualizado';
@@ -981,13 +1066,14 @@ function AppContent() {
           ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
           : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.';
 
-        await supabase.from('notifications').insert({
+        const { data, error } = await supabase.from('notifications').insert({
           user_id: userId,
           title,
           message,
           type: 'celebration',
           priority: 3
         });
+        console.log('✅ F0 notification created:', { title, success: !error });
       } else {
         // Daily logs: Generate TWO notifications using Gemini API
         const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -1040,13 +1126,14 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono positivo y mot
         const positiveMessage = positiveData.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (positiveMessage) {
-          await supabase.from('notifications').insert({
+          const { error } = await supabase.from('notifications').insert({
             user_id: userId,
             title: '💚 Aspecto Positivo Detectado',
             message: positiveMessage,
             type: 'success',
             priority: 2
           });
+          console.log('✅ Positive AI notification created:', { success: !error });
         }
 
         // 2. ALERT NOTIFICATION
@@ -1073,13 +1160,14 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
         const alertMessage = alertData.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (alertMessage) {
-          await supabase.from('notifications').insert({
+          const { error } = await supabase.from('notifications').insert({
             user_id: userId,
             title: '⚠️ Área de Atención',
             message: alertMessage,
             type: 'alert',
             priority: 2
           });
+          console.log('✅ Alert AI notification created:', { success: !error });
         }
       }
 
@@ -1556,6 +1644,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
     const canAccessF3 = daysActive >= 90;
     const [formType, setFormType] = useState<'F0' | 'F1' | 'F2' | 'F3'>('F0');
     const [answers, setAnswers] = useState<Record<string, any>>({});
+    const [isEditMode, setIsEditMode] = useState(false);
 
     const isLocked = (formType === 'F1' && !canAccessF1) || (formType === 'F2' && !canAccessF2) || (formType === 'F3' && !canAccessF3);
     const definition = FORM_DEFINITIONS[formType];
@@ -1576,6 +1665,8 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
       } else {
         setAnswers({});
       }
+      // Reset edit mode when changing forms
+      setIsEditMode(false);
     }, [formType, submittedForm]);
 
     const handleSubmit = async () => {
@@ -1743,6 +1834,11 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
         showNotif(submittedForm ? "Formulario actualizado correctamente." : "Formulario enviado correctamente.", 'success');
         // setAnswers({}); // Don't clear answers so user can see what they submitted/updated
         fetchUserForms(user.id);
+
+        // Redirect to DASHBOARD after F0 submission
+        if (formType === 'F0') {
+          setTimeout(() => setView('DASHBOARD'), 1500);
+        }
       } else {
         showNotif(error.message, 'error');
       }
@@ -1804,7 +1900,77 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
               </div>
             )}
           </div>
+        ) : (submittedForm && !isEditMode) ? (
+          // SUMMARY VIEW - Show submitted data with edit button
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+            <div className="flex justify-between items-start mb-4 border-b border-[#F4F0ED] pb-4">
+              <div>
+                <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.title}</h3>
+                <p className="text-xs text-[#5D7180] mt-1">
+                  Registrado: {new Date(submittedForm.submitted_at || '').toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="bg-[#C7958E] text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-[#95706B] transition-colors flex items-center gap-2"
+              >
+                <FileText size={16} />
+                Editar
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(submittedForm.answers as any[]).map((ans: any) => {
+                const question = definition.questions.find(q => q.id === ans.questionId);
+                if (!question) return null;
+
+                let displayValue = ans.answer;
+
+                // Format dates
+                if (question.type === 'date' && typeof displayValue === 'string') {
+                  displayValue = new Date(displayValue).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  });
+                }
+
+                // Format arrays
+                if (Array.isArray(displayValue)) {
+                  displayValue = displayValue.join(', ');
+                }
+
+                return (
+                  <div key={ans.questionId} className="bg-[#F4F0ED]/30 p-4 rounded-xl">
+                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                      {question.text}
+                    </p>
+                    <p className={'text-sm font-medium ' + (!displayValue ? 'text-stone-400 italic' : 'text-[#4A4A4A]')}>
+                      {displayValue || "Sin respuesta"}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center gap-3">
+              <div className="bg-emerald-100 p-2 rounded-full text-emerald-600">
+                <CheckCircle size={16} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-emerald-800">Datos Guardados</p>
+                <p className="text-xs text-emerald-700 mt-1">
+                  Tus datos están registrados. Puedes editarlos cuando quieras.
+                </p>
+              </div>
+            </div>
+          </div>
         ) : (
+          // FORM VIEW - Show editable form
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
             <h3 className="font-bold text-lg text-[#C7958E] mb-1">{definition.title}</h3>
             {/* @ts-ignore */}
@@ -2094,7 +2260,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
       {notif && <Notification message={notif.msg} type={notif.type} onClose={() => setNotif(null)} />}
 
       <div className="h-full overflow-y-auto custom-scrollbar">
-        {view === 'PROFILE' && <ProfileHeader user={user} logsCount={logs.length} />}
+        {view === 'PROFILE' && <ProfileHeader user={user} logsCount={logs.length} logs={logs} submittedForms={submittedForms} />}
         <div className="p-5">
           {view === 'DASHBOARD' && (
             <div className="space-y-6 pb-24 pt-4">
@@ -2196,7 +2362,9 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                     {/* MAIN SCORE CARD */}
                     <div className="bg-[#F9F6F4] p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] text-center relative overflow-hidden">
                       <h3 className="text-lg font-sans text-[#5D7180] mb-2">Ferty Score</h3>
-                      <div className={'text-7xl font-bold mb-2 ' + getScoreColor(scores.total)}>{scores.total}</div>
+                      <div className={'text-7xl font-bold mb-2 transition-colors duration-500 ' + getScoreColor(scores.total)}>
+                        {scores.total}
+                      </div>
                       <p className="text-sm text-[#4A4A4A] font-medium mb-6">
                         {scores.total >= 70 ? '¡Estás optimizando tu cuerpo para el embarazo!' : (scores.total >= 40 ? 'Vas por buen camino, sigue mejorando.' : 'Hay oportunidades de mejora importantes.')}
                       </p>
@@ -2215,24 +2383,29 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       </div>
                     </div>
 
-                    {/* KEY FACTORS */}
+                    {/* KEY FACTORS - 4 Pillars */}
                     <div>
-                      <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Tus Factores Clave</h3>
-                      <div className="grid grid-cols-3 gap-3">
+                      <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Los 4 Pilares de FertyFit</h3>
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <Activity size={20} className="text-[#C7958E] mb-2" />
-                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Salud Hormonal</span>
-                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.hormonal}/100)</span>
+                          <div className="text-2xl mb-2">💪</div>
+                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Function</span>
+                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.function}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <Leaf size={20} className="text-[#9ECCB4] mb-2" />
-                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Estilo de Vida</span>
-                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.lifestyle}/100)</span>
+                          <div className="text-2xl mb-2">🥗</div>
+                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Food</span>
+                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.food}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <Scale size={20} className="text-[#E6B89C] mb-2" />
-                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Salud Base</span>
-                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.base}/100)</span>
+                          <div className="text-2xl mb-2">🌿</div>
+                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flora</span>
+                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flora}/100)</span>
+                        </div>
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
+                          <div className="text-2xl mb-2">💧</div>
+                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flow</span>
+                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flow}/100)</span>
                         </div>
                       </div>
                     </div>
@@ -2329,68 +2502,176 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
           {view === 'CONSULTATIONS' && <ConsultationsView />}
 
           {view === 'PROFILE' && (
-            <div className="pb-24 space-y-6">
-              {/* NOTIFICACIONES-Últimas 3 */}
-              <div>
-                <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
-                {notifications.slice(0, 3).length > 0 ? (
-                  <div className="space-y-3">
-                    {notifications.slice(0, 3).map(notif => (
-                      <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
-                    No tienes notificaciones recientes
-                  </div>
-                )}
-              </div>
-
-              {/* INFORMES-Todos */}
-              <div>
-                <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>
-                {reports.length > 0 ? (
-                  <div className="space-y-3">
-                    {reports.map(report => (
-                      <ReportCard key={report.id} report={report} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
-                    Aún no tienes informes disponibles
-                  </div>
-                )}
-              </div>
-
-              {/* TU PLAN */}
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#F4F0ED]">
-                <h3 className="font-bold text-[#C7958E] mb-4 uppercase text-xs tracking-widest">Tu Plan</h3>
-                <div className="flex justify-between text-sm border-b border-[#F4F0ED] pb-3 mb-3">
-                  <span className="text-[#5D7180]">Objetivo</span>
-                  <span className="font-bold text-[#4A4A4A]">{user.mainObjective || '-'}</span>
-                </div>
-              </div>
-
-              {user.methodStartDate && (
+            <div className="pb-24">
+              {/* TAB SELECTOR */}
+              <div className="flex gap-2 mb-6 bg-white p-1 rounded-2xl shadow-sm">
                 <button
-                  onClick={async () => {
-                    if (confirm('¿Estás seguro de que quieres reiniciar el método? Esto borrará tu fecha de inicio actual.')) {
-                      const { error } = await supabase.from('profiles').update({ method_start_date: null }).eq('id', user.id);
-                      if (!error) {
-                        setUser({ ...user, methodStartDate: null });
-                        showNotif('Método reiniciado correctamente', 'success');
-                      }
-                    }
-                  }}
-                  className="w-full py-2 text-xs text-stone-400 hover:text-[#C7958E] transition-colors underline mt-4"
+                  onClick={() => setProfileTab('PROFILE')}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${profileTab === 'PROFILE'
+                    ? 'bg-[#C7958E] text-white shadow-md'
+                    : 'text-[#5D7180] hover:bg-[#F4F0ED]'
+                    }`}
                 >
-                  Reiniciar Método
+                  Mi Perfil
                 </button>
+                <button
+                  onClick={() => setProfileTab('HISTORIA')}
+                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${profileTab === 'HISTORIA'
+                    ? 'bg-[#C7958E] text-white shadow-md'
+                    : 'text-[#5D7180] hover:bg-[#F4F0ED]'
+                    }`}
+                >
+                  Historia
+                </button>
+              </div>
+
+              {/* PROFILE TAB */}
+              {profileTab === 'PROFILE' && (
+                <div className="space-y-6">
+                  {/* NOTIFICACIONES-Últimas 3 */}
+                  <div>
+                    <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
+                    {notifications.slice(0, 3).length > 0 ? (
+                      <div className="space-y-3">
+                        {notifications.slice(0, 3).map(notif => (
+                          <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
+                        No tienes notificaciones recientes
+                      </div>
+                    )}
+                  </div>
+
+                  {/* INFORMES-Todos */}
+                  <div>
+                    <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>
+                    {reports.length > 0 ? (
+                      <div className="space-y-3">
+                        {reports.map(report => (
+                          <ReportCard key={report.id} report={report} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
+                        Aún no tienes informes disponibles
+                      </div>
+                    )}
+                  </div>
+
+                  {/* REINICIAR MÉTODO */}
+                  {user.methodStartDate && (
+                    <button
+                      onClick={async () => {
+                        if (confirm('¿Estás seguro de que quieres reiniciar el método? Esto borrará tu fecha de inicio actual.')) {
+                          const { error } = await supabase.from('profiles').update({ method_start_date: null }).eq('id', user.id);
+                          if (!error) {
+                            setUser({ ...user, methodStartDate: null });
+                            showNotif('Método reiniciado correctamente', 'success');
+                          }
+                        }
+                      }}
+                      className="w-full py-2 text-xs text-stone-400 hover:text-[#C7958E] transition-colors underline"
+                    >
+                      Reiniciar Método
+                    </button>
+                  )}
+
+                  {/* LOGOUT */}
+                  <button
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      setUser(null);
+                      setView('ONBOARDING');
+                    }}
+                    className="w-full bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors border border-rose-100"
+                  >
+                    <LogOut size={20} />
+                    Cerrar Sesión
+                  </button>
+                </div>
               )}
 
-              <button onClick={handleLogout} className="w-full border-2 border-[#C7958E]/30 text-[#C7958E] py-4 rounded-2xl font-bold mt-4 hover:bg-[#C7958E] hover:text-white transition-colors flex items-center justify-center gap-2">
-                <LogOut size={20} /> Cerrar Sesión
-              </button>
+              {/* HISTORIA TAB */}
+              {profileTab === 'HISTORIA' && (() => {
+                const f0Form = submittedForms.find(f => f.form_type === 'F0');
+
+                if (!f0Form) {
+                  return (
+                    <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
+                      <FileText size={48} className="mx-auto text-stone-300 mb-4" />
+                      <p className="text-stone-400 text-sm">
+                        Aún no has completado el formulario F0
+                      </p>
+                      <button
+                        onClick={() => setView('CONSULTATIONS')}
+                        className="mt-4 bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#95706B] transition-colors"
+                      >
+                        Completar F0
+                      </button>
+                    </div>
+                  );
+                }
+
+                const formatDate = (dateStr: string) => {
+                  const date = new Date(dateStr);
+                  return date.toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  });
+                };
+
+                return (
+                  <div className="space-y-4">
+                    {/* HEADER */}
+                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white">
+                      <h3 className="text-lg font-bold mb-1">Ficha Personal (F0)</h3>
+                      <p className="text-sm opacity-90">
+                        Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString())}
+                      </p>
+                      {f0Form.pdf_generated_at && (
+                        <p className="text-xs opacity-75 mt-1">
+                          Última actualización: {formatDate(f0Form.pdf_generated_at)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* F0 DATA */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                      {f0Form.answers.map((answer, idx) => {
+                        // Find question text from FORM_DEFINITIONS
+                        const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
+                        if (!question) return null;
+
+                        let displayValue = answer.answer;
+
+                        // Format dates
+                        if (question.type === 'date' && typeof displayValue === 'string') {
+                          displayValue = formatDate(displayValue);
+                        }
+
+                        // Format arrays
+                        if (Array.isArray(displayValue)) {
+                          displayValue = displayValue.join(', ');
+                        }
+
+                        return (
+                          <div key={idx} className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                            <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                              {question.text}
+                            </p>
+                            <p className="text-sm text-[#4A4A4A]">
+                              {displayValue || '-'}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
