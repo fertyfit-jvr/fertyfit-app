@@ -222,7 +222,7 @@ const calculateFertyScore = (user: UserProfile, logs: DailyLog[]) => {
     else if (sd >= 0.5) bbtScore = 0;
     else {
       // Linear interpolation between 0.2 (100) and 0.5 (0)
-      // Slope = (0 - 100) / (0.5 - 0.2) = -100 / 0.3 = -333.33
+      // Slope = (0-100) / (0.5-0.2) = -100 / 0.3 = -333.33
       bbtScore = 100 - ((sd - 0.2) * 333.33);
     }
   }
@@ -319,7 +319,8 @@ const FORM_DEFINITIONS = {
     title: "F0: Ficha Personal Inicial",
     description: "Esta información es la base de tu protocolo personalizado.",
     questions: [
-      { id: 'q1_age', text: "Tu edad actual:", type: 'stepper', min: 18, max: 50, unit: 'años' },
+      // EASY INTERACTIONS FIRST (sliders, steppers, buttons)
+      { id: 'q1_birthdate', text: "Tu fecha de nacimiento:", type: 'date' },
       { id: 'q2_height', text: "Altura:", type: 'slider', min: 140, max: 200, unit: 'cm' },
       { id: 'q2_weight', text: "Peso:", type: 'slider', min: 40, max: 150, unit: 'kg' },
       { id: 'q3_time_trying', text: "Tiempo buscando embarazo:", type: 'stepper', min: 0, max: 60, unit: 'meses' },
@@ -328,12 +329,16 @@ const FORM_DEFINITIONS = {
       { id: 'q6_cycle', text: "Duración ciclo promedio:", type: 'stepper', min: 21, max: 40, unit: 'días' },
       { id: 'q7_regularity', text: "¿Ciclos regulares?", type: 'buttons', options: ['Regulares', 'Irregulares'] },
       { id: 'q8_last_period', text: "Fecha última regla:", type: 'date' },
-      { id: 'q9_diagnoses', text: "Diagnósticos relevantes (SOP, Endo, etc):", type: 'textarea', optional: true },
-      { id: 'q13_supplements', text: "¿Tomas suplementos o medicamentos actualmente?", type: 'textarea', optional: true },
       { id: 'q15_stress', text: "Nivel de Estrés:", type: 'segmented', min: 1, max: 5 },
       { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' },
       { id: 'q17_smoker', text: "¿Fumas?", type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'] },
-      { id: 'q18_alcohol', text: "¿Consumo de alcohol?", type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'] }
+      { id: 'q18_alcohol', text: "¿Consumo de alcohol?", type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'] },
+      { id: 'q19_supplements', text: "¿Tomas suplementos actualmente?", type: 'yesno' },
+      { id: 'q20_fertility_treatments', text: "Tratamientos de fertilidad previos:", type: 'buttons', options: ['Ninguno', 'FIV', 'Inseminación', 'Ovodonación'] },
+
+      // TEXT FIELDS LAST (require keyboard)
+      { id: 'q9_diagnoses', text: "Diagnósticos / Breve Historia Médica:", type: 'textarea', optional: true },
+      { id: 'q21_family_history', text: "Antecedentes familiares relevantes:", type: 'textarea', optional: true }
     ]
   },
   F1: {
@@ -851,13 +856,30 @@ function AppContent() {
             setShowPhaseModal(true);
           }
 
+          // Fetch data CRITICAL: Wait for data before showing dashboard
+          console.log('🔄 Fetching user data...');
+          await fetchLogs(session.user.id);
+          await fetchUserForms(session.user.id);
+          await fetchNotifications(session.user.id);
+          await fetchEducation(session.user.id, profile.method_start_date);
+
+          if (profile.user_type === 'subscriber' || profile.role === 'admin') {
+            await fetchReports(session.user.id);
+          }
+
+          console.log('✅ Data fetched successfully');
+
           if (!profile.disclaimer_accepted) setView('DISCLAIMER');
           else setView('DASHBOARD');
         }
       } else {
         setView('ONBOARDING');
       }
-    } catch (err) { console.error(err); setView('ONBOARDING'); } finally { setLoading(false); }
+    } catch (err) {
+      console.error('❌ Error in checkUser:', err);
+      setAuthError('Error al cargar perfil: ' + (err as any).message);
+      setView('ONBOARDING');
+    } finally { setLoading(false); }
   };
 
   const handleAuth = async () => {
@@ -895,7 +917,14 @@ function AppContent() {
   };
 
   const fetchLogs = async (userId: string) => {
-    const { data } = await supabase.from('daily_logs').select('*').eq('user_id', userId).order('date', { ascending: false });
+    const { data, error } = await supabase.from('daily_logs').select('*').eq('user_id', userId).order('date', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching logs:', error);
+      showNotif('Error cargando registros: ' + error.message, 'error');
+      return;
+    }
+
     if (data) {
       const mappedLogs = data.map(mapLogFromDB);
       setLogs(mappedLogs);
@@ -937,71 +966,121 @@ function AppContent() {
   };
 
   const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'f0_update' | 'daily' = 'daily') => {
-    // Prepare data for AI
-    const logSummary = recentLogs.slice(0, 14).map(log => ({
-      date: log.date,
-      cycleDay: log.cycleDay,
-      bbt: log.bbt,
-      mucus: log.mucus,
-      stress: log.stressLevel,
-      sleep: log.sleepHours,
-      symptoms: log.symptoms,
-      lhTest: log.lhTest
-    }));
-
     try {
-      const apiKey = import.meta.env.GEMINI_API;
+      const apiKey = import.meta.env.VITE_GEMINI_API || import.meta.env.GEMINI_API;
 
       if (!apiKey) {
         console.warn('Gemini API key not configured');
         return;
       }
 
-      // TODO: Implement Gemini API integration
-      // For now, this is a placeholder
-      // The Gemini API will be integrated to generate personalized insights
-      console.log('Gemini API integration pending', { userId, logSummary, context });
-
       if (context === 'f0' || context === 'f0_update') {
         // F0 notifications (single message)
         let title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '✨ Perfil Actualizado';
-        let placeholderMessage = context === 'f0'
+        let message = context === 'f0'
           ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
           : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.';
 
         await supabase.from('notifications').insert({
           user_id: userId,
           title,
-          message: placeholderMessage,
+          message,
           type: 'celebration',
           priority: 3
         });
       } else {
-        // Daily logs: Generate TWO notifications (positive + alert)
+        // Daily logs: Generate TWO notifications using Gemini API
+        const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        // 1. POSITIVE NOTIFICATION (Green)
-        const positiveTitle = '💚 Aspecto Positivo Detectado';
-        const positiveMessage = 'Tu temperatura basal muestra un patrón estable. Esto indica un buen equilibrio hormonal.';
+        const SYSTEM_CONTEXT = `
+Eres un asistente especializado en fertilidad y salud reproductiva femenina. 
+Tu objetivo es analizar datos de seguimiento de fertilidad y proporcionar insights personalizados.
 
-        await supabase.from('notifications').insert({
-          user_id: userId,
-          title: positiveTitle,
-          message: positiveMessage,
-          type: 'success',  // Green notification
-          priority: 2
+IMPORTANTE:
+- Usa un tono cálido, empoderador y profesional
+- Sé conciso: máximo 2-3 oraciones por insight
+- Enfoca en lo ACCIONABLE, no solo en observaciones
+- Usa emojis sutiles para hacer el mensaje más amigable
+- NUNCA des diagnósticos médicos
+- SIEMPRE recomienda consultar con un profesional si hay algo preocupante
+        `;
+
+        const logSummary = recentLogs.slice(0, 14).map(log => ({
+          date: log.date,
+          cycleDay: log.cycleDay,
+          bbt: log.bbt,
+          mucus: log.mucus,
+          stress: log.stressLevel,
+          sleep: log.sleepHours,
+          symptoms: log.symptoms,
+          lhTest: log.lhTest
+        }));
+
+        // 1. POSITIVE NOTIFICATION
+        const POSITIVE_PROMPT = `${SYSTEM_CONTEXT}
+
+TAREA: Analiza los siguientes datos y encuentra UN ASPECTO POSITIVO.
+
+DATOS:
+${JSON.stringify(logSummary, null, 2)}
+
+Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono positivo y motivador.`;
+
+        const positiveResponse = await fetch(GEMINI_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: POSITIVE_PROMPT }]
+            }]
+          })
         });
 
-        // 2. ALERT NOTIFICATION (Red)
-        const alertTitle = '⚠️ Área de Atención';
-        const alertMessage = 'Tus horas de sueño están por debajo del objetivo. Intenta dormir al menos 7 horas para optimizar tu fertilidad.';
+        const positiveData = await positiveResponse.json();
+        const positiveMessage = positiveData.candidates?.[0]?.content?.parts?.[0]?.text;
 
-        await supabase.from('notifications').insert({
-          user_id: userId,
-          title: alertTitle,
-          message: alertMessage,
-          type: 'alert',  // Red notification
-          priority: 2
+        if (positiveMessage) {
+          await supabase.from('notifications').insert({
+            user_id: userId,
+            title: '💚 Aspecto Positivo Detectado',
+            message: positiveMessage,
+            type: 'success',
+            priority: 2
+          });
+        }
+
+        // 2. ALERT NOTIFICATION
+        const ALERT_PROMPT = `${SYSTEM_CONTEXT}
+
+TAREA: Analiza los siguientes datos y encuentra UN ÁREA DE MEJORA.
+
+DATOS:
+${JSON.stringify(logSummary, null, 2)}
+
+Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, no alarmista.`;
+
+        const alertResponse = await fetch(GEMINI_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: ALERT_PROMPT }]
+            }]
+          })
         });
+
+        const alertData = await alertResponse.json();
+        const alertMessage = alertData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (alertMessage) {
+          await supabase.from('notifications').insert({
+            user_id: userId,
+            title: '⚠️ Área de Atención',
+            message: alertMessage,
+            type: 'alert',
+            priority: 2
+          });
+        }
       }
 
       fetchNotifications(userId);
@@ -1012,7 +1091,11 @@ function AppContent() {
   };
 
   const fetchUserForms = async (userId: string) => {
-    const { data } = await supabase.from('consultation_forms').select('*').eq('user_id', userId);
+    const { data, error } = await supabase.from('consultation_forms').select('*').eq('user_id', userId);
+    if (error) {
+      console.error('❌ Error fetching forms:', error);
+      showNotif('Error cargando formularios: ' + error.message, 'error');
+    }
     if (data) setSubmittedForms(data);
   };
 
@@ -1053,7 +1136,7 @@ function AppContent() {
     if (!todayLog.mucus) { showNotif("El registro de moco cervical es obligatorio", 'error'); return; }
     if (!todayLog.stressLevel) { showNotif("El nivel de estrés es obligatorio", 'error'); return; }
     if (todayLog.sleepHours === undefined || todayLog.sleepHours === null) { showNotif("Las horas de sueño son obligatorias", 'error'); return; }
-    const validDate = formatDateForDB(todayLog.date);
+    const validDate = formatDateForDB(new Date(todayLog.date)); // Ensure date is valid and formatted
     const formattedLog = { ...todayLog, date: validDate };
 
     const { error } = await supabase.from('daily_logs').upsert(mapLogToDB(formattedLog as DailyLog, user.id), { onConflict: 'user_id, date' });
@@ -1147,7 +1230,7 @@ function AppContent() {
 
   const handleModalClose = (dontShowAgain: boolean) => {
     if (user?.id && dontShowAgain) {
-      localStorage.setItem(`fertyfit_phase_seen_${user.id}_${currentPhase}`, 'true');
+      localStorage.setItem('fertyfit_phase_seen_' + user.id + '_' + currentPhase, 'true');
     }
     setShowPhaseModal(false);
   };
@@ -1241,14 +1324,9 @@ function AppContent() {
       <div className="pb-24 space-y-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-[#4A4A4A]">Registro Diario</h2>
-          <input
-            type="date"
-            max={new Date().toISOString().split('T')[0]}
-            min={getMinDate()}
-            value={todayLog.date || ''}
-            onChange={(e) => handleDateChange(e.target.value)}
-            className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#5D7180] shadow-sm font-medium outline-none focus:ring-2 focus:ring-[#C7958E]"
-          />
+          <div className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#5D7180] shadow-sm font-medium">
+            {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
@@ -1289,14 +1367,13 @@ function AppContent() {
               </div>
             </div>
 
-            <InputField label="Moco Cervical"><div className="flex flex-wrap gap-2">{MUCUS_OPTIONS.map(o => <button key={o} onClick={() => setTodayLog({ ...todayLog, mucus: o as MucusType })} className={`text-xs px-4 py-2 rounded-full border transition-all font-medium ${todayLog.mucus === o ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-white border-[#F4F0ED] text-[#5D7180] hover:border-[#C7958E]'}`}>{o}</button>)}</div></InputField>
+            <InputField label="Moco Cervical"><div className="flex flex-wrap gap-2">{MUCUS_OPTIONS.map(o => <button key={o} onClick={() => setTodayLog({ ...todayLog, mucus: o as MucusType })} className={'text-xs px-4 py-2 rounded-full border transition-all font-medium ' + (todayLog.mucus === o ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-white border-[#F4F0ED] text-[#5D7180] hover:border-[#C7958E]')}>{o}</button>)}</div></InputField>
 
             <InputField label="Test LH">
               <div className="flex flex-wrap gap-2">
                 {LH_OPTIONS.map(o => (
-                  <button key={o} onClick={() => setTodayLog({ ...todayLog, lhTest: o as LHResult })} className={`text-xs px-4 py-2 rounded-full border transition-all font-medium ${todayLog.lhTest === o ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-[#F4F0ED] text-[#5D7180] hover:border-indigo-200'}`}>
-                    {o}
-                  </button>
+                  <button key={o} onClick={() => setTodayLog({ ...todayLog, lhTest: o as LHResult })} className={'text-xs px-4 py-2 rounded-full border transition-all font-medium ' + (todayLog.lhTest === o ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-[#F4F0ED] text-[#5D7180] hover:border-indigo-200')}>{o}</button>
+
                 ))}
               </div>
             </InputField>
@@ -1312,7 +1389,7 @@ function AppContent() {
 
             <div className="flex items-center justify-between bg-rose-50/50 p-4 rounded-xl border border-rose-100/50">
               <span className="font-bold text-[#95706B] text-sm">Relaciones Sexuales</span>
-              <button onClick={() => setTodayLog({ ...todayLog, sex: !todayLog.sex })} className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${todayLog.sex ? 'bg-[#C7958E]' : 'bg-stone-200'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${todayLog.sex ? 'left-7' : 'left-1'}`}></div></button>
+              <button onClick={() => setTodayLog({ ...todayLog, sex: !todayLog.sex })} className={'w-12 h-6 rounded-full relative transition-colors duration-300 ' + (todayLog.sex ? 'bg-[#C7958E]' : 'bg-stone-200')}><div className={'absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ' + (todayLog.sex ? 'left-7' : 'left-1')}></div></button>
             </div>
           </div>
 
@@ -1336,7 +1413,7 @@ function AppContent() {
               <div className="flex gap-2">
                 {[1, 2, 3, 4, 5].map(n => (
                   <button key={n} onClick={() => setTodayLog({ ...todayLog, stressLevel: n })}
-                    className={`flex-1 h-10 rounded-xl font-bold transition-all ${todayLog.stressLevel === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200'}`}>
+                    className={'flex-1 h-10 rounded-xl font-bold transition-all ' + (todayLog.stressLevel === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200')}>
                     {n}
                   </button>
                 ))}
@@ -1390,12 +1467,12 @@ function AppContent() {
 
             <div className="flex items-center justify-between bg-white border border-[#F4F0ED] p-4 rounded-xl">
               <span className="font-bold text-[#5D7180] text-sm">Consumo de Alcohol</span>
-              <button onClick={() => setTodayLog({ ...todayLog, alcohol: !todayLog.alcohol })} className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${todayLog.alcohol ? 'bg-[#C7958E]' : 'bg-stone-200'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${todayLog.alcohol ? 'left-7' : 'left-1'}`}></div></button>
+              <button onClick={() => setTodayLog({ ...todayLog, alcohol: !todayLog.alcohol })} className={'w-12 h-6 rounded-full relative transition-colors duration-300 ' + (todayLog.alcohol ? 'bg-[#C7958E]' : 'bg-stone-200')}><div className={'absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ' + (todayLog.alcohol ? 'left-7' : 'left-1')}></div></button>
             </div>
           </div>
 
           <button onClick={saveDailyLog} className="w-full bg-[#4A4A4A] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-black transition-colors mt-4">Guardar Registro Diario</button>
-        </div>
+        </div >
 
         <div>
           <h3 className="font-bold text-[#4A4A4A] mb-4 flex items-center gap-2 text-sm uppercase tracking-wider opacity-80">Historial Reciente</h3>
@@ -1403,7 +1480,7 @@ function AppContent() {
             {logs.slice(0, 7).map(log => <LogHistoryItem key={log.date} log={log} />)}
           </div>
         </div>
-      </div>
+      </div >
     );
   };
 
@@ -1424,7 +1501,7 @@ function AppContent() {
 
           return (
             <div key={phase.id} className="space-y-4">
-              <div className={`rounded-2xl p-1 flex items-center gap-4`}>
+              <div className="rounded-2xl p-1 flex items-center gap-4">
                 <img src={phase.icon} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm border-2 border-white" />
                 <div>
                   <h3 className="font-bold text-lg text-[#4A4A4A]">{phase.title}</h3>
@@ -1433,7 +1510,7 @@ function AppContent() {
               </div>
               <div className="space-y-3 pl-2">
                 {phaseModules.map(mod => (
-                  <div key={mod.id} className={`relative bg-white border rounded-xl p-5 transition-all ${mod.isLocked ? 'opacity-60 grayscale' : 'shadow-[0_2px_15px_rgba(0,0,0,0.03)] border-[#F4F0ED]'}`}>
+                  <div key={mod.id} className={'relative bg-white border rounded-xl p-5 transition-all ' + (mod.isLocked ? 'opacity-60 grayscale' : 'shadow-[0_2px_15px_rgba(0,0,0,0.03)] border-[#F4F0ED]')}>
                     {mod.isLocked && (
                       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl">
                         <div className="bg-[#4A4A4A]/80 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg backdrop-blur-sm">
@@ -1452,7 +1529,7 @@ function AppContent() {
                           const isCompleted = mod.completedLessons.includes(l.id);
                           return (
                             <div key={l.id} onClick={() => setActiveLesson(l)} className="flex items-center gap-3 text-xs text-[#5D7180] p-3 bg-[#F4F0ED]/50 rounded-lg hover:bg-[#C7958E]/10 cursor-pointer border border-transparent hover:border-[#C7958E]/30 transition-all group">
-                              <div className={`p-1.5 rounded-full shadow-sm transition-transform group-hover:scale-110 ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-[#C7958E]'}`}>
+                              <div className={'p-1.5 rounded-full shadow-sm transition-transform group-hover:scale-110 ' + (isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-[#C7958E]')}>
                                 {isCompleted ? <CheckCircle size={14} /> : (l.type === 'video' ? <PlayCircle size={14} /> : <PdfIcon size={14} />)}
                               </div>
                               <span className="font-medium flex-1">{l.title}</span>
@@ -1519,9 +1596,9 @@ function AppContent() {
 
       if (missingRequired.length > 0) {
         const missingText = missingRequired.length > 3
-          ? `${missingRequired.length} campos obligatorios`
+          ? missingRequired.length + ' campos obligatorios'
           : missingRequired.map(q => q.text.replace(':', '')).join(', ');
-        showNotif(`Faltan campos obligatorios: ${missingText}`, 'error');
+        showNotif('Faltan campos obligatorios: ' + missingText, 'error');
         return;
       }
 
@@ -1552,10 +1629,19 @@ function AppContent() {
           const updates: any = {};
 
           // Basic info
-          if (answers['q1_age']) updates.age = parseInt(answers['q1_age'] as string);
+          if (answers['q1_birthdate']) {
+            const birthDate = new Date(answers['q1_birthdate'] as string);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+              age--;
+            }
+            updates.age = age;
+          }
           if (answers['q2_weight']) updates.weight = parseFloat(answers['q2_weight']);
           if (answers['q2_height']) updates.height = parseFloat(answers['q2_height']);
-          if (answers['q3_time_trying']) updates.time_trying = `${answers['q3_time_trying']} meses`;
+          if (answers['q3_time_trying']) updates.time_trying = answers['q3_time_trying'] + ' meses';
 
           // Objectives and status
           if (answers['q4_objective']) updates.main_objective = answers['q4_objective'];
@@ -1571,7 +1657,9 @@ function AppContent() {
             const diagnosesText = answers['q9_diagnoses'] as string;
             updates.diagnoses = diagnosesText.split(',').map((d: string) => d.trim()).filter((d: string) => d);
           }
-          if (answers['q13_supplements']) updates.supplements = answers['q13_supplements'];
+          if (answers['q19_supplements']) updates.supplements = answers['q19_supplements'];
+          if (answers['q20_fertility_treatments']) updates.fertility_treatments = answers['q20_fertility_treatments'];
+          if (answers['q21_family_history']) updates.family_history = answers['q21_family_history'];
 
           // Lifestyle
           if (answers['q17_smoker']) updates.smoker = answers['q17_smoker'];
@@ -1619,7 +1707,7 @@ function AppContent() {
               const { data: refreshedLogs } = await supabase
                 .from('daily_logs')
                 .select('*')
-                .eq('user_id', user.id)
+                .eq('user.id', user.id)
                 .order('date', { ascending: false });
 
               if (refreshedLogs) {
@@ -1666,7 +1754,7 @@ function AppContent() {
         <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
         <div className="flex bg-white p-1.5 rounded-xl shadow-sm border border-[#F4F0ED] overflow-x-auto">
           {[{ id: 'F0', l: 'F0 Base' }, { id: 'F1', l: 'F1 (30d)' }, { id: 'F2', l: 'F2 (60d)' }, { id: 'F3', l: 'F3 (90d)' }].map(t => (
-            <button key={t.id} onClick={() => setFormType(t.id as any)} className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${formType === t.id ? 'bg-[#C7958E] text-white shadow-md' : 'text-[#5D7180] hover:bg-[#F4F0ED]'}`}>
+            <button key={t.id} onClick={() => setFormType(t.id as any)} className={'flex-1 py-2 px-3 text-xs font-bold rounded-lg whitespace-nowrap transition-all ' + (formType === t.id ? 'bg-[#C7958E] text-white shadow-md' : 'text-[#5D7180] hover:bg-[#F4F0ED]')}>
               {t.l} {submittedForms.find(f => f.form_type === t.id) && '✅'}
             </button>
           ))}
@@ -1693,7 +1781,7 @@ function AppContent() {
               {(submittedForm.answers as any[]).map((ans: any) => (
                 <div key={ans.questionId} className="bg-[#F4F0ED]/30 p-3 rounded-xl">
                   <p className="text-[10px] uppercase font-bold text-[#95706B] mb-1">{ans.question}</p>
-                  <p className={`text-sm font-medium ${!ans.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
+                  <p className={'text-sm font-medium ' + (!ans.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]')}>
                     {Array.isArray(ans.answer) ? ans.answer.join(', ') : (ans.answer || "Sin respuesta")}
                   </p>
                 </div>
@@ -1742,8 +1830,8 @@ function AppContent() {
                     />
                   ) : q.type === 'yesno' ? (
                     <div className="flex gap-3">
-                      <button onClick={() => setAnswers({ ...answers, [q.id]: 'Sí' })} className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === 'Sí' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}>Sí</button>
-                      <button onClick={() => setAnswers({ ...answers, [q.id]: 'No' })} className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === 'No' ? 'bg-rose-50 border-rose-400 text-rose-500' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}>No</button>
+                      <button onClick={() => setAnswers({ ...answers, [q.id]: 'Sí' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === 'Sí' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>Sí</button>
+                      <button onClick={() => setAnswers({ ...answers, [q.id]: 'No' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === 'No' ? 'bg-rose-50 border-rose-400 text-rose-500' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>No</button>
                     </div>
                   ) : q.type === 'buttons' ? (
                     <div className="flex gap-3">
@@ -1751,7 +1839,7 @@ function AppContent() {
                         <button
                           key={option}
                           onClick={() => setAnswers({ ...answers, [q.id]: option })}
-                          className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === option ? 'bg-[#C7958E] border-[#C7958E] text-white' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}
+                          className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === option ? 'bg-[#C7958E] border-[#C7958E] text-white' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}
                         >
                           {option}
                         </button>
@@ -1802,7 +1890,7 @@ function AppContent() {
                         <button
                           key={n}
                           onClick={() => setAnswers({ ...answers, [q.id]: n })}
-                          className={`flex-1 h-12 rounded-xl font-bold transition-all ${answers[q.id] === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200'}`}
+                          className={'flex-1 h-12 rounded-xl font-bold transition-all ' + (answers[q.id] === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200')}
                         >
                           {n}
                         </button>
@@ -1852,7 +1940,7 @@ function AppContent() {
               <div className="aspect-video bg-black">
                 {activeLesson.content_url && activeLesson.content_url.includes('http') ? (
                   <iframe
-                    src={`${getEmbedUrl(activeLesson.content_url)}?origin=${window.location.origin}&rel=0`}
+                    src={getEmbedUrl(activeLesson.content_url) + '?origin=' + window.location.origin + '&rel=0'}
                     title={activeLesson.title}
                     className="w-full h-full"
                     frameBorder="0"
@@ -2015,7 +2103,7 @@ function AppContent() {
                 <div>
                   <h1 className="text-2xl font-bold text-[#4A4A4A]">Hola, {user.name.split(' ')[0]}</h1>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`w-2 h-2 rounded-full ${user.methodStartDate ? 'bg-[#C7958E] animate-pulse' : 'bg-stone-300'}`}></span>
+                    <span className={'w-2 h-2 rounded-full ' + (user.methodStartDate ? 'bg-[#C7958E] animate-pulse' : 'bg-stone-300')}></span>
                     <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
                       {user.methodStartDate
                         ? (() => {
@@ -2024,7 +2112,7 @@ function AppContent() {
                           const now = new Date();
                           now.setHours(0, 0, 0, 0);
                           const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
-                          return `Día ${days} del Método`;
+                          return 'Día ' + days + ' del Método';
                         })()
                         : 'Método no iniciado'}
                     </p>
@@ -2082,7 +2170,7 @@ function AppContent() {
 
                 return (
                   <div className="space-y-6">
-                    {/* START METHOD CARD - Only shown when method not started */}
+                    {/* START METHOD CARD-Only shown when method not started */}
                     {!user.methodStartDate && (
                       <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-8 rounded-[2rem] shadow-xl text-white text-center relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
@@ -2109,7 +2197,7 @@ function AppContent() {
                     {/* MAIN SCORE CARD */}
                     <div className="bg-[#F9F6F4] p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] text-center relative overflow-hidden">
                       <h3 className="text-lg font-sans text-[#5D7180] mb-2">Ferty Score</h3>
-                      <div className={`text-7xl font-bold mb-2 ${getScoreColor(scores.total)}`}>{scores.total}</div>
+                      <div className={'text-7xl font-bold mb-2 ' + getScoreColor(scores.total)}>{scores.total}</div>
                       <p className="text-sm text-[#4A4A4A] font-medium mb-6">
                         {scores.total >= 70 ? '¡Estás optimizando tu cuerpo para el embarazo!' : (scores.total >= 40 ? 'Vas por buen camino, sigue mejorando.' : 'Hay oportunidades de mejora importantes.')}
                       </p>
@@ -2120,7 +2208,7 @@ function AppContent() {
                           <span>{Math.round(progressPercent)}%</span>
                         </div>
                         <div className="h-2 w-full bg-[#F4F0ED] rounded-full overflow-hidden">
-                          <div className="h-full bg-[#9ECCB4] rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+                          <div className="h-full bg-[#9ECCB4] rounded-full transition-all duration-1000" style={{ width: progressPercent + '%' }}></div>
                         </div>
                         <div className="flex justify-between text-[10px] text-[#5D7180] mt-1">
                           <span>{daysActive}/90 días</span>
@@ -2175,7 +2263,7 @@ function AppContent() {
                           ))}
 
                           {alerts.map((alert, i) => (
-                            <div key={i} className={`snap-center min-w-[280px] p-5 rounded-2xl shadow-sm border flex flex-col justify-between ${alert.type === 'alert' ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-[#9ECCB4] text-white border-[#9ECCB4]'}`}>
+                            <div key={i} className={'snap-center min-w-[280px] p-5 rounded-2xl shadow-sm border flex flex-col justify-between ' + (alert.type === 'alert' ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-[#9ECCB4] text-white border-[#9ECCB4]')}>
                               <div>
                                 <div className="flex items-center gap-2 mb-2 font-bold text-xs uppercase tracking-wider opacity-90">
                                   {alert.type === 'alert' ? <AlertCircle size={14} /> : <Star size={14} />}
@@ -2243,7 +2331,7 @@ function AppContent() {
 
           {view === 'PROFILE' && (
             <div className="pb-24 space-y-6">
-              {/* NOTIFICACIONES - Últimas 3 */}
+              {/* NOTIFICACIONES-Últimas 3 */}
               <div>
                 <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
                 {notifications.slice(0, 3).length > 0 ? (
@@ -2259,7 +2347,7 @@ function AppContent() {
                 )}
               </div>
 
-              {/* INFORMES - Todos */}
+              {/* INFORMES-Todos */}
               <div>
                 <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>
                 {reports.length > 0 ? (
