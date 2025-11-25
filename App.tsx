@@ -814,10 +814,22 @@ const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserPr
           </p>
           {/* 4 Pillars on second line */}
           <p className="flex items-center gap-3 ml-4">
-            <span className="text-xs opacity-75">💪 Function: {scores.function}</span>
-            <span className="text-xs opacity-75">🥗 Food: {scores.food}</span>
-            <span className="text-xs opacity-75">🌿 Flora: {scores.flora}</span>
-            <span className="text-xs opacity-75">💧 Flow: {scores.flow}</span>
+            <span className="text-xs opacity-75 flex items-center gap-1">
+              <img src="/icons/FUNCTION.svg" alt="Function" className="w-3 h-3" />
+              Function: {scores.function}
+            </span>
+            <span className="text-xs opacity-75 flex items-center gap-1">
+              <img src="/icons/FOOD.svg" alt="Food" className="w-3 h-3" />
+              Food: {scores.food}
+            </span>
+            <span className="text-xs opacity-75 flex items-center gap-1">
+              <img src="/icons/FLORA.svg" alt="Flora" className="w-3 h-3" />
+              Flora: {scores.flora}
+            </span>
+            <span className="text-xs opacity-75 flex items-center gap-1">
+              <img src="/icons/FLOW.svg" alt="Flow" className="w-3 h-3" />
+              Flow: {scores.flow}
+            </span>
           </p>
         </div>
 
@@ -2388,22 +2400,22 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Los 4 Pilares de FertyFit</h3>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <div className="text-2xl mb-2">💪</div>
+                          <img src="/icons/FUNCTION.svg" alt="Function" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Function</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.function}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <div className="text-2xl mb-2">🥗</div>
+                          <img src="/icons/FOOD.svg" alt="Food" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Food</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.food}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <div className="text-2xl mb-2">🌿</div>
+                          <img src="/icons/FLORA.svg" alt="Flora" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flora</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flora}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <div className="text-2xl mb-2">💧</div>
+                          <img src="/icons/FLOW.svg" alt="Flow" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flow</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flow}/100)</span>
                         </div>
