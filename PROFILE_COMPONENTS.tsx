@@ -1,0 +1,28 @@
+// Componentes para agregar al archivo App.tsx
+// Copiar y pegar ANTES de la funci\u00f3n AppContent (alrededor de la l\u00ednea 630)
+
+// Componente de Tarjeta de Notificaci\u00f3n Expandible
+const NotificationCard: React.FC<{ notification: any; onMarkRead: (id: number) => void }> = ({ notification, onMarkRead }) => {
+    const [expanded, setExpanded] = useState(false);
+
+    const getBgColor = () => {
+        if (notification.type === 'success') return 'bg-emerald-500';
+        if (notification.type === 'alert') return 'bg-rose-500';
+        return 'bg-[#C7958E]';
+    };
+
+    const getIcon = () => {
+        if (notification.type === 'success') return <Sparkles size={16} />;
+        if (notification.type === 'alert') return <AlertCircle size={16} />;
+        return <Star size={16} />;
+    };
+
+    return (
+        <div className=\"bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all\">\n      <div onClick={() => setExpanded(!expanded)} className=\"p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors\">\n        <div className=\"flex items-center justify-between\">\n          <div className=\"flex items-center gap-3 flex-1\">\n            <div className={`p-2 rounded-full ${getBgColor()} text-white`}>\n              {getIcon()}\n            </div>\n            <div className=\"flex-1\">\n              <p className=\"text-sm font-bold text-[#4A4A4A]\">{notification.title}</p>\n              <p className=\"text-xs text-[#5D7180] mt-1\">\n                {new Date(notification.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}\n              </p>\n            </div>\n          </div>\n          <div className=\"flex items-center gap-2\">\n            {!notification.is_read && (\n              <div className=\"w-2 h-2 rounded-full bg-[#C7958E]\"></div>\n            )}\n            {expanded ? <ChevronUp size={20} className=\"text-[#5D7180]\" /> : <ChevronDown size={20} className=\"text-[#5D7180]\" />}\n          </div>\n        </div>\n      </div>\n      \n      {expanded && (\n        <div className=\"px-4 pb-4 border-t border-[#F4F0ED] pt-4 bg-[#F9F6F4]\">\n          <p className=\"text-sm text-[#4A4A4A] leading-relaxed whitespace-pre-wrap\">{notification.message}</p>\n          {!notification.is_read && (\n            <button\n              onClick={() => onMarkRead(notification.id)}\n              className=\"mt-4 text-xs bg-[#C7958E] hover:bg-[#95706B] text-white py-2 px-4 rounded-lg transition-colors\"\n            >\n              Marcar como le\u00edda\n            </button>\n          )}\n        </div>\n      )}\n    </div>\n  );\n};
+
+    // Componente de Tarjeta de Informe Expandible
+    const ReportCard: React.FC<{ report: any }> = ({ report }) => {
+        const [expanded, setExpanded] = useState(false);
+
+        return (
+            <div className=\"bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all\">\n      <div onClick={() => setExpanded(!expanded)} className=\"p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors\">\n        <div className=\"flex items-center justify-between\">\n          <div className=\"flex items-center gap-3 flex-1\">\n            <div className=\"p-2 rounded-full bg-[#95706B]/10 text-[#95706B]\">\n              <FileText size={16} />\n            </div>\n            <div className=\"flex-1\">\n              <p className=\"text-sm font-bold text-[#4A4A4A]\">{report.form_type || 'Informe'}</p>\n              <p className=\"text-xs text-[#5D7180] mt-1\">\n                {new Date(report.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}\n              </p>\n            </div>\n          </div>\n          <div className=\"flex items-center gap-2\">\n            {report.pdf_url && (\n              <a \n                href={report.pdf_url} \n                target=\"_blank\" \n                rel=\"noopener noreferrer\"\n                onClick={(e) => e.stopPropagation()}\n                className=\"p-2 rounded-full bg-[#C7958E]/10 text-[#C7958E] hover:bg-[#C7958E] hover:text-white transition-colors\"\n              >\n                <Download size={16} />\n              </a>\n            )}\n            {expanded ? <ChevronUp size={20} className=\"text-[#5D7180]\" /> : <ChevronDown size={20} className=\"text-[#5D7180]\" />}\n          </div>\n        </div>\n      </div>\n      \n      {expanded && (\n        <div className=\"px-4 pb-4 border-t border-[#F4F0ED] pt-4 bg-[#F9F6F4] space-y-3\">\n          {report.summary && (\n            <div>\n              <p className=\"text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1\">Resumen</p>\n              <p className=\"text-sm text-[#4A4A4A] leading-relaxed\">{report.summary}</p>\n            </div>\n          )}\n          \n          {report.recommendations && (\n            <div>\n              <p className=\"text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1\">Recomendaciones</p>\n              <p className=\"text-sm text-[#4A4A4A] leading-relaxed whitespace-pre-wrap\">{report.recommendations}</p>\n            </div>\n          )}\n          \n          {report.pdf_url && (\n            <a \n              href={report.pdf_url} \n              target=\"_blank\" \n              rel=\"noopener noreferrer\"\n              className=\"inline-flex items-center gap-2 mt-4 text-xs bg-[#C7958E] hover:bg-[#95706B] text-white py-2 px-4 rounded-lg transition-colors\"\n            >\n              <Download size={14} />\n              Descargar PDF Completo\n            </a>\n          )}\n        </div>\n      )}\n    </div>\n  );\n};

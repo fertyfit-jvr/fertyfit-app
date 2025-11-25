@@ -13,7 +13,7 @@ export interface UserProfile {
   treatments: string[];
   disclaimerAccepted: boolean;
   isOnboarded: boolean;
-  role?: 'user' | 'admin' | 'specialist'; // New Role field
+  role?: 'user'; // User role only - admin/specialist managed in separate app
 
   // New fields from PDF
   mainObjective?: string; // Concepción natural vs RA
@@ -108,12 +108,7 @@ export interface ConsultationForm {
   report_url?: string; // URL to the PDF report if reviewed
 }
 
-export interface AdminReport {
-  id: number;
-  title: string;
-  report_url: string;
-  created_at: string;
-}
+
 
 export interface AppNotification {
   id: number;
@@ -127,4 +122,4 @@ export interface AppNotification {
   metadata?: any;
 }
 
-export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'SPECIALIST';
+export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE';

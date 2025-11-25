@@ -3,10 +3,10 @@ import {
   Heart, Activity, BookOpen, FileText, User, LogOut, AlertCircle,
   Moon, Sun, PlayCircle, FileText as PdfIcon,
   Lock, X, Star, Award, Mail, Key, CheckSquare, Download, ChevronDown, ChevronUp, ArrowRight, Smile, Play,
-  CheckCircle, WineOff, Calendar, Stethoscope, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles
+  CheckCircle, WineOff, Calendar, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles
 } from 'lucide-react';
 
-import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
+import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus } from './services/dataService';
 import { supabase } from './services/supabase';
@@ -484,6 +484,132 @@ const StatCard = ({ title, value, target, unit, icon: Icon, hideTarget }: any) =
   );
 };
 
+// Notification Card Component
+const NotificationCard: React.FC<{ notification: any; onMarkRead: (id: number) => void }> = ({ notification, onMarkRead }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const getBgColor = () => {
+    if (notification.type === 'success') return 'bg-emerald-500';
+    if (notification.type === 'alert') return 'bg-rose-500';
+    return 'bg-[#C7958E]';
+  };
+
+  const getIcon = () => {
+    if (notification.type === 'success') return <Sparkles size={16} />;
+    if (notification.type === 'alert') return <AlertCircle size={16} />;
+    return <Star size={16} />;
+  };
+
+  return (
+    <div className="bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all">
+      <div onClick={() => setExpanded(!expanded)} className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div className={`p-2 rounded-full ${getBgColor()} text-white`}>
+              {getIcon()}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-[#4A4A4A]">{notification.title}</p>
+              <p className="text-xs text-[#5D7180] mt-1">
+                {new Date(notification.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {!notification.is_read && (
+              <div className="w-2 h-2 rounded-full bg-[#C7958E]"></div>
+            )}
+            {expanded ? <ChevronUp size={20} className="text-[#5D7180]" /> : <ChevronDown size={20} className="text-[#5D7180]" />}
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-[#F4F0ED] pt-4 bg-[#F9F6F4]">
+          <p className="text-sm text-[#4A4A4A] leading-relaxed whitespace-pre-wrap">{notification.message}</p>
+          {!notification.is_read && (
+            <button
+              onClick={() => onMarkRead(notification.id)}
+              className="mt-4 text-xs bg-[#C7958E] hover:bg-[#95706B] text-white py-2 px-4 rounded-lg transition-colors"
+            >
+              Marcar como leída
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Report Card Component
+const ReportCard: React.FC<{ report: any }> = ({ report }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all">
+      <div onClick={() => setExpanded(!expanded)} className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 rounded-full bg-[#95706B]/10 text-[#95706B]">
+              <FileText size={16} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-[#4A4A4A]">{report.form_type || 'Informe'}</p>
+              <p className="text-xs text-[#5D7180] mt-1">
+                {new Date(report.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {report.pdf_url && (
+              <a
+                href={report.pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 rounded-full bg-[#C7958E]/10 text-[#C7958E] hover:bg-[#C7958E] hover:text-white transition-colors"
+              >
+                <Download size={16} />
+              </a>
+            )}
+            {expanded ? <ChevronUp size={20} className="text-[#5D7180]" /> : <ChevronDown size={20} className="text-[#5D7180]" />}
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-[#F4F0ED] pt-4 bg-[#F9F6F4] space-y-3">
+          {report.summary && (
+            <div>
+              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Resumen</p>
+              <p className="text-sm text-[#4A4A4A] leading-relaxed">{report.summary}</p>
+            </div>
+          )}
+
+          {report.recommendations && (
+            <div>
+              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Recomendaciones</p>
+              <p className="text-sm text-[#4A4A4A] leading-relaxed whitespace-pre-wrap">{report.recommendations}</p>
+            </div>
+          )}
+
+          {report.pdf_url && (
+            <a
+              href={report.pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 mt-4 text-xs bg-[#C7958E] hover:bg-[#95706B] text-white py-2 px-4 rounded-lg transition-colors"
+            >
+              <Download size={14} />
+              Descargar PDF Completo
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const LogHistoryItem: React.FC<{ log: DailyLog }> = ({ log }) => {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -635,11 +761,9 @@ function AppContent() {
   const [view, setView] = useState<ViewState>('ONBOARDING');
   const [user, setUser] = useState<UserProfile | null>(null);
   const [logs, setLogs] = useState<DailyLog[]>([]);
-  const [reports, setReports] = useState<AdminReport[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [specialistMode, setSpecialistMode] = useState(false); // Toggle for Admin view
-  const [pendingForms, setPendingForms] = useState<ConsultationForm[]>([]);
   const [submittedForms, setSubmittedForms] = useState<ConsultationForm[]>([]);
+  const [reports, setReports] = useState<any[]>([]);  // Admin reports
   const [showPhaseModal, setShowPhaseModal] = useState(false);
   const [currentPhase, setCurrentPhase] = useState(0);
 
@@ -706,13 +830,6 @@ function AppContent() {
             role: profile.role || 'user'
           });
 
-          // Fetch data
-          await fetchLogs(session.user.id);
-          await fetchEducation(session.user.id, profile.method_start_date);
-          await fetchReports(session.user.id);
-          await fetchNotifications(session.user.id);
-          await fetchUserForms(session.user.id);
-
           // Determine phase
           let phase = 0;
           if (profile.method_start_date) {
@@ -774,7 +891,6 @@ function AppContent() {
     await supabase.auth.signOut();
     setUser(null);
     setLogs([]);
-    setReports([]);
     setView('ONBOARDING');
   };
 
@@ -795,10 +911,7 @@ function AppContent() {
     }
   };
 
-  const fetchReports = async (userId: string) => {
-    const { data } = await supabase.from('admin_reports').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    if (data) setReports(data);
-  };
+
 
   const fetchNotifications = async (userId: string) => {
     const { data, error, status, statusText } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
@@ -809,12 +922,21 @@ function AppContent() {
     }
   };
 
+  const fetchReports = async (userId: string) => {
+    const { data, error } = await supabase.from('admin_reports').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+
+    if (error) console.error('❌ Error fetching reports:', error);
+    if (data) {
+      setReports(data);
+    }
+  };
+
   const markNotificationRead = async (notifId: number) => {
     await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
   };
 
-  const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'daily' = 'daily') => {
+  const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'f0_update' | 'daily' = 'daily') => {
     // Prepare data for AI
     const logSummary = recentLogs.slice(0, 14).map(log => ({
       date: log.date,
@@ -828,130 +950,61 @@ function AppContent() {
     }));
 
     try {
-      const apiKey = import.meta.env.VITE_OPEN_EYE;
-      const assistantId = import.meta.env.VITE_ASSISTANT_ID;
+      const apiKey = import.meta.env.GEMINI_API;
 
-      if (!apiKey || !assistantId) {
-        console.warn('OpenAI API key or Assistant ID not configured');
+      if (!apiKey) {
+        console.warn('Gemini API key not configured');
         return;
       }
 
-      // Step 1: Create a thread
-      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
-      });
+      // TODO: Implement Gemini API integration
+      // For now, this is a placeholder
+      // The Gemini API will be integrated to generate personalized insights
+      console.log('Gemini API integration pending', { userId, logSummary, context });
 
-      if (!threadResponse.ok) {
-        console.error('Error creating thread:', await threadResponse.text());
-        return;
-      }
+      if (context === 'f0' || context === 'f0_update') {
+        // F0 notifications (single message)
+        let title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '✨ Perfil Actualizado';
+        let placeholderMessage = context === 'f0'
+          ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
+          : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.';
 
-      const thread = await threadResponse.json();
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          title,
+          message: placeholderMessage,
+          type: 'celebration',
+          priority: 3
+        });
+      } else {
+        // Daily logs: Generate TWO notifications (positive + alert)
 
-      // Step 2: Add message to thread
-      const messageContent = context === 'f0'
-        ? `Nueva usuaria completó su perfil inicial (F0). Genera un mensaje de bienvenida personalizado y motivador basado en sus datos.`
-        : `Analiza estos ${recentLogs.length} días de registros y genera insights relevantes:\n${JSON.stringify(logSummary, null, 2)}`;
+        // 1. POSITIVE NOTIFICATION (Green)
+        const positiveTitle = '💚 Aspecto Positivo Detectado';
+        const positiveMessage = 'Tu temperatura basal muestra un patrón estable. Esto indica un buen equilibrio hormonal.';
 
-      await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
-        },
-        body: JSON.stringify({
-          role: 'user',
-          content: messageContent
-        })
-      });
-
-      // Step 3: Run the assistant
-      const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
-        },
-        body: JSON.stringify({
-          assistant_id: assistantId
-        })
-      });
-
-      if (!runResponse.ok) {
-        console.error('Error running assistant:', await runResponse.text());
-        return;
-      }
-
-      const run = await runResponse.json();
-
-      // Step 4: Poll for completion
-      let runStatus = run.status;
-      let attempts = 0;
-      const maxAttempts = 30;
-
-      while (runStatus !== 'completed' && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'OpenAI-Beta': 'assistants=v2'
-          }
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          title: positiveTitle,
+          message: positiveMessage,
+          type: 'success',  // Green notification
+          priority: 2
         });
 
-        const statusData = await statusResponse.json();
-        runStatus = statusData.status;
-        attempts++;
+        // 2. ALERT NOTIFICATION (Red)
+        const alertTitle = '⚠️ Área de Atención';
+        const alertMessage = 'Tus horas de sueño están por debajo del objetivo. Intenta dormir al menos 7 horas para optimizar tu fertilidad.';
 
-        if (runStatus === 'failed') {
-          console.error('Assistant run failed:', statusData.last_error);
-          return;
-        }
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          title: alertTitle,
+          message: alertMessage,
+          type: 'alert',  // Red notification
+          priority: 2
+        });
       }
 
-      if (runStatus !== 'completed') {
-        console.error('Assistant run timed out');
-        return;
-      }
-
-      // Step 5: Get the assistant's response
-      const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
-      });
-
-      const messages = await messagesResponse.json();
-      const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
-
-      if (!assistantMessage) {
-        console.error('No assistant message found');
-        return;
-      }
-
-      const aiMessage = assistantMessage.content[0].text.value;
-
-      // Save notification to Supabase
-      const title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '💡 Análisis de tus datos';
-      const { error } = await supabase.from('notifications').insert({
-        user_id: userId,
-        title,
-        message: aiMessage,
-        type: context === 'f0' ? 'celebration' : 'insight',
-        priority: context === 'f0' ? 3 : 2
-      });
-
-      if (!error) {
-        fetchNotifications(userId);
-      }
+      fetchNotifications(userId);
 
     } catch (error) {
       console.error('Error analyzing with AI:', error);
@@ -1008,10 +1061,33 @@ function AppContent() {
       showNotif("Registro guardado con éxito", 'success');
       await fetchLogs(user.id);
 
-      // Trigger AI analysis if we have enough data (>= 3 days)
+      // AI Notification Logic:
+      // 1. First daily log ever -> Generate AI
+      // 2. Every 7 days after first -> Generate AI
       const updatedLogs = await supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: false });
-      if (updatedLogs.data && updatedLogs.data.length >= 3) {
-        analyzeLogsWithAI(user.id, updatedLogs.data.map(mapLogFromDB), 'daily');
+
+      if (updatedLogs.data && updatedLogs.data.length > 0) {
+        const totalLogs = updatedLogs.data.length;
+        const { data: profileData } = await supabase.from('profiles').select('last_ai_notification_date').eq('id', user.id).single();
+        const lastAiDate = profileData?.last_ai_notification_date;
+
+        let shouldGenerateAI = false;
+
+        if (totalLogs === 1) {
+          // First daily log ever
+          shouldGenerateAI = true;
+        } else if (lastAiDate) {
+          // Check if 7 days have passed since last AI notification
+          const daysSinceLastAI = Math.floor((new Date().getTime() - new Date(lastAiDate).getTime()) / (1000 * 3600 * 24));
+          if (daysSinceLastAI >= 7) {
+            shouldGenerateAI = true;
+          }
+        }
+
+        if (shouldGenerateAI) {
+          analyzeLogsWithAI(user.id, updatedLogs.data.map(mapLogFromDB), 'daily');
+          await supabase.from('profiles').update({ last_ai_notification_date: new Date().toISOString() }).eq('id', user.id);
+        }
       }
 
       setView('DASHBOARD');
@@ -1067,20 +1143,7 @@ function AppContent() {
     }
   };
 
-  // --- SPECIALIST / ADMIN LOGIC ---
-  const fetchPendingForms = async () => {
-    if (!user?.id) return;
-    const { data } = await supabase.from('consultation_forms').select('*').eq('status', 'pending');
-    if (data) setPendingForms(data);
-  };
 
-  const approveForm = async (formId: number, userId: string) => {
-    await supabase.from('consultation_forms').update({ status: 'reviewed' }).eq('id', formId);
-    const reportTitle = "Informe Médico - " + new Date().toLocaleDateString();
-    await supabase.from('admin_reports').insert({ user_id: userId, title: reportTitle, report_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' });
-    showNotif("Formulario aprobado y reporte enviado.", 'success');
-    fetchPendingForms();
-  };
 
   const handleModalClose = (dontShowAgain: boolean) => {
     if (user?.id && dontShowAgain) {
@@ -1161,6 +1224,19 @@ function AppContent() {
       }
     }, [submittedForms]);
 
+    // Get minimum date (last period date from F0)
+    const getMinDate = () => {
+      const f0Form = submittedForms.find(f => f.form_type === 'F0');
+      if (f0Form) {
+        const lastPeriodAnswer = f0Form.answers.find(a => a.questionId === 'q8_last_period');
+        if (lastPeriodAnswer && lastPeriodAnswer.answer) {
+          return lastPeriodAnswer.answer as string;
+        }
+      }
+      // Fallback: 60 days ago if no F0
+      return new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    };
+
     return (
       <div className="pb-24 space-y-6">
         <div className="flex items-center justify-between mb-4">
@@ -1168,7 +1244,7 @@ function AppContent() {
           <input
             type="date"
             max={new Date().toISOString().split('T')[0]}
-            min={new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+            min={getMinDate()}
             value={todayLog.date || ''}
             onChange={(e) => handleDateChange(e.target.value)}
             className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#5D7180] shadow-sm font-medium outline-none focus:ring-2 focus:ring-[#C7958E]"
@@ -1507,8 +1583,75 @@ function AppContent() {
             setUser(prev => prev ? ({ ...prev, ...updates }) : null);
           }
 
-          // Generate welcome notification with AI
-          analyzeLogsWithAI(user.id, [], 'f0');
+          // CRITICAL: Recalculate cycle day for ALL existing logs when last_period_date changes
+          if (answers['q8_last_period']) {
+            const lastPeriodDate = new Date(answers['q8_last_period'] as string);
+            const cycleDuration = answers['q6_cycle'] ? parseInt(answers['q6_cycle'] as string) : 28;
+
+            // Get all existing logs
+            const { data: existingLogs } = await supabase
+              .from('daily_logs')
+              .select('*')
+              .eq('user_id', user.id);
+
+            if (existingLogs && existingLogs.length > 0) {
+              // Recalculate cycle day for each log
+              const updates = existingLogs.map(log => {
+                const logDate = new Date(log.date);
+                const diff = Math.floor((logDate.getTime() - lastPeriodDate.getTime()) / (1000 * 3600 * 24));
+                const newCycleDay = diff >= 0 ? (diff % cycleDuration) + 1 : 1;
+
+                return {
+                  id: log.id,
+                  cycle_day: newCycleDay
+                };
+              });
+
+              // Batch update all logs
+              for (const update of updates) {
+                await supabase
+                  .from('daily_logs')
+                  .update({ cycle_day: update.cycle_day })
+                  .eq('id', update.id);
+              }
+
+              // AUTOMATIC REFRESH: Update local state immediately without reload
+              const { data: refreshedLogs } = await supabase
+                .from('daily_logs')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('date', { ascending: false });
+
+              if (refreshedLogs) {
+                const mappedLogs = refreshedLogs.map(mapLogFromDB);
+                setLogs(mappedLogs);
+
+                // Update todayLog if it exists in the refreshed logs
+                const todayStr = formatDateForDB(new Date());
+                const existingToday = mappedLogs.find(l => l.date === todayStr);
+                if (existingToday) {
+                  setTodayLog(existingToday);
+                }
+              }
+
+              showNotif('Días del ciclo actualizados correctamente', 'success');
+            }
+          }
+
+          // Generate AI notification: first time OR one update allowed
+          const { data: profileData } = await supabase.from('profiles').select('f0_ai_count').eq('id', user.id).single();
+          const f0AiCount = profileData?.f0_ai_count || 0;
+
+          if (f0AiCount === 0) {
+            // First time completing F0
+            analyzeLogsWithAI(user.id, [], 'f0');
+            await supabase.from('profiles').update({ f0_ai_count: 1 }).eq('id', user.id);
+          } else if (f0AiCount === 1 && submittedForm) {
+            // First update of F0 (only once)
+            analyzeLogsWithAI(user.id, [], 'f0_update');
+            await supabase.from('profiles').update({ f0_ai_count: 2 }).eq('id', user.id);
+          }
+          // If f0_ai_count >= 2, no more AI notifications for F0 updates
         }
         showNotif(submittedForm ? "Formulario actualizado correctamente." : "Formulario enviado correctamente.", 'success');
         // setAnswers({}); // Don't clear answers so user can see what they submitted/updated
@@ -1558,9 +1701,9 @@ function AppContent() {
             </div>
             {submittedForm.status === 'pending' && (
               <div className="mt-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-start gap-3">
-                <div className="bg-yellow-100 p-2 rounded-full text-yellow-600"><Stethoscope size={16} /></div>
+                <div className="bg-yellow-100 p-2 rounded-full text-yellow-600"><Clock size={16} /></div>
                 <div>
-                  <p className="text-xs font-bold text-yellow-800">En Revisión por Especialista</p>
+                  <p className="text-xs font-bold text-yellow-800">En Revisión</p>
                   <p className="text-[10px] text-yellow-700 mt-1">Recibirás una notificación cuando tu informe PDF esté listo para descargar.</p>
                 </div>
               </div>
@@ -1692,48 +1835,7 @@ function AppContent() {
     );
   };
 
-  const SpecialistView = () => {
-    useEffect(() => { fetchPendingForms(); }, []);
 
-    return (
-      <div className="pb-24 space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-[#4A4A4A]">Panel Especialista</h2>
-          <span className="bg-emerald-100 text-emerald-600 text-xs px-3 py-1 rounded-full font-bold">Admin Mode</span>
-        </div>
-
-        <div className="space-y-4">
-          {pendingForms.length === 0 ? (
-            <div className="text-center py-12 text-[#5D7180] bg-white rounded-3xl border border-[#F4F0ED]">
-              <CheckCircle className="mx-auto mb-2 text-[#C7958E]" size={32} />
-              <p className="text-sm">No hay formularios pendientes.</p>
-            </div>
-          ) : (
-            pendingForms.map(form => (
-              <div key={form.id} className="bg-white p-5 rounded-2xl shadow-sm border border-[#F4F0ED]">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <span className="bg-[#4A4A4A] text-white text-[10px] px-2 py-1 rounded font-bold">{form.form_type}</span>
-                    <p className="text-xs text-[#5D7180] mt-1">User: {form.user_id?.substring(0, 8)}...</p>
-                  </div>
-                  <span className="text-[10px] bg-orange-100 text-orange-500 px-2 py-1 rounded-full font-bold">Pendiente</span>
-                </div>
-                <div className="bg-[#F4F0ED]/50 p-3 rounded-lg text-xs text-[#5D7180] mb-4 max-h-32 overflow-y-auto custom-scrollbar">
-                  <pre className="whitespace-pre-wrap font-sans">{JSON.stringify(form.answers, null, 2)}</pre>
-                </div>
-                <button
-                  onClick={() => approveForm(form.id!, form.user_id!)}
-                  className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-xs hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <CheckSquare size={14} /> Aprobar y Subir Reporte (Simulado)
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // --- RENDER CONTENT ---
   if (activeLesson) {
@@ -2138,10 +2240,43 @@ function AppContent() {
           {view === 'TRACKER' && <TrackerView />}
           {view === 'EDUCATION' && <EducationView />}
           {view === 'CONSULTATIONS' && <ConsultationsView />}
-          {view === 'SPECIALIST' && <SpecialistView />}
+
           {view === 'PROFILE' && (
-            <div className="pb-24">
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#F4F0ED] mb-6">
+            <div className="pb-24 space-y-6">
+              {/* NOTIFICACIONES - Últimas 3 */}
+              <div>
+                <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
+                {notifications.slice(0, 3).length > 0 ? (
+                  <div className="space-y-3">
+                    {notifications.slice(0, 3).map(notif => (
+                      <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
+                    No tienes notificaciones recientes
+                  </div>
+                )}
+              </div>
+
+              {/* INFORMES - Todos */}
+              <div>
+                <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>
+                {reports.length > 0 ? (
+                  <div className="space-y-3">
+                    {reports.map(report => (
+                      <ReportCard key={report.id} report={report} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
+                    Aún no tienes informes disponibles
+                  </div>
+                )}
+              </div>
+
+              {/* TU PLAN */}
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#F4F0ED]">
                 <h3 className="font-bold text-[#C7958E] mb-4 uppercase text-xs tracking-widest">Tu Plan</h3>
                 <div className="flex justify-between text-sm border-b border-[#F4F0ED] pb-3 mb-3">
                   <span className="text-[#5D7180]">Objetivo</span>
@@ -2149,49 +2284,26 @@ function AppContent() {
                 </div>
               </div>
 
-              {/* INFORMES GENERADOS */}
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#F4F0ED] mb-6">
-                <h3 className="font-bold text-[#95706B] mb-4 uppercase text-xs tracking-widest">Informes Disponibles</h3>
-                {reports.length > 0 ? (
-                  <div className="space-y-3">
-                    {reports.map(r => (
-                      <a href={r.report_url} target="_blank" key={r.id} className="flex items-center justify-between p-3 bg-[#F4F0ED]/50 rounded-xl hover:bg-[#C7958E]/10 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <FileText size={18} className="text-[#C7958E]" />
-                          <span className="text-sm font-bold text-[#4A4A4A]">{r.title}</span>
-                        </div>
-                        <Download size={16} className="text-[#95706B]" />
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-[#5D7180] italic">Aún no tienes informes generados.</p>
-                )}
-                {user.methodStartDate && (
-                  <button
-                    onClick={async () => {
-                      if (confirm('¿Estás seguro de que quieres reiniciar el método? Esto borrará tu fecha de inicio actual.')) {
-                        const { error } = await supabase.from('profiles').update({ method_start_date: null }).eq('id', user.id);
-                        if (!error) {
-                          setUser({ ...user, methodStartDate: null });
-                          showNotif('Método reiniciado correctamente', 'success');
-                        }
+              {user.methodStartDate && (
+                <button
+                  onClick={async () => {
+                    if (confirm('¿Estás seguro de que quieres reiniciar el método? Esto borrará tu fecha de inicio actual.')) {
+                      const { error } = await supabase.from('profiles').update({ method_start_date: null }).eq('id', user.id);
+                      if (!error) {
+                        setUser({ ...user, methodStartDate: null });
+                        showNotif('Método reiniciado correctamente', 'success');
                       }
-                    }}
-                    className="w-full py-2 text-xs text-stone-400 hover:text-[#C7958E] transition-colors underline mt-4"
-                  >
-                    Reiniciar Método
-                  </button>
-                )}
-              </div>
+                    }
+                  }}
+                  className="w-full py-2 text-xs text-stone-400 hover:text-[#C7958E] transition-colors underline mt-4"
+                >
+                  Reiniciar Método
+                </button>
+              )}
 
               <button onClick={handleLogout} className="w-full border-2 border-[#C7958E]/30 text-[#C7958E] py-4 rounded-2xl font-bold mt-4 hover:bg-[#C7958E] hover:text-white transition-colors flex items-center justify-center gap-2">
                 <LogOut size={20} /> Cerrar Sesión
               </button>
-
-              <div className="mt-10 text-center flex items-center justify-center gap-4">
-                <button onClick={() => setSpecialistMode(!specialistMode)} className={`text-[10px] flex items-center justify-center gap-1 uppercase tracking-widest transition-colors ${specialistMode ? 'text-emerald-500 font-bold' : 'text-stone-300'}`}><Stethoscope size={10} /> Modo Especialista</button>
-              </div>
             </div>
           )}
         </div>
@@ -2213,14 +2325,10 @@ function AppContent() {
           label="Diario"
         />
         <NavButton active={view === 'EDUCATION'} onClick={() => setView('EDUCATION')} icon={BookOpen} label="Aprende" />
-        {specialistMode ? (
-          <NavButton active={view === 'SPECIALIST'} onClick={() => setView('SPECIALIST')} icon={Stethoscope} label="Especialista" />
-        ) : (
-          <NavButton active={view === 'CONSULTATIONS'} onClick={() => setView('CONSULTATIONS')} icon={FileText} label="Consultas" />
-        )}
+        <NavButton active={view === 'CONSULTATIONS'} onClick={() => setView('CONSULTATIONS')} icon={FileText} label="Consultas" />
         <NavButton active={view === 'PROFILE'} onClick={() => setView('PROFILE')} icon={User} label="Perfil" />
       </nav>
-    </div>
+    </div >
   );
 }
 
