@@ -2429,22 +2429,22 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Los 4 Pilares de FertyFit</h3>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FUNCTION.png" alt="Function" className="w-8 h-8 mb-2" />
+                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FUNCTION.png" alt="Function" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Function</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.function}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FOOD.png" alt="Food" className="w-8 h-8 mb-2" />
+                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FOOD.png" alt="Food" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Food</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.food}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FLORA.png" alt="Flora" className="w-8 h-8 mb-2" />
+                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLORA.png" alt="Flora" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flora</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flora}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FLOW.png" alt="Flow" className="w-8 h-8 mb-2" />
+                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLOW.png" alt="Flow" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flow</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flow}/100)</span>
                         </div>
@@ -2588,25 +2588,25 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                           <div className="grid grid-cols-2 gap-4">
                             {/* Function */}
                             <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="/icons/FUNCTION.png" alt="Function" className="w-10 h-10 mb-2" />
+                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FUNCTION.png" alt="Function" className="w-10 h-10 mb-2" />
                               <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Function</span>
                               <span className="font-bold text-[#4A4A4A] mt-1">{scores.function}/100</span>
                             </div>
                             {/* Food */}
                             <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="/icons/FOOD.png" alt="Food" className="w-10 h-10 mb-2" />
+                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FOOD.png" alt="Food" className="w-10 h-10 mb-2" />
                               <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Food</span>
                               <span className="font-bold text-[#4A4A4A] mt-1">{scores.food}/100</span>
                             </div>
                             {/* Flora */}
                             <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="/icons/FLORA.png" alt="Flora" className="w-10 h-10 mb-2" />
+                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLORA.png" alt="Flora" className="w-10 h-10 mb-2" />
                               <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flora</span>
                               <span className="font-bold text-[#4A4A4A] mt-1">{scores.flora}/100</span>
                             </div>
                             {/* Flow */}
                             <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="/icons/FLOW.png" alt="Flow" className="w-10 h-10 mb-2" />
+                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLOW.png" alt="Flow" className="w-10 h-10 mb-2" />
                               <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flow</span>
                               <span className="font-bold text-[#4A4A4A] mt-1">{scores.flow}/100</span>
                             </div>
