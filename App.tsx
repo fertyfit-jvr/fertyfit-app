@@ -3,7 +3,7 @@ import {
   Heart, Activity, BookOpen, FileText, User, LogOut, AlertCircle,
   Moon, Sun, PlayCircle, FileText as PdfIcon,
   Lock, X, Star, Award, Mail, Key, CheckSquare, Download, ChevronDown, ChevronUp, ArrowRight, Smile, Play,
-  CheckCircle, WineOff, Calendar, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles
+  CheckCircle, WineOff, Calendar, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles, Trash
 } from 'lucide-react';
 
 import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
@@ -522,7 +522,7 @@ const StatCard = ({ title, value, target, unit, icon: Icon, hideTarget }: any) =
 };
 
 // Notification Card Component
-const NotificationCard: React.FC<{ notification: any; onMarkRead: (id: number) => void }> = ({ notification, onMarkRead }) => {
+const NotificationCard: React.FC<{ notification: any; onMarkRead: (id: number) => void; deleteNotification: (id: number) => void }> = ({ notification, onMarkRead, deleteNotification }) => {
   const [expanded, setExpanded] = useState(false);
 
   const getBgColor = () => {
@@ -538,37 +538,28 @@ const NotificationCard: React.FC<{ notification: any; onMarkRead: (id: number) =
   };
 
   return (
-    <div className="bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all">
-      <div onClick={() => setExpanded(!expanded)} className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            <div className={`p-2 rounded-full ${getBgColor()} text-white`}>
-              {getIcon()}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-[#4A4A4A]">{notification.title}</p>
-              <p className="text-xs text-[#5D7180] mt-1">
-                {new Date(notification.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-              </p>
-            </div>
+    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={getBgColor()}>
+            <span className="text-white text-xs font-bold px-2 py-1 rounded">{notification.type}</span>
           </div>
-          <div className="flex items-center gap-2">
-            {!notification.is_read && (
-              <div className="w-2 h-2 rounded-full bg-[#C7958E]"></div>
-            )}
-            {expanded ? <ChevronUp size={20} className="text-[#5D7180]" /> : <ChevronDown size={20} className="text-[#5D7180]" />}
-          </div>
+          <h4 className="font-semibold text-[#4A4A4A]">{notification.title}</h4>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setExpanded(!expanded)} className="text-[#5D7180]">
+            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          <button onClick={() => deleteNotification(notification.id)} className="text-[#C7958E] hover:text-[#95706B]">
+            <Trash size={16} />
+          </button>
         </div>
       </div>
-
       {expanded && (
-        <div className="px-4 pb-4 border-t border-[#F4F0ED] pt-4 bg-[#F9F6F4]">
-          <p className="text-sm text-[#4A4A4A] leading-relaxed whitespace-pre-wrap">{notification.message}</p>
+        <div className="mt-2 text-sm text-[#5D7180] whitespace-pre-wrap">
+          {notification.message}
           {!notification.is_read && (
-            <button
-              onClick={() => onMarkRead(notification.id)}
-              className="mt-4 text-xs bg-[#C7958E] hover:bg-[#95706B] text-white py-2 px-4 rounded-lg transition-colors"
-            >
+            <button onClick={() => onMarkRead(notification.id)} className="mt-2 block text-[#C7958E] underline">
               Marcar como leída
             </button>
           )}
@@ -807,30 +798,6 @@ const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserPr
               <span className="font-semibold">{monthsTrying} {monthsTrying === 1 ? 'mes' : 'meses'}</span>
             </p>
           )}
-          {/* FertyScore - Total on one line */}
-          <p className="flex items-center gap-2 mt-2">
-            <span className="opacity-75">FertyScore:</span>
-            <span className="font-bold text-lg">{scores.total}</span>
-          </p>
-          {/* 4 Pillars on second line */}
-          <p className="flex items-center gap-3 ml-4">
-            <span className="text-xs opacity-75 flex items-center gap-1">
-              <img src="/icons/FUNCTION.svg" alt="Function" className="w-3 h-3" />
-              Function: {scores.function}
-            </span>
-            <span className="text-xs opacity-75 flex items-center gap-1">
-              <img src="/icons/FOOD.svg" alt="Food" className="w-3 h-3" />
-              Food: {scores.food}
-            </span>
-            <span className="text-xs opacity-75 flex items-center gap-1">
-              <img src="/icons/FLORA.svg" alt="Flora" className="w-3 h-3" />
-              Flora: {scores.flora}
-            </span>
-            <span className="text-xs opacity-75 flex items-center gap-1">
-              <img src="/icons/FLOW.svg" alt="Flow" className="w-3 h-3" />
-              Flow: {scores.flow}
-            </span>
-          </p>
         </div>
 
         {/* Stats Row - Only box */}
@@ -1062,6 +1029,17 @@ function AppContent() {
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
   };
 
+  // Delete a notification completely
+  const deleteNotification = async (notifId: number) => {
+    const { error } = await supabase.from('notifications').delete().eq('id', notifId);
+    if (!error) {
+      setNotifications(prev => prev.filter(n => n.id !== notifId));
+      console.log('✅ Notification deleted', notifId);
+    } else {
+      console.error('❌ Failed to delete notification', error);
+    }
+  };
+
   const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'f0_update' | 'daily' = 'daily') => {
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API;
@@ -1072,20 +1050,71 @@ function AppContent() {
         return;
       }
       if (context === 'f0' || context === 'f0_update') {
-        // F0 notifications (single message)
-        let title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '✨ Perfil Actualizado';
-        let message = context === 'f0'
-          ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
-          : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.';
+        // Fetch fresh profile data to ensure we have the latest F0 answers
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
-        const { data, error } = await supabase.from('notifications').insert({
+        if (!profile) return;
+
+        const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+        // Add randomness to prompt to prevent caching/repetition
+        const seed = new Date().getTime();
+
+        const F0_PROMPT = `
+        Eres un asistente experto en fertilidad y salud femenina (FertyFit).
+        La usuaria ${profile.name} acaba de actualizar su perfil.
+        
+        DATOS ACTUALES:
+        - Edad: ${profile.age} años
+        - Objetivo Principal: "${profile.main_objective || 'Mejorar salud hormonal'}"
+        - Tiempo buscando: ${profile.time_trying || 'Recién empezando'}
+        - Diagnósticos: ${profile.diagnoses && profile.diagnoses.length > 0 ? profile.diagnoses.join(', ') : 'Ninguno'}
+        - Estado Civil: ${profile.partner_status || 'No especificado'}
+        - Semilla aleatoria: ${seed}
+        
+        TAREA:
+        Genera un mensaje de notificación ÚNICO y PERSONALIZADO (máximo 40 palabras).
+        
+        REGLAS OBLIGATORIAS:
+        1. MENCIONA EXPLÍCITAMENTE su objetivo ("${profile.main_objective}") o sus diagnósticos si los tiene.
+        2. NO repitas frases genéricas como "Bienvenida a FertyFit".
+        3. Si tiene diagnósticos (SOP, Endometriosis), valida su esfuerzo.
+        4. Si lleva tiempo buscando, dale una frase de esperanza específica.
+        5. Usa un tono cercano, como una amiga experta.
+        6. Usa emojis variados (no siempre los mismos).
+        
+        Ejemplo malo: "Bienvenida, estamos aquí para ayudarte."
+        Ejemplo bueno: "¡Hola ${profile.name}! Veo que tu meta es ${profile.main_objective}. Con tu diagnóstico de SOP, trabajaremos juntas en tu balance hormonal. 💪✨"
+      `;
+
+        const response = await fetch(GEMINI_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: F0_PROMPT }] }],
+            generationConfig: {
+              temperature: 0.9, // High creativity to avoid repetition
+              maxOutputTokens: 100,
+            }
+          })
+        });
+
+        const data = await response.json();
+        const aiMessage = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        let title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '✨ Perfil Actualizado';
+        let message = aiMessage || (context === 'f0'
+          ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
+          : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.');
+
+        const { error } = await supabase.from('notifications').insert({
           user_id: userId,
           title,
           message,
           type: 'celebration',
           priority: 3
         });
-        console.log('✅ F0 notification created:', { title, success: !error });
+        console.log('✅ F0 AI notification created:', { title, success: !error });
       } else {
         // Daily logs: Generate TWO notifications using Gemini API
         const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -2400,22 +2429,22 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Los 4 Pilares de FertyFit</h3>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FUNCTION.svg" alt="Function" className="w-8 h-8 mb-2" />
+                          <img src="/icons/FUNCTION.png" alt="Function" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Function</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.function}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FOOD.svg" alt="Food" className="w-8 h-8 mb-2" />
+                          <img src="/icons/FOOD.png" alt="Food" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Food</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.food}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FLORA.svg" alt="Flora" className="w-8 h-8 mb-2" />
+                          <img src="/icons/FLORA.png" alt="Flora" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flora</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flora}/100)</span>
                         </div>
                         <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="/icons/FLOW.svg" alt="Flow" className="w-8 h-8 mb-2" />
+                          <img src="/icons/FLOW.png" alt="Flow" className="w-8 h-8 mb-2" />
                           <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flow</span>
                           <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flow}/100)</span>
                         </div>
@@ -2540,6 +2569,53 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
               {/* PROFILE TAB */}
               {profileTab === 'PROFILE' && (
                 <div className="space-y-6">
+                  {/* FERTY SCORE & 4 PILLARS */}
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#F4F0ED]">
+                    {(() => {
+                      const scores = calculateFertyScore(user, logs);
+                      return (
+                        <>
+                          <div className="flex items-center justify-between mb-6">
+                            <div>
+                              <h3 className="font-bold text-[#4A4A4A] text-lg">Tu FertyScore</h3>
+                              <p className="text-xs text-[#5D7180]">Basado en tus 4 pilares</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] text-white px-4 py-2 rounded-xl font-bold text-2xl shadow-lg shadow-rose-200">
+                              {scores.total}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            {/* Function */}
+                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
+                              <img src="/icons/FUNCTION.png" alt="Function" className="w-10 h-10 mb-2" />
+                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Function</span>
+                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.function}/100</span>
+                            </div>
+                            {/* Food */}
+                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
+                              <img src="/icons/FOOD.png" alt="Food" className="w-10 h-10 mb-2" />
+                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Food</span>
+                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.food}/100</span>
+                            </div>
+                            {/* Flora */}
+                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
+                              <img src="/icons/FLORA.png" alt="Flora" className="w-10 h-10 mb-2" />
+                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flora</span>
+                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.flora}/100</span>
+                            </div>
+                            {/* Flow */}
+                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
+                              <img src="/icons/FLOW.png" alt="Flow" className="w-10 h-10 mb-2" />
+                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flow</span>
+                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.flow}/100</span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
                   {/* NOTIFICACIONES-Últimas 3 */}
                   <div>
                     <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
