@@ -1654,8 +1654,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
 
           // Health info
           if (answers['q9_diagnoses']) {
-            const diagnosesText = answers['q9_diagnoses'] as string;
-            updates.diagnoses = diagnosesText.split(',').map((d: string) => d.trim()).filter((d: string) => d);
+            updates.obstetric_history = answers['q9_diagnoses'];
           }
           if (answers['q19_supplements']) updates.supplements = answers['q19_supplements'];
           if (answers['q20_fertility_treatments']) updates.fertility_treatments = answers['q20_fertility_treatments'];
