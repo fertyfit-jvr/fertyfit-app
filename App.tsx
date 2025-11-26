@@ -814,22 +814,22 @@ const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserPr
               <div className="flex gap-3 text-[10px]">
                 <div className="flex flex-col items-center">
                   <span className="font-bold text-lg">{scores.function}</span>
-                  <span className="opacity-75">FUNC</span>
+                  <span className="opacity-75">Function</span>
                 </div>
                 <div className="w-px h-8 bg-white/20"></div>
                 <div className="flex flex-col items-center">
                   <span className="font-bold text-lg">{scores.food}</span>
-                  <span className="opacity-75">FOOD</span>
+                  <span className="opacity-75">Food</span>
                 </div>
                 <div className="w-px h-8 bg-white/20"></div>
                 <div className="flex flex-col items-center">
                   <span className="font-bold text-lg">{scores.flora}</span>
-                  <span className="opacity-75">FLORA</span>
+                  <span className="opacity-75">Flora</span>
                 </div>
                 <div className="w-px h-8 bg-white/20"></div>
                 <div className="flex flex-col items-center">
                   <span className="font-bold text-lg">{scores.flow}</span>
-                  <span className="opacity-75">FLOW</span>
+                  <span className="opacity-75">Flow</span>
                 </div>
               </div>
             </div>
