@@ -2667,12 +2667,12 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                   {/* Replaced with Document Style Profile Info */}
                   {/* Replaced with Document Style Profile Info - PERSONAL DATA ONLY */}
                   <div className="space-y-4">
-                    {/* HEADER */}
-                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white flex justify-between items-center">
+                    {/* HEADER - DISCRETE STYLE */}
+                    <div className="flex justify-between items-end mb-3">
                       <div>
-                        <h3 className="text-lg font-bold mb-1">Datos Personales</h3>
-                        <p className="text-sm opacity-90">
-                          Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                        <h3 className="font-bold text-[#4A4A4A] text-sm">Datos Personales</h3>
+                        <p className="text-[10px] text-[#5D7180] mt-0.5">
+                          Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                       </div>
                       <button
@@ -2680,9 +2680,9 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                           if (isEditingProfile) handleSaveProfile();
                           else setIsEditingProfile(true);
                         }}
-                        className="bg-white/20 hover:bg-white/30 p-2 rounded-xl transition-colors backdrop-blur-sm"
+                        className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
                       >
-                        {isEditingProfile ? <Check size={20} /> : <Edit2 size={20} />}
+                        {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
                       </button>
                     </div>
 
@@ -2820,36 +2820,49 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                 return (
                   <div className="space-y-4">
                     {/* BIOLOGICAL DATA SECTION (Moved from Profile) */}
+                    {/* BIOLOGICAL DATA SECTION (Moved from Profile) - REFINED */}
+                    {/* Ferty Score & Pillars ONLY - Moved to top, removed Objective/Time */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
-                      <h4 className="font-bold text-[#4A4A4A] mb-2 text-sm border-b border-[#F4F0ED] pb-2">Estado de Fertilidad</h4>
-
                       {(() => {
                         const scores = calculateFertyScore(user, logs);
                         return (
                           <>
-                            <div className="border-b border-[#F4F0ED] pb-3">
-                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Ferty Score</p>
-                              <p className="text-lg font-bold text-[#C7958E]">{scores.total}/100</p>
-                            </div>
-                            <div className="border-b border-[#F4F0ED] pb-3">
-                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Pilares</p>
-                              <p className="text-sm text-[#4A4A4A]">
-                                Function: {scores.function} | Food: {scores.food} | Flora: {scores.flora} | Flow: {scores.flow}
-                              </p>
+                            <div className="flex items-center justify-between border-b border-[#F4F0ED] pb-4">
+                              <div>
+                                <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Ferty Score</p>
+                                <p className="text-3xl font-bold text-[#C7958E]">{scores.total}<span className="text-sm text-[#5D7180] font-normal">/100</span></p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Pilares</p>
+                                <div className="flex gap-3 text-[10px] text-[#5D7180]">
+                                  <div className="flex flex-col items-center">
+                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.function}</span>
+                                    <span>FUNC</span>
+                                  </div>
+                                  <div className="w-px h-8 bg-[#F4F0ED]"></div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.food}</span>
+                                    <span>FOOD</span>
+                                  </div>
+                                  <div className="w-px h-8 bg-[#F4F0ED]"></div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.flora}</span>
+                                    <span>FLORA</span>
+                                  </div>
+                                  <div className="w-px h-8 bg-[#F4F0ED]"></div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.flow}</span>
+                                    <span>FLOW</span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </>
                         );
                       })()}
 
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Objetivo Principal</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.mainObjective || 'No especificado'}</p>
-                      </div>
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Tiempo Buscando</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.timeTrying || 'No especificado'}</p>
-                      </div>
-                      <div className="pb-1">
+                      {/* Diagnoses kept as it wasn't explicitly asked to be removed, but Objective/Time removed */}
+                      <div className="pt-1">
                         <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Diagnósticos</p>
                         <p className="text-sm text-[#4A4A4A]">
                           {user.diagnoses && user.diagnoses.length > 0 ? user.diagnoses.join(', ') : 'Ninguno registrado'}
