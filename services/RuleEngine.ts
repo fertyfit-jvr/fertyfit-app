@@ -493,7 +493,7 @@ export const saveNotifications = async (userId: string, notifications: AppNotifi
         .gte('created_at', `${today}T00:00:00`);
 
     const sentToday = count || 0;
-    const limit = 5;
+    const limit = 30;
     const remaining = limit - sentToday;
 
     if (remaining <= 0) {
