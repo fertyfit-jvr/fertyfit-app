@@ -803,24 +803,16 @@ const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserPr
               <span className="font-semibold">{monthsTrying} {monthsTrying === 1 ? 'mes' : 'meses'}</span>
             </p>
           )}
-        </div>
-
-        {/* Stats Row - Only box */}
-        <div className="flex justify-between bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10 mb-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold">{daysActive}</p>
-            <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Días Método</p>
-          </div>
-          <div className="w-px bg-white/20"></div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{logsCount}</p>
-            <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Registros</p>
-          </div>
-          <div className="w-px bg-white/20"></div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{currentWeek}</p>
-            <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Semana</p>
-          </div>
+          <p className="flex items-center gap-2">
+            <span className="opacity-75">Días Método:</span>
+            <span className="font-semibold">{daysActive}</span>
+            <span className="opacity-50">•</span>
+            <span className="opacity-75">Registros:</span>
+            <span className="font-semibold">{logsCount}</span>
+            <span className="opacity-50">•</span>
+            <span className="opacity-75">Semana:</span>
+            <span className="font-semibold">{currentWeek}</span>
+          </p>
         </div>
 
         {/* FERTY SCORE BADGE */}
