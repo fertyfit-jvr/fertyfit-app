@@ -788,21 +788,8 @@ const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserPr
           </div>
         </div>
 
-        {/* Integrated Profile Info - Like a description */}
-        <div className="mb-6 text-sm text-white/90 space-y-1 ml-1">
-          <p className="flex items-center gap-2">
-            <span className="opacity-75">Objetivo:</span>
-            <span className="font-semibold">{user.mainObjective || '-'}</span>
-            <span className="opacity-50">•</span>
-            <span className="opacity-75">Estado:</span>
-            <span className="font-semibold">{user.partnerStatus || '-'}</span>
-          </p>
-          {monthsTrying !== null && (
-            <p className="flex items-center gap-2">
-              <span className="opacity-75">Tiempo buscando:</span>
-              <span className="font-semibold">{monthsTrying} {monthsTrying === 1 ? 'mes' : 'meses'}</span>
-            </p>
-          )}
+        {/* Stats - Inline text format */}
+        <div className="mb-4 text-sm text-white/90 ml-1">
           <p className="flex items-center gap-2">
             <span className="opacity-75">Días Método:</span>
             <span className="font-semibold">{daysActive}</span>
