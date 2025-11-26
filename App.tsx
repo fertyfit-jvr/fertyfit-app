@@ -1784,7 +1784,9 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
   };
 
   const ConsultationsView = () => {
-    const daysActive = user?.methodStartDate ? Math.floor((new Date().getTime() - new Date(user.methodStartDate).getTime()) / (1000 * 3600 * 24)) : 0;
+    const daysActive = user?.methodStartDate
+      ? Math.floor((new Date().getTime() - new Date(user.methodStartDate).getTime()) / (1000 * 3600 * 24)) + 1
+      : 0;
     const canAccessF1 = daysActive >= 30;
     const canAccessF2 = daysActive >= 60;
     const canAccessF3 = daysActive >= 90;
