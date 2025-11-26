@@ -2819,68 +2819,65 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
 
                 return (
                   <div className="space-y-4">
-                    {/* BIOLOGICAL DATA SECTION (Moved from Profile) */}
-                    {/* BIOLOGICAL DATA SECTION (Moved from Profile) - REFINED */}
-                    {/* Ferty Score & Pillars ONLY - Moved to top, removed Objective/Time */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+
+                    {/* HEADER WITH FERTY SCORE BADGE */}
+                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-lg font-bold">Ficha Personal (F0)</h3>
+                          <p className="text-sm opacity-90 mt-1">
+                            Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString())}
+                          </p>
+                          {f0Form.pdf_generated_at && (
+                            <p className="text-xs opacity-75 mt-1">
+                              Última actualización: {formatDate(f0Form.pdf_generated_at)}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setView('CONSULTATIONS')}
+                          className="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors backdrop-blur-sm"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      </div>
+
+                      {/* FERTY SCORE BADGE - Horizontal Layout */}
                       {(() => {
                         const scores = calculateFertyScore(user, logs);
                         return (
-                          <>
-                            <div className="flex items-center justify-between border-b border-[#F4F0ED] pb-4">
-                              <div>
-                                <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Ferty Score</p>
-                                <p className="text-3xl font-bold text-[#C7958E]">{scores.total}<span className="text-sm text-[#5D7180] font-normal">/100</span></p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Pilares</p>
-                                <div className="flex gap-3 text-[10px] text-[#5D7180]">
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.function}</span>
-                                    <span>FUNC</span>
-                                  </div>
-                                  <div className="w-px h-8 bg-[#F4F0ED]"></div>
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.food}</span>
-                                    <span>FOOD</span>
-                                  </div>
-                                  <div className="w-px h-8 bg-[#F4F0ED]"></div>
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.flora}</span>
-                                    <span>FLORA</span>
-                                  </div>
-                                  <div className="w-px h-8 bg-[#F4F0ED]"></div>
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-bold text-[#4A4A4A] text-sm">{scores.flow}</span>
-                                    <span>FLOW</span>
-                                  </div>
+                          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Ferty Score</p>
+                              <p className="text-3xl font-bold">{scores.total}<span className="text-lg opacity-75">/100</span></p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Pilares</p>
+                              <div className="flex gap-3 text-[10px]">
+                                <div className="flex flex-col items-center">
+                                  <span className="font-bold text-lg">{scores.function}</span>
+                                  <span className="opacity-75">FUNC</span>
+                                </div>
+                                <div className="w-px h-8 bg-white/20"></div>
+                                <div className="flex flex-col items-center">
+                                  <span className="font-bold text-lg">{scores.food}</span>
+                                  <span className="opacity-75">FOOD</span>
+                                </div>
+                                <div className="w-px h-8 bg-white/20"></div>
+                                <div className="flex flex-col items-center">
+                                  <span className="font-bold text-lg">{scores.flora}</span>
+                                  <span className="opacity-75">FLORA</span>
+                                </div>
+                                <div className="w-px h-8 bg-white/20"></div>
+                                <div className="flex flex-col items-center">
+                                  <span className="font-bold text-lg">{scores.flow}</span>
+                                  <span className="opacity-75">FLOW</span>
                                 </div>
                               </div>
                             </div>
-                          </>
+                          </div>
                         );
                       })()}
-
-                      {/* Diagnoses kept as it wasn't explicitly asked to be removed, but Objective/Time removed */}
-                      <div className="pt-1">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Diagnósticos</p>
-                        <p className="text-sm text-[#4A4A4A]">
-                          {user.diagnoses && user.diagnoses.length > 0 ? user.diagnoses.join(', ') : 'Ninguno registrado'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* HEADER */}
-                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white">
-                      <h3 className="text-lg font-bold mb-1">Ficha Personal (F0)</h3>
-                      <p className="text-sm opacity-90">
-                        Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString())}
-                      </p>
-                      {f0Form.pdf_generated_at && (
-                        <p className="text-xs opacity-75 mt-1">
-                          Última actualización: {formatDate(f0Form.pdf_generated_at)}
-                        </p>
-                      )}
                     </div>
 
                     {/* F0 DATA */}
