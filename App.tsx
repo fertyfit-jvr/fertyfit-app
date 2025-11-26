@@ -877,18 +877,16 @@ function AppContent() {
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
-  const [editPartnerStatus, setEditPartnerStatus] = useState('');
 
   const handleSaveProfile = async () => {
     if (!user) return;
 
     const { error } = await supabase.from('profiles').update({
-      name: editName,
-      partner_status: editPartnerStatus
+      name: editName
     }).eq('id', user.id);
 
     if (!error) {
-      setUser({ ...user, name: editName, partnerStatus: editPartnerStatus });
+      setUser({ ...user, name: editName });
       setIsEditingProfile(false);
       showNotif('Perfil actualizado correctamente', 'success');
     } else {
@@ -900,7 +898,6 @@ function AppContent() {
   useEffect(() => {
     if (user && view === 'PROFILE') {
       setEditName(user.name);
-      setEditPartnerStatus(user.partnerStatus || '');
     }
   }, [user, view]);
 
@@ -2718,20 +2715,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                         <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
                         <p className="text-sm text-[#4A4A4A] opacity-70">{user.email} <span className="text-[10px] italic">(No editable)</span></p>
                       </div>
-                      <div className="pb-1">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Estado (Pareja)</p>
-                        {isEditingProfile ? (
-                          <input
-                            type="text"
-                            value={editPartnerStatus}
-                            onChange={e => setEditPartnerStatus(e.target.value)}
-                            className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
-                            placeholder="Ej: Soltera, En pareja..."
-                          />
-                        ) : (
-                          <p className="text-sm text-[#4A4A4A]">{user.partnerStatus || 'No especificado'}</p>
-                        )}
-                      </div>
+
                     </div>
                   </div>
 
