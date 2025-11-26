@@ -514,8 +514,8 @@ const StatCard = ({ title, value, target, unit, icon: Icon, hideTarget }: any) =
           <div className={`text-[10px] mt-1 font-medium ${isGood ? 'text-emerald-500' : 'text-[#95706B]'}`}>Meta: {target} {unit}</div>
         )}
       </div>
-      <div className={`p-3 rounded-full ${bgClass} relative z-10`}>
-        <Icon size={20} className={hideTarget ? 'text-[#95706B]' : 'currentColor'} />
+      <div className={`p-3.5 rounded-full ${bgClass} relative z-10 shadow-sm`}>
+        <Icon size={28} className={hideTarget ? 'text-[#95706B]' : 'currentColor'} strokeWidth={1.5} />
       </div>
     </div>
   );
@@ -542,7 +542,12 @@ const NotificationCard: React.FC<{ notification: any; onMarkRead: (id: number) =
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={getBgColor()}>
-            <span className="text-white text-xs font-bold px-2 py-1 rounded">{notification.type}</span>
+            <span className="text-white text-xs font-bold px-2 py-1 rounded">
+              {notification.type === 'celebration' ? 'Celebración' :
+                notification.type === 'success' ? 'Éxito' :
+                  notification.type === 'alert' ? 'Alerta' :
+                    notification.type === 'tip' ? 'Consejo' : notification.type}
+            </span>
           </div>
           <h4 className="font-semibold text-[#4A4A4A]">{notification.title}</h4>
         </div>
@@ -1107,16 +1112,40 @@ function AppContent() {
           ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
           : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.');
 
-        const { error } = await supabase.from('notifications').insert({
-          user_id: userId,
-          title,
-          message,
-          type: 'celebration',
-          priority: 3
-        });
-        console.log('✅ F0 AI notification created:', { title, success: !error });
+
+
+        // CHECK FOR DUPLICATES BEFORE INSERTING
+        // Fix: Use localStorage to prevent re-generation if deleted by user
+        const localSentKey = `fertyfit_welcome_sent_${userId}`;
+        const alreadySentLocal = localStorage.getItem(localSentKey);
+
+        const { data: existingNotifs } = await supabase.from('notifications').select('id').eq('user_id', userId).eq('title', title);
+
+        if ((!existingNotifs || existingNotifs.length === 0) && !alreadySentLocal) {
+          const { error } = await supabase.from('notifications').insert({
+            user_id: userId,
+            title,
+            message,
+            type: 'celebration',
+            priority: 3
+          });
+          if (!error) {
+            localStorage.setItem(localSentKey, 'true');
+          }
+          console.log('✅ F0 AI notification created:', { title, success: !error });
+        } else {
+          console.log('⚠️ Notification already exists or sent previously, skipping:', title);
+        }
       } else {
         // Daily logs: Generate TWO notifications using Gemini API
+        // FETCH PROFILE DATA (F0) to include context
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
+
+        if (!profile) {
+          console.error('❌ No profile found for AI notification');
+          return;
+        }
+
         const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const SYSTEM_CONTEXT = `
@@ -1132,6 +1161,17 @@ IMPORTANTE:
 - SIEMPRE recomienda consultar con un profesional si hay algo preocupante
         `;
 
+        // Include F0 profile context
+        const profileContext = {
+          nombre: profile.name,
+          edad: profile.age,
+          objetivo: profile.main_objective,
+          diagnosticos: profile.diagnoses && profile.diagnoses.length > 0 ? profile.diagnoses.join(', ') : 'Ninguno',
+          tiempoBuscando: profile.time_trying || 'No especificado',
+          cicloPromedio: profile.cycle_length,
+          regularidad: profile.cycle_regularity
+        };
+
         const logSummary = recentLogs.slice(0, 14).map(log => ({
           date: log.date,
           cycleDay: log.cycleDay,
@@ -1140,16 +1180,21 @@ IMPORTANTE:
           stress: log.stressLevel,
           sleep: log.sleepHours,
           symptoms: log.symptoms,
-          lhTest: log.lhTest
+          lhTest: log.lhTest,
+          alcohol: log.alcohol,
+          veggieServings: log.veggieServings
         }));
 
         // 1. POSITIVE NOTIFICATION
         const POSITIVE_PROMPT = `${SYSTEM_CONTEXT}
 
-TAREA: Analiza los siguientes datos y encuentra UN ASPECTO POSITIVO.
+CONTEXTO DE LA USUARIA (F0):
+${JSON.stringify(profileContext, null, 2)}
 
-DATOS:
+DATOS DE LOS ÚLTIMOS 14 DÍAS:
 ${JSON.stringify(logSummary, null, 2)}
+
+TAREA: Analiza los datos considerando el contexto de la usuaria y encuentra UN ASPECTO POSITIVO específico y personalizado.
 
 Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono positivo y motivador.`;
 
@@ -1180,10 +1225,13 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono positivo y mot
         // 2. ALERT NOTIFICATION
         const ALERT_PROMPT = `${SYSTEM_CONTEXT}
 
-TAREA: Analiza los siguientes datos y encuentra UN ÁREA DE MEJORA.
+CONTEXTO DE LA USUARIA (F0):
+${JSON.stringify(profileContext, null, 2)}
 
-DATOS:
+DATOS DE LOS ÚLTIMOS 14 DÍAS:
 ${JSON.stringify(logSummary, null, 2)}
+
+TAREA: Analiza los datos considerando el contexto de la usuaria y encuentra UN ÁREA DE MEJORA prioritaria y personalizada.
 
 Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, no alarmista.`;
 
@@ -2428,25 +2476,37 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                     <div>
                       <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Los 4 Pilares de FertyFit</h3>
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FUNCTION.png" alt="Function" className="w-8 h-8 mb-2" />
-                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Function</span>
-                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.function}/100)</span>
+                        {/* Function */}
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
+                          <div className="flex items-center justify-center gap-3 w-full mb-2">
+                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FUNCTION.png" alt="Function" className="w-8 h-8" />
+                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.function}/100</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Function</span>
                         </div>
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FOOD.png" alt="Food" className="w-8 h-8 mb-2" />
-                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Food</span>
-                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.food}/100)</span>
+                        {/* Food */}
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
+                          <div className="flex items-center justify-center gap-3 w-full mb-2">
+                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FOOD.png" alt="Food" className="w-8 h-8" />
+                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.food}/100</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Food</span>
                         </div>
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLORA.png" alt="Flora" className="w-8 h-8 mb-2" />
-                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flora</span>
-                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flora}/100)</span>
+                        {/* Flora */}
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
+                          <div className="flex items-center justify-center gap-3 w-full mb-2">
+                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLORA.png" alt="Flora" className="w-8 h-8" />
+                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.flora}/100</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flora</span>
                         </div>
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] text-center flex flex-col items-center justify-center py-4">
-                          <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLOW.png" alt="Flow" className="w-8 h-8 mb-2" />
-                          <span className="text-[10px] font-bold text-[#5D7180] leading-tight">Flow</span>
-                          <span className="text-xs font-bold text-[#4A4A4A] mt-1">({scores.flow}/100)</span>
+                        {/* Flow */}
+                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
+                          <div className="flex items-center justify-center gap-3 w-full mb-2">
+                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLOW.png" alt="Flow" className="w-8 h-8" />
+                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.flow}/100</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flow</span>
                         </div>
                       </div>
                     </div>
@@ -2575,40 +2635,33 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       const scores = calculateFertyScore(user, logs);
                       return (
                         <>
-                          <div className="flex items-center justify-between mb-6">
-                            <div>
-                              <h3 className="font-bold text-[#4A4A4A] text-lg">Tu FertyScore</h3>
-                              <p className="text-xs text-[#5D7180]">Basado en tus 4 pilares</p>
-                            </div>
-                            <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] text-white px-4 py-2 rounded-xl font-bold text-2xl shadow-lg shadow-rose-200">
+                          <div className="flex flex-col items-center justify-center mb-8">
+                            <h3 className="font-bold text-[#4A4A4A] text-lg mb-2">Tu FertyScore</h3>
+                            <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] text-white w-24 h-24 rounded-full flex items-center justify-center font-bold text-4xl shadow-xl shadow-rose-200 border-4 border-white">
                               {scores.total}
                             </div>
+                            <p className="text-xs text-[#5D7180] mt-2">Puntuación Global</p>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
-                            {/* Function */}
-                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FUNCTION.png" alt="Function" className="w-10 h-10 mb-2" />
-                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Function</span>
-                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.function}/100</span>
+                          <div className="flex justify-between items-center bg-[#F4F0ED]/50 p-4 rounded-2xl">
+                            <div className="text-center">
+                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.function}</span>
+                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Function</span>
                             </div>
-                            {/* Food */}
-                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FOOD.png" alt="Food" className="w-10 h-10 mb-2" />
-                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Food</span>
-                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.food}/100</span>
+                            <div className="w-px h-8 bg-stone-200"></div>
+                            <div className="text-center">
+                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.food}</span>
+                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Food</span>
                             </div>
-                            {/* Flora */}
-                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLORA.png" alt="Flora" className="w-10 h-10 mb-2" />
-                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flora</span>
-                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.flora}/100</span>
+                            <div className="w-px h-8 bg-stone-200"></div>
+                            <div className="text-center">
+                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.flora}</span>
+                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Flora</span>
                             </div>
-                            {/* Flow */}
-                            <div className="bg-[#F4F0ED]/30 p-4 rounded-2xl flex flex-col items-center text-center">
-                              <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLOW.png" alt="Flow" className="w-10 h-10 mb-2" />
-                              <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flow</span>
-                              <span className="font-bold text-[#4A4A4A] mt-1">{scores.flow}/100</span>
+                            <div className="w-px h-8 bg-stone-200"></div>
+                            <div className="text-center">
+                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.flow}</span>
+                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Flow</span>
                             </div>
                           </div>
                         </>
@@ -2622,7 +2675,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                     {notifications.slice(0, 3).length > 0 ? (
                       <div className="space-y-3">
                         {notifications.slice(0, 3).map(notif => (
-                          <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} />
+                          <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} deleteNotification={deleteNotification} />
                         ))}
                       </div>
                     ) : (
