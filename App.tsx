@@ -2448,65 +2448,52 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       </div>
                     )}
 
-                    {/* MAIN SCORE CARD */}
-                    <div className="bg-[#F9F6F4] p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] text-center relative overflow-hidden">
-                      <h3 className="text-lg font-sans text-[#5D7180] mb-2">Ferty Score</h3>
-                      <div className={'text-7xl font-bold mb-2 transition-colors duration-500 ' + getScoreColor(scores.total)}>
-                        {scores.total}
-                      </div>
-                      <p className="text-sm text-[#4A4A4A] font-medium mb-6">
-                        {scores.total >= 70 ? '¡Estás optimizando tu cuerpo para el embarazo!' : (scores.total >= 40 ? 'Vas por buen camino, sigue mejorando.' : 'Hay oportunidades de mejora importantes.')}
-                      </p>
+                    {/* MAIN SCORE CARD (Redesigned) */}
+                    <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] relative overflow-hidden">
 
-                      <div className="bg-white p-4 rounded-xl shadow-sm">
+                      {/* Ferty Score Circle */}
+                      <div className="flex flex-col items-center justify-center mb-8">
+                        <h3 className="font-bold text-[#4A4A4A] text-lg mb-2">Tu FertyScore</h3>
+                        <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] text-white w-24 h-24 rounded-full flex items-center justify-center font-bold text-4xl shadow-xl shadow-rose-200 border-4 border-white">
+                          {scores.total}
+                        </div>
+                        <p className="text-xs text-[#5D7180] mt-2">Puntuación Global</p>
+                      </div>
+
+                      {/* 4 Pillars (Text Only) */}
+                      <div className="flex justify-between items-center bg-[#F4F0ED]/50 p-4 rounded-2xl mb-6">
+                        <div className="text-center">
+                          <span className="block text-lg font-bold text-[#4A4A4A]">{scores.function}</span>
+                          <span className="text-[10px] text-[#95706B] font-bold uppercase">Function</span>
+                        </div>
+                        <div className="w-px h-8 bg-stone-200"></div>
+                        <div className="text-center">
+                          <span className="block text-lg font-bold text-[#4A4A4A]">{scores.food}</span>
+                          <span className="text-[10px] text-[#95706B] font-bold uppercase">Food</span>
+                        </div>
+                        <div className="w-px h-8 bg-stone-200"></div>
+                        <div className="text-center">
+                          <span className="block text-lg font-bold text-[#4A4A4A]">{scores.flora}</span>
+                          <span className="text-[10px] text-[#95706B] font-bold uppercase">Flora</span>
+                        </div>
+                        <div className="w-px h-8 bg-stone-200"></div>
+                        <div className="text-center">
+                          <span className="block text-lg font-bold text-[#4A4A4A]">{scores.flow}</span>
+                          <span className="text-[10px] text-[#95706B] font-bold uppercase">Flow</span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="bg-[#F9F6F4] p-4 rounded-xl border border-[#F4F0ED]">
                         <div className="flex justify-between text-xs text-[#95706B] font-bold mb-2 uppercase tracking-wide">
                           <span>Progreso del Método</span>
                           <span>{Math.round(progressPercent)}%</span>
                         </div>
-                        <div className="h-2 w-full bg-[#F4F0ED] rounded-full overflow-hidden">
+                        <div className="h-2 w-full bg-white rounded-full overflow-hidden border border-[#F4F0ED]">
                           <div className="h-full bg-[#9ECCB4] rounded-full transition-all duration-1000" style={{ width: progressPercent + '%' }}></div>
                         </div>
                         <div className="flex justify-between text-[10px] text-[#5D7180] mt-1">
                           <span>{daysActive}/90 días</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* KEY FACTORS - 4 Pillars */}
-                    <div>
-                      <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Los 4 Pilares de FertyFit</h3>
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Function */}
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
-                          <div className="flex items-center justify-center gap-3 w-full mb-2">
-                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FUNCTION.png" alt="Function" className="w-8 h-8" />
-                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.function}/100</span>
-                          </div>
-                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Function</span>
-                        </div>
-                        {/* Food */}
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
-                          <div className="flex items-center justify-center gap-3 w-full mb-2">
-                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FOOD.png" alt="Food" className="w-8 h-8" />
-                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.food}/100</span>
-                          </div>
-                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Food</span>
-                        </div>
-                        {/* Flora */}
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
-                          <div className="flex items-center justify-center gap-3 w-full mb-2">
-                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLORA.png" alt="Flora" className="w-8 h-8" />
-                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.flora}/100</span>
-                          </div>
-                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flora</span>
-                        </div>
-                        {/* Flow */}
-                        <div className="bg-white p-3 rounded-2xl shadow-sm border border-[#F4F0ED] flex flex-col items-center justify-center py-4 relative overflow-hidden">
-                          <div className="flex items-center justify-center gap-3 w-full mb-2">
-                            <img src="https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLOW.png" alt="Flow" className="w-8 h-8" />
-                            <span className="text-lg font-bold text-[#4A4A4A]">{scores.flow}/100</span>
-                          </div>
-                          <span className="text-[10px] font-bold text-[#5D7180] uppercase tracking-wider">Flow</span>
                         </div>
                       </div>
                     </div>
@@ -2629,44 +2616,50 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
               {/* PROFILE TAB */}
               {profileTab === 'PROFILE' && (
                 <div className="space-y-6">
-                  {/* FERTY SCORE & 4 PILLARS */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-[#F4F0ED]">
-                    {(() => {
-                      const scores = calculateFertyScore(user, logs);
-                      return (
-                        <>
-                          <div className="flex flex-col items-center justify-center mb-8">
-                            <h3 className="font-bold text-[#4A4A4A] text-lg mb-2">Tu FertyScore</h3>
-                            <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] text-white w-24 h-24 rounded-full flex items-center justify-center font-bold text-4xl shadow-xl shadow-rose-200 border-4 border-white">
-                              {scores.total}
-                            </div>
-                            <p className="text-xs text-[#5D7180] mt-2">Puntuación Global</p>
-                          </div>
+                  {/* FERTY SCORE & 4 PILLARS (REMOVED from Profile, moved to Dashboard) */}
+                  {/* Replaced with Document Style Profile Info */}
+                  <div className="space-y-4">
+                    {/* HEADER */}
+                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white">
+                      <h3 className="text-lg font-bold mb-1">Datos de Perfil</h3>
+                      <p className="text-sm opacity-90">
+                        Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
 
-                          <div className="flex justify-between items-center bg-[#F4F0ED]/50 p-4 rounded-2xl">
-                            <div className="text-center">
-                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.function}</span>
-                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Function</span>
-                            </div>
-                            <div className="w-px h-8 bg-stone-200"></div>
-                            <div className="text-center">
-                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.food}</span>
-                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Food</span>
-                            </div>
-                            <div className="w-px h-8 bg-stone-200"></div>
-                            <div className="text-center">
-                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.flora}</span>
-                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Flora</span>
-                            </div>
-                            <div className="w-px h-8 bg-stone-200"></div>
-                            <div className="text-center">
-                              <span className="block text-lg font-bold text-[#4A4A4A]">{scores.flow}</span>
-                              <span className="text-[10px] text-[#95706B] font-bold uppercase">Flow</span>
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
+                    {/* PROFILE DATA LIST */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                      </div>
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.email}</p>
+                      </div>
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Edad</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.age} años</p>
+                      </div>
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Objetivo Principal</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.mainObjective || 'No especificado'}</p>
+                      </div>
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Estado Civil</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.partnerStatus || 'No especificado'}</p>
+                      </div>
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Tiempo Buscando</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.timeTrying || 'No especificado'}</p>
+                      </div>
+                      <div className="pb-1">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Diagnósticos</p>
+                        <p className="text-sm text-[#4A4A4A]">
+                          {user.diagnoses && user.diagnoses.length > 0 ? user.diagnoses.join(', ') : 'Ninguno registrado'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* NOTIFICACIONES-Últimas 3 */}
