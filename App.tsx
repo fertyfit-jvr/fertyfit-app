@@ -3,7 +3,7 @@ import {
   Heart, Activity, BookOpen, FileText, User, LogOut, AlertCircle,
   Moon, Sun, PlayCircle, FileText as PdfIcon,
   Lock, X, Star, Award, Mail, Key, CheckSquare, Download, ChevronDown, ChevronUp, ArrowRight, Smile, Play,
-  CheckCircle, WineOff, Calendar, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles, Trash
+  CheckCircle, WineOff, Calendar, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles, Trash, Check, Edit2
 } from 'lucide-react';
 
 import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
@@ -852,6 +852,45 @@ function AppContent() {
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [profileTab, setProfileTab] = useState<'PROFILE' | 'HISTORIA'>('PROFILE');
 
+  // Notification Persistence: Load deleted IDs from localStorage
+  const [deletedNotificationIds, setDeletedNotificationIds] = useState<number[]>(() => {
+    const stored = localStorage.getItem('fertyfit_deleted_notifications');
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  // Filter notifications based on blacklist
+  const visibleNotifications = notifications.filter(n => !deletedNotificationIds.includes(n.id));
+
+  // Profile Edit State
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPartnerStatus, setEditPartnerStatus] = useState('');
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    const { error } = await supabase.from('profiles').update({
+      name: editName,
+      partner_status: editPartnerStatus
+    }).eq('id', user.id);
+
+    if (!error) {
+      setUser({ ...user, name: editName, partnerStatus: editPartnerStatus });
+      setIsEditingProfile(false);
+      showNotif('Perfil actualizado correctamente', 'success');
+    } else {
+      showNotif('Error al actualizar perfil', 'error');
+    }
+  };
+
+  // Initialize edit state when entering profile
+  useEffect(() => {
+    if (user && view === 'PROFILE') {
+      setEditName(user.name);
+      setEditPartnerStatus(user.partnerStatus || '');
+    }
+  }, [user, view]);
+
   useEffect(() => { checkUser(); }, []);
 
   const showNotif = (msg: string, type: 'success' | 'error') => {
@@ -1036,12 +1075,20 @@ function AppContent() {
 
   // Delete a notification completely
   const deleteNotification = async (notifId: number) => {
+    // 1. Update Local State (Blacklist)
+    const newDeletedIds = [...deletedNotificationIds, notifId];
+    setDeletedNotificationIds(newDeletedIds);
+    localStorage.setItem('fertyfit_deleted_notifications', JSON.stringify(newDeletedIds));
+
+    // 2. Optimistic UI Update
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+
+    // 3. Server Delete
     const { error } = await supabase.from('notifications').delete().eq('id', notifId);
-    if (!error) {
-      setNotifications(prev => prev.filter(n => n.id !== notifId));
-      console.log('✅ Notification deleted', notifId);
+    if (error) {
+      console.error('Error deleting notification:', error);
     } else {
-      console.error('❌ Failed to delete notification', error);
+      console.log('✅ Notification deleted', notifId);
     }
   };
 
@@ -2618,46 +2665,59 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                 <div className="space-y-6">
                   {/* FERTY SCORE & 4 PILLARS (REMOVED from Profile, moved to Dashboard) */}
                   {/* Replaced with Document Style Profile Info */}
+                  {/* Replaced with Document Style Profile Info - PERSONAL DATA ONLY */}
                   <div className="space-y-4">
                     {/* HEADER */}
-                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white">
-                      <h3 className="text-lg font-bold mb-1">Datos de Perfil</h3>
-                      <p className="text-sm opacity-90">
-                        Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                      </p>
+                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-bold mb-1">Datos Personales</h3>
+                        <p className="text-sm opacity-90">
+                          Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (isEditingProfile) handleSaveProfile();
+                          else setIsEditingProfile(true);
+                        }}
+                        className="bg-white/20 hover:bg-white/30 p-2 rounded-xl transition-colors backdrop-blur-sm"
+                      >
+                        {isEditingProfile ? <Check size={20} /> : <Edit2 size={20} />}
+                      </button>
                     </div>
 
                     {/* PROFILE DATA LIST */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
                       <div className="border-b border-[#F4F0ED] pb-3">
                         <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                        {isEditingProfile ? (
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
+                          />
+                        ) : (
+                          <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                        )}
                       </div>
                       <div className="border-b border-[#F4F0ED] pb-3">
                         <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.email}</p>
-                      </div>
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Edad</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.age} años</p>
-                      </div>
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Objetivo Principal</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.mainObjective || 'No especificado'}</p>
-                      </div>
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Estado Civil</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.partnerStatus || 'No especificado'}</p>
-                      </div>
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Tiempo Buscando</p>
-                        <p className="text-sm text-[#4A4A4A]">{user.timeTrying || 'No especificado'}</p>
+                        <p className="text-sm text-[#4A4A4A] opacity-70">{user.email} <span className="text-[10px] italic">(No editable)</span></p>
                       </div>
                       <div className="pb-1">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Diagnósticos</p>
-                        <p className="text-sm text-[#4A4A4A]">
-                          {user.diagnoses && user.diagnoses.length > 0 ? user.diagnoses.join(', ') : 'Ninguno registrado'}
-                        </p>
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Estado (Pareja)</p>
+                        {isEditingProfile ? (
+                          <input
+                            type="text"
+                            value={editPartnerStatus}
+                            onChange={e => setEditPartnerStatus(e.target.value)}
+                            className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
+                            placeholder="Ej: Soltera, En pareja..."
+                          />
+                        ) : (
+                          <p className="text-sm text-[#4A4A4A]">{user.partnerStatus || 'No especificado'}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2665,9 +2725,9 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                   {/* NOTIFICACIONES-Últimas 3 */}
                   <div>
                     <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
-                    {notifications.slice(0, 3).length > 0 ? (
+                    {visibleNotifications.slice(0, 3).length > 0 ? (
                       <div className="space-y-3">
-                        {notifications.slice(0, 3).map(notif => (
+                        {visibleNotifications.slice(0, 3).map(notif => (
                           <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} deleteNotification={deleteNotification} />
                         ))}
                       </div>
@@ -2759,6 +2819,44 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
 
                 return (
                   <div className="space-y-4">
+                    {/* BIOLOGICAL DATA SECTION (Moved from Profile) */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                      <h4 className="font-bold text-[#4A4A4A] mb-2 text-sm border-b border-[#F4F0ED] pb-2">Estado de Fertilidad</h4>
+
+                      {(() => {
+                        const scores = calculateFertyScore(user, logs);
+                        return (
+                          <>
+                            <div className="border-b border-[#F4F0ED] pb-3">
+                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Ferty Score</p>
+                              <p className="text-lg font-bold text-[#C7958E]">{scores.total}/100</p>
+                            </div>
+                            <div className="border-b border-[#F4F0ED] pb-3">
+                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Pilares</p>
+                              <p className="text-sm text-[#4A4A4A]">
+                                Function: {scores.function} | Food: {scores.food} | Flora: {scores.flora} | Flow: {scores.flow}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
+
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Objetivo Principal</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.mainObjective || 'No especificado'}</p>
+                      </div>
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Tiempo Buscando</p>
+                        <p className="text-sm text-[#4A4A4A]">{user.timeTrying || 'No especificado'}</p>
+                      </div>
+                      <div className="pb-1">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Diagnósticos</p>
+                        <p className="text-sm text-[#4A4A4A]">
+                          {user.diagnoses && user.diagnoses.length > 0 ? user.diagnoses.join(', ') : 'Ninguno registrado'}
+                        </p>
+                      </div>
+                    </div>
+
                     {/* HEADER */}
                     <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white">
                       <h3 className="text-lg font-bold mb-1">Ficha Personal (F0)</h3>
