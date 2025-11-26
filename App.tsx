@@ -6,10 +6,12 @@ import {
   CheckCircle, WineOff, Calendar, Thermometer, Droplets, Zap, Clock, Scale, Leaf, Minus, Plus, Sparkles, Trash, Check, Edit2
 } from 'lucide-react';
 
-import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
+import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
+import { NotificationList } from './components/NotificationSystem';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus } from './services/dataService';
 import { supabase } from './services/supabase';
+import { evaluateRules, saveNotifications } from './services/RuleEngine';
 
 // --- Error Boundary for Production Safety ---
 interface ErrorBoundaryProps {
@@ -279,72 +281,7 @@ const calculateFertyScore = (user: UserProfile, logs: DailyLog[]) => {
 
 
 
-const getAlertsAndOpportunities = (user: UserProfile, logs: DailyLog[], scores: any) => {
-  const items = [];
-  const recentLogs = logs.slice(0, 14);
 
-  // ALERTS (Red)
-  // Alcohol
-  const alcoholDays = recentLogs.filter(l => l.alcohol).length;
-  if (alcoholDays > 2) {
-    items.push({
-      type: 'alert',
-      title: 'Hábito Nocivo Detectado',
-      desc: 'Has registrado consumo de alcohol frecuente. Esto reduce tu FertyScore.',
-      action: 'Ver Módulo 3',
-      link: 'EDUCATION'
-    });
-  }
-
-  // Low Sleep
-  const avgSleep = parseFloat(calculateAverages(recentLogs).sleep);
-  if (avgSleep < 6 && avgSleep > 0) {
-    items.push({
-      type: 'alert',
-      title: 'Déficit de Sueño',
-      desc: 'Tu promedio de sueño es bajo (<6h). Prioriza el descanso.',
-      action: 'Tips de Sueño',
-      link: 'EDUCATION'
-    });
-  }
-
-  // OPPORTUNITIES (Green)
-  // Report Due
-  if (user.methodStartDate) {
-    const start = new Date(user.methodStartDate);
-    start.setHours(0, 0, 0, 0);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
-
-    const nextReportDay = days <= 28 ? 28 : (days <= 56 ? 56 : 84);
-    const daysLeft = nextReportDay - days;
-
-    if (daysLeft <= 14 && daysLeft > 0) {
-      items.push({
-        type: 'opportunity',
-        title: `Próximo Informe F${days <= 28 ? '1' : (days <= 56 ? '2' : '3')} en...`,
-        desc: `¡Te quedan ${daysLeft} días! Revisa tus objetivos.`,
-        action: `Ver Módulo ${days <= 28 ? '4' : (days <= 56 ? '8' : '12')}`,
-        link: 'EDUCATION'
-      });
-    }
-  }
-
-  // Positive Reinforcement (Good Sleep)
-  const avgSleepGood = parseFloat(calculateAverages(recentLogs).sleep);
-  if (avgSleepGood >= 7.5) {
-    items.push({
-      type: 'opportunity',
-      title: '¡Gran Descanso!',
-      desc: 'Tu sueño es óptimo. Esto es clave para tu equilibrio hormonal.',
-      action: '',
-      link: ''
-    });
-  }
-
-  return items;
-};
 
 const FORM_DEFINITIONS = {
   F0: {
@@ -521,58 +458,7 @@ const StatCard = ({ title, value, target, unit, icon: Icon, hideTarget }: any) =
   );
 };
 
-// Notification Card Component
-const NotificationCard: React.FC<{ notification: any; onMarkRead: (id: number) => void; deleteNotification: (id: number) => void }> = ({ notification, onMarkRead, deleteNotification }) => {
-  const [expanded, setExpanded] = useState(false);
 
-  const getBgColor = () => {
-    if (notification.type === 'success') return 'bg-emerald-500';
-    if (notification.type === 'alert') return 'bg-rose-500';
-    return 'bg-[#C7958E]';
-  };
-
-  const getIcon = () => {
-    if (notification.type === 'success') return <Sparkles size={16} />;
-    if (notification.type === 'alert') return <AlertCircle size={16} />;
-    return <Star size={16} />;
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={getBgColor()}>
-            <span className="text-white text-xs font-bold px-2 py-1 rounded">
-              {notification.type === 'celebration' ? 'Celebración' :
-                notification.type === 'success' ? 'Éxito' :
-                  notification.type === 'alert' ? 'Alerta' :
-                    notification.type === 'tip' ? 'Consejo' : notification.type}
-            </span>
-          </div>
-          <h4 className="font-semibold text-[#4A4A4A]">{notification.title}</h4>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setExpanded(!expanded)} className="text-[#5D7180]">
-            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-          <button onClick={() => deleteNotification(notification.id)} className="text-[#C7958E] hover:text-[#95706B]">
-            <Trash size={16} />
-          </button>
-        </div>
-      </div>
-      {expanded && (
-        <div className="mt-2 text-sm text-[#5D7180] whitespace-pre-wrap">
-          {notification.message}
-          {!notification.is_read && (
-            <button onClick={() => onMarkRead(notification.id)} className="mt-2 block text-[#C7958E] underline">
-              Marcar como leída
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // Report Card Component
 const ReportCard: React.FC<{ report: any }> = ({ report }) => {
@@ -976,8 +862,33 @@ function AppContent() {
 
           // Fetch data CRITICAL: Wait for data before showing dashboard
           console.log('🔄 Fetching user data...');
-          await fetchLogs(session.user.id);
-          await fetchUserForms(session.user.id);
+          const fetchedLogs = await fetchLogs(session.user.id);
+          const fetchedForms = await fetchUserForms(session.user.id); // Assuming we might need this too, but for now logs is enough
+
+          // RULE ENGINE: PERIODIC CHECK
+          // We construct the user object same as above
+          const currentUser = {
+            id: session.user.id, email: session.user.email, joinedAt: profile.created_at,
+            methodStartDate: profile.method_start_date,
+            name: profile.name, age: profile.age, weight: profile.weight, height: profile.height, timeTrying: profile.time_trying,
+            diagnoses: profile.diagnoses || [], treatments: [], disclaimerAccepted: profile.disclaimer_accepted, isOnboarded: true,
+            mainObjective: profile.main_objective, partnerStatus: profile.partner_status,
+            role: profile.role || 'user',
+            // Add other fields if needed by rules
+            cycleRegularity: profile.cycle_regularity,
+            fertilityTreatments: profile.fertility_treatments,
+            supplements: profile.supplements,
+            alcoholConsumption: profile.alcohol_consumption
+          };
+
+          if (fetchedLogs) {
+            const ruleNotifs = await evaluateRules('PERIODIC', {
+              user: currentUser as UserProfile,
+              recentLogs: fetchedLogs
+            });
+            await saveNotifications(session.user.id, ruleNotifs);
+          }
+
           await fetchNotifications(session.user.id);
           await fetchEducation(session.user.id, profile.method_start_date);
 
@@ -1055,17 +966,25 @@ function AppContent() {
         const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
         setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
       }
+      return mappedLogs;
     }
+    return [];
   };
 
 
 
   const fetchNotifications = async (userId: string) => {
-    const { data, error, status, statusText } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
     if (error) console.error('❌ Error fetching notifications:', error);
     if (data) {
-      setNotifications(data);
+      // Filter out soft-deleted notifications (metadata.deleted === true)
+      const activeNotifications = data.filter(n => !n.metadata?.deleted);
+      setNotifications(activeNotifications);
     }
   };
 
@@ -1084,6 +1003,7 @@ function AppContent() {
   };
 
   // Delete a notification completely
+  // Delete a notification (Soft Delete)
   const deleteNotification = async (notifId: number) => {
     // 1. Update Local State (Blacklist)
     const newDeletedIds = [...deletedNotificationIds, notifId];
@@ -1093,12 +1013,17 @@ function AppContent() {
     // 2. Optimistic UI Update
     setNotifications(prev => prev.filter(n => n.id !== notifId));
 
-    // 3. Server Delete
-    const { error } = await supabase.from('notifications').delete().eq('id', notifId);
+    // 3. Server Soft Delete (Update metadata)
+    // We fetch the current metadata first to preserve other fields if any
+    const { data: current } = await supabase.from('notifications').select('metadata').eq('id', notifId).single();
+    const newMeta = { ...(current?.metadata || {}), deleted: true };
+
+    const { error } = await supabase.from('notifications').update({ metadata: newMeta }).eq('id', notifId);
+
     if (error) {
       console.error('Error deleting notification:', error);
     } else {
-      console.log('✅ Notification deleted', notifId);
+      console.log('✅ Notification soft-deleted', notifId);
     }
   };
 
@@ -1382,6 +1307,15 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
       // 1. First daily log ever -> Generate AI
       // 2. Every 7 days after first -> Generate AI
       const updatedLogs = await supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: false });
+
+      // RULE ENGINE EVALUATION
+      const ruleNotifications = await evaluateRules('DAILY_LOG_SAVE', {
+        user: user,
+        currentLog: formattedLog as DailyLog,
+        recentLogs: updatedLogs.data.map(mapLogFromDB)
+      });
+      await saveNotifications(user.id, ruleNotifications);
+      await fetchNotifications(user.id);
 
       if (updatedLogs.data && updatedLogs.data.length > 0) {
         const totalLogs = updatedLogs.data.length;
@@ -1863,6 +1797,27 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
       }
 
       if (!error) {
+        // RULE ENGINE: F0 CREATE/UPDATE
+        if (formType === 'F0') {
+          const trigger = submittedForm ? 'F0_UPDATE' : 'F0_CREATE';
+          // We need to construct a context. We have 'user' and 'formattedAnswers'.
+          // We might need to reload 'submittedForms' to pass them, or construct a mock.
+          // For simplicity, we'll fetch the forms again or pass the new one.
+          // But evaluateRules expects 'submittedForms' array.
+          const newForm = { form_type: 'F0', answers: formattedAnswers };
+          const updatedForms = submittedForm
+            ? submittedForms.map(f => f.id === submittedForm.id ? newForm : f)
+            : [...submittedForms, newForm];
+
+          const ruleNotifs = await evaluateRules(trigger, {
+            user: user,
+            previousUser: user, // For update comparison if needed, though we rely on form answers mostly
+            submittedForms: updatedForms
+          });
+          await saveNotifications(user.id, ruleNotifs);
+          await fetchNotifications(user.id);
+        }
+
         // IF F0, UPDATE PROFILE SYNC IMMEDIATELY
         if (formType === 'F0') {
           const updates: any = {};
@@ -1970,7 +1925,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
 
           if (f0AiCount === 0) {
             // First time completing F0
-            analyzeLogsWithAI(user.id, [], 'f0');
+            // analyzeLogsWithAI(user.id, [], 'f0'); // Disabled - using RuleEngine notifications only
             await supabase.from('profiles').update({ f0_ai_count: 1 }).eq('id', user.id);
           } else if (f0AiCount === 1 && submittedForm) {
             // First update of F0 (only once)
@@ -2451,7 +2406,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
               {/* DASHBOARD REDESIGN */}
               {(() => {
                 const scores = calculateFertyScore(user, logs);
-                const alerts = getAlertsAndOpportunities(user, logs, scores);
+
 
                 const getDaysActive = () => {
                   if (!user.methodStartDate) return 0;
@@ -2557,48 +2512,17 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       </div>
                     </div>
 
-                    {/* ALERTS & OPPORTUNITIES */}
-                    <div>
-                      <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Alertas y Oportunidades</h3>
-                      {(alerts.length > 0 || notifications.filter(n => !n.is_read).length > 0) ? (
-                        <div className="flex overflow-x-auto gap-4 pb-4 snap-x custom-scrollbar">
-                          {/* AI Notifications */}
-                          {notifications.filter(n => !n.is_read).map(notif => (
-                            <div key={notif.id} className="snap-center min-w-[280px] p-5 rounded-2xl shadow-sm border flex flex-col justify-between bg-gradient-to-br from-purple-600 to-indigo-600 text-white border-purple-500">
-                              <div>
-                                <div className="flex items-center gap-2 mb-2 font-bold text-xs uppercase tracking-wider opacity-90">
-                                  <Sparkles size={14} className="text-yellow-300" />
-                                  {notif.title}
-                                </div>
-                                <p className="text-sm font-medium leading-snug opacity-95 whitespace-pre-wrap">{notif.message}</p>
-                              </div>
-                              <button
-                                onClick={() => markNotificationRead(notif.id)}
-                                className="mt-4 text-xs bg-white/20 hover:bg-white/30 py-1.5 px-3 rounded-lg self-start transition-colors backdrop-blur-sm"
-                              >
-                                Marcar como leída
-                              </button>
-                            </div>
-                          ))}
-
-                          {alerts.map((alert, i) => (
-                            <div key={i} className={'snap-center min-w-[280px] p-5 rounded-2xl shadow-sm border flex flex-col justify-between ' + (alert.type === 'alert' ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-[#9ECCB4] text-white border-[#9ECCB4]')}>
-                              <div>
-                                <div className="flex items-center gap-2 mb-2 font-bold text-xs uppercase tracking-wider opacity-90">
-                                  {alert.type === 'alert' ? <AlertCircle size={14} /> : <Star size={14} />}
-                                  {alert.title}
-                                </div>
-                                <p className="text-sm font-medium leading-snug opacity-95">{alert.desc}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
-                          Todo se ve tranquilo por aquí. ¡Sigue así!
-                        </div>
-                      )}
-                    </div>
+                    {/* NOTIFICATIONS - Unread only in Dashboard */}
+                    {visibleNotifications.filter(n => !n.is_read).length > 0 && (
+                      <div>
+                        <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Nuevas</h3>
+                        <NotificationList
+                          notifications={visibleNotifications.filter(n => !n.is_read)}
+                          onMarkRead={markNotificationRead}
+                          deleteNotification={deleteNotification}
+                        />
+                      </div>
+                    )}
 
                     {/* LAST LOG */}
                     {logs.length > 0 && (
@@ -2740,18 +2664,11 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
 
                   {/* NOTIFICACIONES - Después */}
                   <div>
-                    <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
-                    {visibleNotifications.slice(0, 3).length > 0 ? (
-                      <div className="space-y-3">
-                        {visibleNotifications.slice(0, 3).map(notif => (
-                          <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} deleteNotification={deleteNotification} />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
-                        No tienes notificaciones recientes
-                      </div>
-                    )}
+                    <NotificationList
+                      notifications={visibleNotifications}
+                      onMarkRead={markNotificationRead}
+                      deleteNotification={deleteNotification}
+                    />
                   </div>
 
                   {/* REINICIAR MÉTODO */}

@@ -108,6 +108,18 @@ export interface ConsultationForm {
   report_url?: string; // URL to the PDF report if reviewed
 }
 
+export interface AdminReport {
+  id: number;
+  user_id: string;
+  title: string;
+  report_url: string; // Main URL
+  pdf_url?: string; // Alias
+  created_at: string;
+  summary?: string;
+  recommendations?: string;
+  form_type?: string;
+}
+
 
 
 export interface AppNotification {
@@ -115,7 +127,7 @@ export interface AppNotification {
   user_id: string;
   title: string;
   message: string;
-  type: 'insight' | 'alert' | 'tip' | 'celebration';
+  type: 'insight' | 'alert' | 'tip' | 'celebration' | 'opportunity';
   priority: 1 | 2 | 3;
   is_read: boolean;
   created_at: string;
