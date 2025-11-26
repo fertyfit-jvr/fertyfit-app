@@ -2840,45 +2840,6 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       </button>
                     </div>
 
-                    {/* FERTY SCORE BADGE - Exact design from screenshot */}
-                    {(() => {
-                      const scores = calculateFertyScore(user, logs);
-                      return (
-                        <div className="bg-gradient-to-br from-[#C7958E]/30 to-[#95706B]/30 backdrop-blur-sm rounded-2xl p-6 border border-[#C7958E]/20">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs font-bold uppercase tracking-wider text-[#95706B] mb-2">Ferty Score</p>
-                              <p className="text-5xl font-bold text-[#4A4A4A]">{scores.total}<span className="text-2xl text-[#5D7180]">/100</span></p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs font-bold uppercase tracking-wider text-[#95706B] mb-2">Pilares</p>
-                              <div className="flex gap-4 text-xs">
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-3xl text-[#4A4A4A]">{scores.function}</span>
-                                  <span className="text-[#5D7180] uppercase text-[10px]">Func</span>
-                                </div>
-                                <div className="w-px h-12 bg-[#C7958E]/30"></div>
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-3xl text-[#4A4A4A]">{scores.food}</span>
-                                  <span className="text-[#5D7180] uppercase text-[10px]">Food</span>
-                                </div>
-                                <div className="w-px h-12 bg-[#C7958E]/30"></div>
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-3xl text-[#4A4A4A]">{scores.flora}</span>
-                                  <span className="text-[#5D7180] uppercase text-[10px]">Flora</span>
-                                </div>
-                                <div className="w-px h-12 bg-[#C7958E]/30"></div>
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-3xl text-[#4A4A4A]">{scores.flow}</span>
-                                  <span className="text-[#5D7180] uppercase text-[10px]">Flow</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
                     {/* F0 DATA */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
                       {f0Form.answers.map((answer, idx) => {
