@@ -806,7 +806,7 @@ const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserPr
         </div>
 
         {/* Stats Row - Only box */}
-        <div className="flex justify-between bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10">
+        <div className="flex justify-between bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10 mb-4">
           <div className="text-center">
             <p className="text-2xl font-bold">{daysActive}</p>
             <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Días Método</p>
@@ -820,6 +820,40 @@ const ProfileHeader = ({ user, logsCount, logs, submittedForms }: { user: UserPr
           <div className="text-center">
             <p className="text-2xl font-bold">{currentWeek}</p>
             <p className="text-[10px] text-rose-100 uppercase tracking-wider font-medium">Semana</p>
+          </div>
+        </div>
+
+        {/* FERTY SCORE BADGE */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Ferty Score</p>
+              <p className="text-3xl font-bold">{scores.total}<span className="text-lg opacity-75">/100</span></p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Pilares</p>
+              <div className="flex gap-3 text-[10px]">
+                <div className="flex flex-col items-center">
+                  <span className="font-bold text-lg">{scores.function}</span>
+                  <span className="opacity-75">FUNC</span>
+                </div>
+                <div className="w-px h-8 bg-white/20"></div>
+                <div className="flex flex-col items-center">
+                  <span className="font-bold text-lg">{scores.food}</span>
+                  <span className="opacity-75">FOOD</span>
+                </div>
+                <div className="w-px h-8 bg-white/20"></div>
+                <div className="flex flex-col items-center">
+                  <span className="font-bold text-lg">{scores.flora}</span>
+                  <span className="opacity-75">FLORA</span>
+                </div>
+                <div className="w-px h-8 bg-white/20"></div>
+                <div className="flex flex-col items-center">
+                  <span className="font-bold text-lg">{scores.flow}</span>
+                  <span className="opacity-75">FLOW</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
