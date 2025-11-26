@@ -2719,23 +2719,8 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                     </div>
                   </div>
 
-                  {/* NOTIFICACIONES-Últimas 3 */}
-                  <div>
-                    <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
-                    {visibleNotifications.slice(0, 3).length > 0 ? (
-                      <div className="space-y-3">
-                        {visibleNotifications.slice(0, 3).map(notif => (
-                          <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} deleteNotification={deleteNotification} />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
-                        No tienes notificaciones recientes
-                      </div>
-                    )}
-                  </div>
 
-                  {/* INFORMES-Todos */}
+                  {/* INFORMES - Primero (más valor) */}
                   <div>
                     <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>
                     {reports.length > 0 ? (
@@ -2747,6 +2732,22 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                     ) : (
                       <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
                         Aún no tienes informes disponibles
+                      </div>
+                    )}
+                  </div>
+
+                  {/* NOTIFICACIONES - Después */}
+                  <div>
+                    <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Recientes</h3>
+                    {visibleNotifications.slice(0, 3).length > 0 ? (
+                      <div className="space-y-3">
+                        {visibleNotifications.slice(0, 3).map(notif => (
+                          <NotificationCard key={notif.id} notification={notif} onMarkRead={markNotificationRead} deleteNotification={deleteNotification} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
+                        No tienes notificaciones recientes
                       </div>
                     )}
                   </div>
