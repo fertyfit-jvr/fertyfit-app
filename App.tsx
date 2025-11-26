@@ -2817,101 +2817,99 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                   });
                 };
 
-                return (
-                  <div className="space-y-4">
+                <div className="space-y-4">
+                  {/* DISCRETE HEADER - Same style as "Datos Personales" */}
+                  <div className="flex justify-between items-end mb-3">
+                    <div>
+                      <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
+                      <p className="text-[10px] text-[#5D7180] mt-0.5">
+                        Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString())}
+                      </p>
+                      {f0Form.pdf_generated_at && (
+                        <p className="text-[10px] text-[#5D7180] mt-0.5">
+                          Última actualización: {formatDate(f0Form.pdf_generated_at)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setView('CONSULTATIONS')}
+                      className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                  </div>
 
-                    {/* HEADER WITH FERTY SCORE BADGE */}
-                    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-2xl text-white">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="text-lg font-bold">Ficha Personal (F0)</h3>
-                          <p className="text-sm opacity-90 mt-1">
-                            Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString())}
-                          </p>
-                          {f0Form.pdf_generated_at && (
-                            <p className="text-xs opacity-75 mt-1">
-                              Última actualización: {formatDate(f0Form.pdf_generated_at)}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => setView('CONSULTATIONS')}
-                          className="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition-colors backdrop-blur-sm"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                      </div>
-
-                      {/* FERTY SCORE BADGE - Horizontal Layout */}
-                      {(() => {
-                        const scores = calculateFertyScore(user, logs);
-                        return (
-                          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between">
-                            <div>
-                              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Ferty Score</p>
-                              <p className="text-3xl font-bold">{scores.total}<span className="text-lg opacity-75">/100</span></p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Pilares</p>
-                              <div className="flex gap-3 text-[10px]">
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-lg">{scores.function}</span>
-                                  <span className="opacity-75">FUNC</span>
-                                </div>
-                                <div className="w-px h-8 bg-white/20"></div>
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-lg">{scores.food}</span>
-                                  <span className="opacity-75">FOOD</span>
-                                </div>
-                                <div className="w-px h-8 bg-white/20"></div>
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-lg">{scores.flora}</span>
-                                  <span className="opacity-75">FLORA</span>
-                                </div>
-                                <div className="w-px h-8 bg-white/20"></div>
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-lg">{scores.flow}</span>
-                                  <span className="opacity-75">FLOW</span>
-                                </div>
+                  {/* FERTY SCORE BADGE - Exact design from screenshot */}
+                  {(() => {
+                    const scores = calculateFertyScore(user, logs);
+                    return (
+                      <div className="bg-gradient-to-br from-[#C7958E]/30 to-[#95706B]/30 backdrop-blur-sm rounded-2xl p-6 border border-[#C7958E]/20">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-[#95706B] mb-2">Ferty Score</p>
+                            <p className="text-5xl font-bold text-[#4A4A4A]">{scores.total}<span className="text-2xl text-[#5D7180]">/100</span></p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold uppercase tracking-wider text-[#95706B] mb-2">Pilares</p>
+                            <div className="flex gap-4 text-xs">
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-3xl text-[#4A4A4A]">{scores.function}</span>
+                                <span className="text-[#5D7180] uppercase text-[10px]">Func</span>
+                              </div>
+                              <div className="w-px h-12 bg-[#C7958E]/30"></div>
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-3xl text-[#4A4A4A]">{scores.food}</span>
+                                <span className="text-[#5D7180] uppercase text-[10px]">Food</span>
+                              </div>
+                              <div className="w-px h-12 bg-[#C7958E]/30"></div>
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-3xl text-[#4A4A4A]">{scores.flora}</span>
+                                <span className="text-[#5D7180] uppercase text-[10px]">Flora</span>
+                              </div>
+                              <div className="w-px h-12 bg-[#C7958E]/30"></div>
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-3xl text-[#4A4A4A]">{scores.flow}</span>
+                                <span className="text-[#5D7180] uppercase text-[10px]">Flow</span>
                               </div>
                             </div>
                           </div>
-                        );
-                      })()}
-                    </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                    {/* F0 DATA */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
-                      {f0Form.answers.map((answer, idx) => {
-                        // Find question text from FORM_DEFINITIONS
-                        const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
-                        if (!question) return null;
+                  {/* F0 DATA */}
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                    {f0Form.answers.map((answer, idx) => {
+                      // Find question text from FORM_DEFINITIONS
+                      const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
+                      if (!question) return null;
 
-                        let displayValue = answer.answer;
+                      let displayValue = answer.answer;
 
-                        // Format dates
-                        if (question.type === 'date' && typeof displayValue === 'string') {
-                          displayValue = formatDate(displayValue);
-                        }
+                      // Format dates
+                      if (question.type === 'date' && typeof displayValue === 'string') {
+                        displayValue = formatDate(displayValue);
+                      }
 
-                        // Format arrays
-                        if (Array.isArray(displayValue)) {
-                          displayValue = displayValue.join(', ');
-                        }
+                      // Format arrays
+                      if (Array.isArray(displayValue)) {
+                        displayValue = displayValue.join(', ');
+                      }
 
-                        return (
-                          <div key={idx} className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                            <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
-                              {question.text}
-                            </p>
-                            <p className="text-sm text-[#4A4A4A]">
-                              {displayValue || '-'}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
+                      return (
+                        <div key={idx} className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                            {question.text}
+                          </p>
+                          <p className="text-sm text-[#4A4A4A]">
+                            {displayValue || '-'}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
                 );
               })()}
             </div>
