@@ -85,6 +85,5 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                 </div>
             )}
         </div>
-        </div >
     );
 };
