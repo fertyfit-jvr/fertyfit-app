@@ -98,13 +98,39 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                 {/* CONTENIDO EXPANDIBLE */}
                 {isExpanded && (
                     <div className="px-4 pb-4 pt-2 bg-[#F4F0ED]/30 text-xs space-y-2 border-t border-[#F4F0ED]">
+                        {/* Datos básicos */}
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Edad</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.edad} años</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">IMC</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.imc.valor} ({data.imc.categoria})</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Peso actual</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.pesoActual} kg</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Peso ideal</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.pesoIdeal.minimo}-{data.pesoIdeal.maximo} kg</span>
+                        </div>
+                        {/* Datos de ciclo */}
                         <div className="flex justify-between items-center py-2">
                             <span className="text-[#5D7180]">Día actual del ciclo</span>
                             <span className="font-bold text-[#4A4A4A]">{data.diaDelCiclo}</span>
                         </div>
                         <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Días hasta ovulación</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.diasHastaOvulacion}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
                             <span className="text-[#5D7180]">Día de ovulación estimado</span>
                             <span className="font-bold text-[#4A4A4A]">Día {data.diaOvulacion}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Ventana fértil</span>
+                            <span className="font-bold text-[#C7958E]">Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}</span>
                         </div>
                         <div className="flex justify-between items-center py-2">
                             <span className="text-[#5D7180]">Próxima menstruación</span>
@@ -118,8 +144,36 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                             <span className="text-[#5D7180]">Probabilidad de embarazo hoy</span>
                             <span className="font-bold text-[#4A4A4A]">{data.probabilidadEmbarazoHoy}%</span>
                         </div>
+                        {/* Promedios hábitos */}
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Sueño (hrs)</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.promedios.sueno}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Estrés</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.promedios.estres}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Agua (vasos)</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.promedios.agua}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Vegetales (porciones)</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.promedios.vegetales}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Días con alcohol</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.promedios.diasConAlcohol}</span>
+                        </div>
+                        {/* Análisis edad */}
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Análisis edad</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.analisisEdad.categoria} - {data.analisisEdad.probabilidad}</span>
+                        </div>
+                        <p className="text-xs text-[#5D7180] mt-1">{data.analisisEdad.mensaje}</p>
                     </div>
                 )}
+
             </div>
         </div>
     );
