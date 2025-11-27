@@ -2837,7 +2837,12 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                                   className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
                                   onChange={e => setF0Answers({ ...f0Answers, [q.id]: e.target.value })}
                                 />
-                              ) : q.type === 'select' ? (
+                              ) : q.type === 'yesno' ? (
+                                <div className="flex gap-3">
+                                  <button onClick={() => setF0Answers({ ...f0Answers, [q.id]: 'Sí' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (f0Answers[q.id] === 'Sí' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>Sí</button>
+                                  <button onClick={() => setF0Answers({ ...f0Answers, [q.id]: 'No' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (f0Answers[q.id] === 'No' ? 'bg-rose-50 border-rose-400 text-rose-500' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>No</button>
+                                </div>
+                              ) : q.type === 'buttons' ? (
                                 <div className="flex gap-3">
                                   {q.options?.map(option => (
                                     <button
@@ -2846,6 +2851,57 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                                       className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (f0Answers[q.id] === option ? 'bg-[#C7958E] border-[#C7958E] text-white' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}
                                     >
                                       {option}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : q.type === 'stepper' ? (
+                                <div className="flex items-center justify-center gap-4 bg-[#F4F0ED]/30 rounded-xl p-4">
+                                  <button
+                                    onClick={() => setF0Answers({ ...f0Answers, [q.id]: Math.max((q.min || 0), (parseInt(f0Answers[q.id]) || q.min || 0) - 1) })}
+                                    className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
+                                  >
+                                    −
+                                  </button>
+                                  <div className="text-center min-w-[100px]">
+                                    <div className="text-3xl font-bold text-[#4A4A4A]">{f0Answers[q.id] || q.min || 0}</div>
+                                    <div className="text-xs text-[#5D7180] mt-1">{q.unit}</div>
+                                  </div>
+                                  <button
+                                    onClick={() => setF0Answers({ ...f0Answers, [q.id]: Math.min((q.max || 100), (parseInt(f0Answers[q.id]) || q.min || 0) + 1) })}
+                                    className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              ) : q.type === 'slider' ? (
+                                <div className="bg-[#F4F0ED]/30 rounded-xl p-4">
+                                  <div className="flex justify-between mb-2">
+                                    <span className="text-sm font-bold text-[#5D7180]">{q.text.replace(':', '')}</span>
+                                    <span className="text-sm font-bold text-[#4A4A4A]">{f0Answers[q.id] || q.min || 0} {q.unit}</span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min={q.min || 0}
+                                    max={q.max || 100}
+                                    step={q.step || 1}
+                                    value={f0Answers[q.id] || q.min || 0}
+                                    onChange={e => setF0Answers({ ...f0Answers, [q.id]: parseFloat(e.target.value) })}
+                                    className="w-full accent-[#C7958E] h-2 bg-white rounded-lg appearance-none cursor-pointer"
+                                  />
+                                  <div className="flex justify-between text-[10px] text-stone-400 mt-1">
+                                    <span>{q.min} {q.unit}</span>
+                                    <span>{q.max} {q.unit}</span>
+                                  </div>
+                                </div>
+                              ) : q.type === 'segmented' ? (
+                                <div className="flex gap-2">
+                                  {Array.from({ length: (q.max || 5) - (q.min || 1) + 1 }, (_, i) => i + (q.min || 1)).map(n => (
+                                    <button
+                                      key={n}
+                                      onClick={() => setF0Answers({ ...f0Answers, [q.id]: n })}
+                                      className={'flex-1 h-12 rounded-xl font-bold transition-all ' + (f0Answers[q.id] === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200')}
+                                    >
+                                      {n}
                                     </button>
                                   ))}
                                 </div>
