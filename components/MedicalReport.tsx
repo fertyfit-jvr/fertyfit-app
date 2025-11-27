@@ -122,7 +122,7 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                                 {/* Line 2 & 3: Period Dates (No badges) */}
                                 <div className="flex flex-col gap-0.5">
                                     <p className="text-[10px] text-[#5D7180]">
-                                        <span className="font-bold">Fecha Última Regla:</span> {user.lastPeriodDate ? new Date(user.lastPeriodDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '--'}
+                                        <span className="font-bold">Fecha Última Regla:</span> {data.fechaInicioCicloActual !== "Pendiente" ? data.fechaInicioCicloActual : (user.lastPeriodDate ? new Date(user.lastPeriodDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '--')}
                                     </p>
                                     <p className="text-[10px] text-[#5D7180]">
                                         <span className="font-bold">Fecha próxima regla (aprox):</span> {data.fechaProximaMenstruacion}

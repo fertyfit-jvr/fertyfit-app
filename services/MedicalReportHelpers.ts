@@ -37,6 +37,7 @@ export interface MedicalReportData {
         diasFertiles: number;
     };
     fechaProximaMenstruacion: string;
+    fechaInicioCicloActual: string;
 
     // Días restantes
     diasHastaOvulacion: number;
@@ -158,6 +159,7 @@ export function generarDatosInformeMedico(
     let diaOvulacion = 0;
     let ventanaFertil = { inicio: 0, fin: 0, diasFertiles: 0 };
     let fechaProximaMenstruacion = "Pendiente";
+    let fechaInicioCicloActual = "Pendiente";
     let diasHastaOvulacion = 0;
     let diasHastaProximaRegla = 0;
     let probabilidadEmbarazoHoy = 0;
@@ -231,6 +233,16 @@ export function generarDatosInformeMedico(
             month: 'long'
         });
 
+        // Calcular fecha de inicio del ciclo ACTUAL (puede ser diferente a lastPeriodDate si han pasado varios ciclos)
+        // inicioCicloActual ya lo calculamos arriba para la ovulación, lo formateamos aquí
+        const inicioCicloActual = new Date(effectiveLastPeriod);
+        inicioCicloActual.setDate(inicioCicloActual.getDate() + (ciclosCompletados * effectiveCycleLength));
+
+        fechaInicioCicloActual = inicioCicloActual.toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'short'
+        });
+
         // Días restantes (diferencia entre esa fecha futura y hoy)
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
@@ -264,6 +276,7 @@ export function generarDatosInformeMedico(
         diaOvulacion,
         ventanaFertil,
         fechaProximaMenstruacion,
+        fechaInicioCicloActual,
         diasHastaOvulacion,
         diasHastaProximaRegla,
         probabilidadEmbarazoHoy,
