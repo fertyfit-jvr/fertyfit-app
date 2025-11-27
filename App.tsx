@@ -841,7 +841,14 @@ function AppContent() {
             name: profile.name, age: profile.age, weight: profile.weight, height: profile.height, timeTrying: profile.time_trying,
             diagnoses: profile.diagnoses || [], treatments: [], disclaimerAccepted: profile.disclaimer_accepted, isOnboarded: true,
             mainObjective: profile.main_objective, partnerStatus: profile.partner_status,
-            role: profile.role || 'user'
+            role: profile.role || 'user',
+            // Add cycle and fertility fields
+            cycleRegularity: profile.cycle_regularity,
+            cycleLength: profile.cycle_length,
+            lastPeriodDate: profile.last_period_date,
+            fertilityTreatments: profile.fertility_treatments,
+            supplements: profile.supplements,
+            alcoholConsumption: profile.alcohol_consumption
           });
 
           // Determine phase
