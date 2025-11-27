@@ -36,55 +36,19 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
 
     return (
         <div className="space-y-4 mb-6">
-            {/* CARD PRINCIPAL - VENTANA FÉRTIL */}
-            <div className="bg-white p-6 rounded-2xl border border-[#F4F0ED] shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#F9F6F4] rounded-bl-full -mr-8 -mt-8 opacity-50"></div>
-
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                    <div>
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider">Ventana Fértil</p>
-                        {data.diasHastaOvulacion > 0 ? (
-                            <div>
-                                <p className="text-3xl font-bold text-[#4A4A4A] mt-1">
-                                    Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}
-                                </p>
-                                <p className="text-sm text-[#5D7180] mt-1">
-                                    Próxima en {Math.max(0, data.diasHastaOvulacion - 5)} días
-                                </p>
-                            </div>
-                        ) : data.diasHastaOvulacion <= 0 && data.diasHastaOvulacion >= -5 ? (
-                            <div>
-                                <p className="text-3xl font-bold text-[#C7958E] mt-1">¡Activa!</p>
-                                <p className="text-sm text-[#5D7180] mt-1">
-                                    Estás en tus días fértiles ({data.ventanaFertil.inicio}-{data.ventanaFertil.fin})
-                                </p>
-                            </div>
-                        ) : (
-                            <div>
-                                <p className="text-3xl font-bold text-[#5D7180] mt-1">Finalizada</p>
-                                <p className="text-sm text-[#95706B] mt-1">Próxima en ~{user.cycleLength} días</p>
-                            </div>
-                        )}
-                    </div>
-                    <div className="bg-[#F9F6F4] p-4 rounded-full shadow-sm">
-                        <Heart size={32} className="text-[#C7958E]" />
-                    </div>
-                </div>
-            </div>
-
             {/* RESUMEN DEL CICLO - COLLAPSIBLE */}
             <div className="bg-white rounded-2xl border border-[#F4F0ED] shadow-sm overflow-hidden">
-                {/* HEADER CON BOTONES MACOS */}
+                {/* HEADER CON BOTONES DISCRETOS */}
                 <div
                     className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#F9F6F4] transition-colors"
                     onClick={() => setIsExpanded(!isExpanded)}
                 >
                     <div className="flex items-center gap-3">
-                        {/* macOS Style Buttons */}
+                        {/* Discrete Dots in App Colors */}
                         <div className="flex gap-1.5">
-                            <div className="w-3 h-3 rounded-full bg-[#FF5F57]"></div>
-                            <div className="w-3 h-3 rounded-full bg-[#FEBC2E]"></div>
-                            <div className="w-3 h-3 rounded-full bg-[#28C840]"></div>
+                            <div className="w-2 h-2 rounded-full bg-[#C7958E]"></div>
+                            <div className="w-2 h-2 rounded-full bg-[#95706B]"></div>
+                            <div className="w-2 h-2 rounded-full bg-[#5D7180]"></div>
                         </div>
                         <h4 className="text-sm font-bold text-[#4A4A4A]">Resumen del Ciclo</h4>
                     </div>
