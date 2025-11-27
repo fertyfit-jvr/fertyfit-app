@@ -2522,7 +2522,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
 
                     {/* MEDICAL REPORT - CICLO Y FERTILIDAD */}
                     {(() => {
-                      const medicalData = generarDatosInformeMedico(user, logs);
+                      const medicalData = generarDatosInformeMedico(user, logs, todayLog.cycleDay);
                       return (
                         <MedicalReport
                           data={medicalData}
