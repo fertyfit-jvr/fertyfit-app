@@ -2538,6 +2538,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                         <MedicalReport
                           data={medicalData}
                           user={user}
+                          logs={logs}
                           onCompleteProfile={() => setView('CONSULTATIONS')}
                         />
                       );

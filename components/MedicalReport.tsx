@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Calendar, Heart, Activity } from 'lucide-react';
 import { MedicalReportData } from '../services/MedicalReportHelpers';
-import { UserProfile } from '../types';
+import { UserProfile, DailyLog } from '../types';
 
 interface MedicalReportProps {
     data: MedicalReportData | null;
     user: UserProfile;
+    logs: DailyLog[];
     onCompleteProfile: () => void;
 }
 
-export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onCompleteProfile }) => {
+export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, onCompleteProfile }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     if (!data || (!data.diaDelCiclo && !user.cycleLength)) {
@@ -31,6 +32,43 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
             </div>
         );
     }
+
+    // Calcular fechas de ventana fértil
+    const calcularFechasVentana = () => {
+        if (!user.lastPeriodDate || !user.cycleLength) return null;
+
+        const lastPeriod = new Date(user.lastPeriodDate);
+        const cycleLength = Number(user.cycleLength);
+
+        const hoy = new Date();
+        const diasDesdeInicio = Math.floor((hoy.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
+        const ciclosCompletados = Math.floor(diasDesdeInicio / cycleLength);
+
+        const inicioCicloActual = new Date(lastPeriod);
+        inicioCicloActual.setDate(lastPeriod.getDate() + (ciclosCompletados * cycleLength));
+
+        const fechaInicio = new Date(inicioCicloActual);
+        fechaInicio.setDate(inicioCicloActual.getDate() + data.ventanaFertil.inicio - 1);
+
+        const fechaFin = new Date(inicioCicloActual);
+        fechaFin.setDate(inicioCicloActual.getDate() + data.ventanaFertil.fin - 1);
+
+        return {
+            inicio: fechaInicio.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
+            fin: fechaFin.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+        };
+    };
+
+    const fechasVentana = calcularFechasVentana();
+
+    // Obtener fecha del último registro
+    const ultimoLog = logs.length > 0 ? logs[0] : null;
+    const fechaUltimoRegistro = ultimoLog
+        ? new Date(ultimoLog.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+        : null;
+
+    // Determinar si está en días fértiles
+    const enDiasFertiles = data.diasHastaOvulacion >= -5 && data.diasHastaOvulacion <= 1;
 
     return (
         <div className="mb-6">
@@ -58,38 +96,34 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                 <div onClick={() => setIsExpanded(!isExpanded)} className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 flex-1">
-                            <div className="flex flex-col items-center justify-center w-12 h-12 bg-rose-50 rounded-full border border-rose-100 flex-shrink-0">
-                                <span className="text-xs text-[#C7958E] font-bold">DÍA</span>
-                                <span className="text-lg font-extrabold text-[#95706B] leading-none">{data.diaDelCiclo}</span>
+                            {/* Círculo con probabilidad */}
+                            <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border flex-shrink-0 ${enDiasFertiles
+                                    ? 'bg-emerald-50 border-emerald-200'
+                                    : 'bg-rose-50 border-rose-100'
+                                }`}>
+                                <span className={`text-xs font-bold ${enDiasFertiles ? 'text-emerald-600' : 'text-[#C7958E]'
+                                    }`}>PROB</span>
+                                <span className={`text-lg font-extrabold leading-none ${enDiasFertiles ? 'text-emerald-700' : 'text-[#95706B]'
+                                    }`}>{data.probabilidadEmbarazoHoy}%</span>
                             </div>
 
                             <div className="flex-1">
+                                {/* Fechas de ventana fértil */}
                                 <p className="font-bold text-[#4A4A4A] text-sm mb-1">
-                                    Ciclo de {data.cycleLengthUsado} días
+                                    {fechasVentana ? `${fechasVentana.inicio} - ${fechasVentana.fin}` : 'Ventana fértil'}
                                 </p>
                                 <div className="flex items-center gap-2 text-xs flex-wrap">
-                                    {data.diasHastaOvulacion >= -5 && data.diasHastaOvulacion <= 1 ? (
-                                        <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                                            <Heart size={10} className="fill-current" /> Ventana fértil
-                                        </span>
-                                    ) : data.diasHastaOvulacion > 1 ? (
-                                        <span className="bg-[#F4F0ED] text-[#5D7180] px-2 py-0.5 rounded-md flex items-center gap-1">
-                                            <Calendar size={10} /> En {data.diasHastaOvulacion} días
-                                        </span>
-                                    ) : null}
-
-                                    {data.probabilidadEmbarazoHoy > 0 && (
-                                        <span className={`px-2 py-0.5 rounded-md font-bold ${data.probabilidadEmbarazoHoy >= 25
-                                                ? 'bg-emerald-50 text-emerald-600'
-                                                : 'bg-[#F4F0ED] text-[#5D7180]'
-                                            }`}>
-                                            {data.probabilidadEmbarazoHoy}% prob
-                                        </span>
-                                    )}
-
+                                    {/* Badge Regla */}
                                     <span className="bg-[#F4F0ED] text-[#5D7180] px-2 py-0.5 rounded-md">
                                         Regla en {data.diasHastaProximaRegla}d
                                     </span>
+
+                                    {/* Badge Último registro */}
+                                    {fechaUltimoRegistro && (
+                                        <span className="bg-[#F4F0ED] text-[#5D7180] px-2 py-0.5 rounded-md flex items-center gap-1">
+                                            <Activity size={10} /> Último: {fechaUltimoRegistro}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>
