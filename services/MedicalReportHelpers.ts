@@ -174,11 +174,19 @@ export function generarDatosInformeMedico(
     }
 
     // Si falta cycleLength, usamos 28 por defecto si tenemos override, o fallamos
+    console.log('🔍 DEBUG cycleLength:', {
+        userCycleLength: user.cycleLength,
+        type: typeof user.cycleLength,
+        cycleDayOverride: cycleDayOverride
+    });
+
     const usandoDefault = !user.cycleLength && cycleDayOverride ? true : false;
     let effectiveCycleLength = user.cycleLength ? Number(user.cycleLength) : (cycleDayOverride ? 28 : 0);
 
     if (usandoDefault) {
         console.warn('⚠️ cycleLength no está definido, usando 28 días por defecto');
+    } else {
+        console.log('✅ Usando cycleLength del usuario:', effectiveCycleLength);
     }
 
     if (effectiveLastPeriod && effectiveCycleLength) {
