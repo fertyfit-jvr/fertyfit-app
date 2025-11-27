@@ -2519,7 +2519,14 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
 
                     {/* MEDICAL REPORT */}
                     {(() => {
+                      console.log('📊 Generating Medical Report for user:', {
+                        lastPeriod: user.lastPeriodDate,
+                        cycleLength: user.cycleLength,
+                        weight: user.weight,
+                        height: user.height
+                      });
                       const medicalData = generarDatosInformeMedico(user, logs);
+                      console.log('📊 Medical Report Data:', medicalData);
                       return medicalData ? (
                         <div className="mb-6">
                           <MedicalReport data={medicalData} />

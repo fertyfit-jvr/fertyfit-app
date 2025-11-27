@@ -127,51 +127,54 @@ export function generarDatosInformeMedico(
     user: UserProfile,
     logs: DailyLog[]
 ): MedicalReportData | null {
-    // Validar datos mínimos
-    if (!user.lastPeriodDate || !user.cycleLength) {
-        return null;
-    }
-
-    // Calcular datos básicos
-    const resultadoIMC = calcularIMC(user.weight, user.height);
-    const pesoIdeal = calcularPesoIdeal(user.height);
-
-    // Calcular datos de ciclo
-    const diaDelCiclo = calcularDiaDelCiclo(user.lastPeriodDate);
-    const ventanaFertil = calcularVentanaFertil(user.cycleLength);
-    const fechaProximaMenstruacion = calcularFechaProximaMenstruacion(
-        user.lastPeriodDate,
-        user.cycleLength
-    );
-
-    // Calcular días restantes
-    const diasHastaOvulacion = ventanaFertil.diaOvulacion - diaDelCiclo;
-    const diasHastaProximaRegla = user.cycleLength - diaDelCiclo;
-
-    // Calcular probabilidad de embarazo hoy
-    const diaRelativoOvulacion = diaDelCiclo - ventanaFertil.diaOvulacion;
-    const probabilidadEmbarazoHoy = calcularProbabilidadPorDia(diaRelativoOvulacion);
-
-    // Calcular promedios de hábitos
+    // Calcular datos básicos (siempre posibles si hay peso/altura/edad)
+    const resultadoIMC = calcularIMC(user.weight || 0, user.height || 0);
+    const pesoIdeal = calcularPesoIdeal(user.height || 0);
+    const analisisEdad = analizarEdadFertilidad(user.age || 0);
     const promedios = calcularPromediosHabitos(logs);
 
-    // Análisis de edad
-    const analisisEdad = analizarEdadFertilidad(user.age);
+    // Valores por defecto para ciclo si faltan datos
+    let diaDelCiclo = 0;
+    let diaOvulacion = 0;
+    let ventanaFertil = { inicio: 0, fin: 0, diasFertiles: 0 };
+    let fechaProximaMenstruacion = "Pendiente";
+    let diasHastaOvulacion = 0;
+    let diasHastaProximaRegla = 0;
+    let probabilidadEmbarazoHoy = 0;
+
+    // Calcular datos de ciclo solo si existen los datos necesarios
+    if (user.lastPeriodDate && user.cycleLength) {
+        diaDelCiclo = calcularDiaDelCiclo(user.lastPeriodDate);
+        const ventana = calcularVentanaFertil(user.cycleLength);
+        ventanaFertil = {
+            inicio: ventana.inicio,
+            fin: ventana.fin,
+            diasFertiles: ventana.diasFertiles
+        };
+        diaOvulacion = ventana.diaOvulacion;
+
+        fechaProximaMenstruacion = calcularFechaProximaMenstruacion(
+            user.lastPeriodDate,
+            user.cycleLength
+        );
+
+        diasHastaOvulacion = ventana.diaOvulacion - diaDelCiclo;
+        diasHastaProximaRegla = user.cycleLength - diaDelCiclo;
+
+        const diaRelativoOvulacion = diaDelCiclo - ventana.diaOvulacion;
+        probabilidadEmbarazoHoy = calcularProbabilidadPorDia(diaRelativoOvulacion);
+    }
 
     return {
-        edad: user.age,
+        edad: user.age || 0,
         imc: {
             valor: resultadoIMC.valor,
             categoria: resultadoIMC.categoria
         },
         pesoIdeal,
         diaDelCiclo,
-        diaOvulacion: ventanaFertil.diaOvulacion,
-        ventanaFertil: {
-            inicio: ventanaFertil.inicio,
-            fin: ventanaFertil.fin,
-            diasFertiles: ventanaFertil.diasFertiles
-        },
+        diaOvulacion,
+        ventanaFertil,
         fechaProximaMenstruacion,
         diasHastaOvulacion,
         diasHastaProximaRegla,
