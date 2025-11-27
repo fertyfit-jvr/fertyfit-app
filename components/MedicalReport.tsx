@@ -34,17 +34,58 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
         );
     }
 
+    // Calcular fechas de calendario para ventana fértil
+    const calcularFechasVentana = () => {
+        if (!user.lastPeriodDate || !user.cycleLength) return null;
+
+        const lastPeriod = new Date(user.lastPeriodDate);
+        const cycleLength = Number(user.cycleLength);
+
+        // Calcular cuántos ciclos han pasado
+        const hoy = new Date();
+        const diasDesdeInicio = Math.floor((hoy.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
+        const ciclosCompletados = Math.floor(diasDesdeInicio / cycleLength);
+
+        // Inicio del ciclo actual
+        const inicioCicloActual = new Date(lastPeriod);
+        inicioCicloActual.setDate(lastPeriod.getDate() + (ciclosCompletados * cycleLength));
+
+        // Fechas de ventana fértil
+        const fechaInicio = new Date(inicioCicloActual);
+        fechaInicio.setDate(inicioCicloActual.getDate() + data.ventanaFertil.inicio - 1);
+
+        const fechaFin = new Date(inicioCicloActual);
+        fechaFin.setDate(inicioCicloActual.getDate() + data.ventanaFertil.fin - 1);
+
+        return {
+            inicio: fechaInicio.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
+            fin: fechaFin.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+        };
+    };
+
+    const fechasVentana = calcularFechasVentana();
+
     return (
-        <div className="space-y-4 mb-6">
-            {/* RESUMEN DEL CICLO - COLLAPSIBLE */}
-            <div className="bg-white rounded-2xl border border-[#F4F0ED] shadow-sm overflow-hidden">
-                {/* HEADER */}
-                <div
-                    className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                >
+        <div className="mb-6">
+            {/* TÍTULO FUERA DE LA CAJA */}
+            <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Resumen del Ciclo</h3>
+
+            {/* CAJA COLAPSABLE */}
+            <div className="bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all">
+                <div onClick={() => setIsExpanded(!isExpanded)} className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors">
                     <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-[#4A4A4A]">Resumen del Ciclo</h4>
+                        <div className="flex-1">
+                            <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Ventana Fértil</p>
+                            <p className="text-lg font-bold text-[#4A4A4A]">
+                                Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}
+                            </p>
+                            {fechasVentana && (
+                                <p className="text-[10px] text-[#5D7180] mt-1">
+                                    {fechasVentana.inicio} - {fechasVentana.fin}
+                                </p>
+                            )}
+                        </div>
+
                         {/* Drag Indicator - 5 dots */}
                         <div className="flex gap-1">
                             {[...Array(5)].map((_, i) => (
@@ -53,37 +94,33 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* CONTENIDO EXPANDIBLE */}
-            {isExpanded && (
-                <div className="px-4 pb-4 space-y-3 border-t border-[#F9F6F4]">
-                    <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Día actual del ciclo</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">{data.diaDelCiclo}</span>
+                {/* CONTENIDO EXPANDIBLE */}
+                {isExpanded && (
+                    <div className="px-4 pb-4 pt-2 bg-[#F4F0ED]/30 text-xs space-y-2 border-t border-[#F4F0ED]">
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Día actual del ciclo</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.diaDelCiclo}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Día de ovulación estimado</span>
+                            <span className="font-bold text-[#4A4A4A]">Día {data.diaOvulacion}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Próxima menstruación</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.fechaProximaMenstruacion}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Días hasta próxima regla</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.diasHastaProximaRegla}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Probabilidad de embarazo hoy</span>
+                            <span className="font-bold text-[#4A4A4A]">{data.probabilidadEmbarazoHoy}%</span>
+                        </div>
                     </div>
-                    <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Día de ovulación estimado</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">Día {data.diaOvulacion}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Ventana fértil</span>
-                        <span className="text-sm font-bold text-[#C7958E]">Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Próxima menstruación</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">{data.fechaProximaMenstruacion}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Días hasta próxima regla</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">{data.diasHastaProximaRegla}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-3">
-                        <span className="text-xs text-[#5D7180]">Probabilidad de embarazo hoy</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">{data.probabilidadEmbarazoHoy}%</span>
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };
