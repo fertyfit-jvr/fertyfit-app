@@ -11,6 +11,7 @@ import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport,
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus, calculateDaysOnMethod, calculateCurrentWeek } from './services/dataService';
 import { supabase } from './services/supabase';
+import { calcularInicioCicloActual } from './services/CycleCalculations';
 
 // --- Error Boundary for Production Safety ---
 interface ErrorBoundaryProps {
@@ -771,8 +772,132 @@ const EducationView = ({ courseModules, setActiveLesson }: { courseModules: Cour
               ))}
             </div>
           </div>
-        );
       })}
+    </div>
+  );
+};
+
+const F0FormComponent = ({ user, submittedForm, logs, showNotif, onProfileUpdate, fetchUserForms }: any) => {
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [isEditing, setIsEditing] = useState(false);
+  const definition = FORM_DEFINITIONS['F0'];
+
+  // Initialize answers if editing existing form
+  useEffect(() => {
+    if (submittedForm && !isEditing) { // Only initialize if not already editing
+      const initialAnswers: Record<string, any> = {};
+      submittedForm.answers.forEach((a: any) => initialAnswers[a.questionId] = a.answer);
+      setAnswers(initialAnswers);
+    } else if (!submittedForm && !isEditing) { // If no submitted form, ensure answers are empty
+      setAnswers({});
+    }
+  }, [submittedForm, isEditing]);
+
+  const handleSubmit = async () => {
+    if (!user?.id) return;
+    const formattedAnswers = definition.questions.map(q => ({ questionId: q.id, question: q.text, answer: answers[q.id] || '' }));
+
+    let error;
+    if (submittedForm) {
+      // Update existing
+      const { error: updateError } = await supabase.from('consultation_forms').update({ answers: formattedAnswers, status: 'pending' }).eq('id', submittedForm.id);
+      error = updateError;
+    } else {
+      // Insert new
+      const { error: insertError } = await supabase.from('consultation_forms').insert({ user_id: user.id, form_type: 'F0', answers: formattedAnswers, status: 'pending', snapshot_stats: calculateAverages(logs) });
+      error = insertError;
+    }
+
+    if (!error) {
+      // UPDATE PROFILE SYNC IMMEDIATELY
+      const updates: any = {};
+      if (answers['q2_weight']) updates.weight = parseFloat(answers['q2_weight']);
+      if (answers['q2_height']) updates.height = parseFloat(answers['q2_height']);
+      if (answers['q4_objective']) updates.main_objective = answers['q4_objective'];
+      // Sync last period date if changed manually
+      if (answers['q8_last_period']) updates.last_period_date = answers['q8_last_period'];
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('profiles').update(updates).eq('id', user.id);
+        onProfileUpdate(updates);
+      }
+
+      showNotif("Ficha Personal actualizada.", 'success');
+      setIsEditing(false);
+      fetchUserForms(user.id);
+    } else {
+      showNotif(error.message, 'error');
+    }
+  };
+
+  if (submittedForm && !isEditing) {
+    return (
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+        <div className="flex justify-between items-center mb-4 border-b border-[#F4F0ED] pb-4">
+          <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.title}</h3>
+          <button onClick={() => setIsEditing(true)} className="text-[#C7958E] text-xs font-bold flex items-center gap-1 hover:underline">
+            <Settings size={12} /> EDITAR
+          </button>
+        </div>
+        <div className="space-y-4 opacity-80">
+          {(submittedForm.answers as any[]).map((ans: any) => (
+            <div key={ans.questionId} className="bg-[#F4F0ED]/30 p-3 rounded-xl">
+              <p className="text-[10px] uppercase font-bold text-[#95706B] mb-1">{ans.question}</p>
+              <p className={`text-sm font-medium ${!ans.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
+                {Array.isArray(ans.answer) ? ans.answer.join(', ') : (ans.answer || "Sin respuesta")}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.title}</h3>
+        {submittedForm && <button onClick={() => setIsEditing(false)} className="text-stone-400"><X size={20} /></button>}
+      </div>
+
+      <div className="space-y-6">
+        {definition.questions.map(q => (
+          <div key={q.id}>
+            <label className="block text-xs font-bold text-[#95706B] uppercase mb-2">{q.text}</label>
+            {q.type === 'text' && <input type="text" className="w-full bg-[#F4F0ED] rounded-xl p-3 text-sm outline-none focus:ring-2 ring-[#C7958E]/20" value={answers[q.id] || ''} onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />}
+            {q.type === 'number' && <input type="number" className="w-full bg-[#F4F0ED] rounded-xl p-3 text-sm outline-none focus:ring-2 ring-[#C7958E]/20" value={answers[q.id] || ''} onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />}
+            {q.type === 'date' && <input type="date" className="w-full bg-[#F4F0ED] rounded-xl p-3 text-sm outline-none focus:ring-2 ring-[#C7958E]/20" value={answers[q.id] || ''} onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />}
+            {q.type === 'select' && (
+              <div className="grid grid-cols-2 gap-2">
+                {q.options?.map(opt => (
+                  <button key={opt} onClick={() => setAnswers({ ...answers, [q.id]: opt })} className={`p-2 rounded-lg text-xs font-medium transition-colors ${answers[q.id] === opt ? 'bg-[#C7958E] text-white' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-[#C7958E]/10'}`}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+            {q.type === 'multiselect' && (
+              <div className="grid grid-cols-2 gap-2">
+                {q.options?.map(opt => {
+                  const current = answers[q.id] || [];
+                  const isSelected = current.includes(opt);
+                  return (
+                    <button key={opt} onClick={() => {
+                      const newArr = isSelected ? current.filter((i: string) => i !== opt) : [...current, opt];
+                      setAnswers({ ...answers, [q.id]: newArr });
+                    }} className={`p-2 rounded-lg text-xs font-medium transition-colors ${isSelected ? 'bg-[#C7958E] text-white' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-[#C7958E]/10'}`}>
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+        <button onClick={handleSubmit} className="w-full bg-[#C7958E] text-white py-4 rounded-xl font-bold shadow-lg shadow-rose-200 hover:bg-[#95706B] transition-colors flex items-center justify-center gap-2">
+          <CheckCircle size={20} /> Guardar Ficha
+        </button>
+      </div>
     </div>
   );
 };
@@ -782,7 +907,7 @@ const ConsultationsView = ({ user, submittedForms, logs, fetchUserForms, showNot
   const canAccessF1 = daysActive >= 30;
   const canAccessF2 = daysActive >= 60;
   const canAccessF3 = daysActive >= 90;
-  const [formType, setFormType] = useState<'F0' | 'F1' | 'F2' | 'F3'>('F0');
+  const [formType, setFormType] = useState<'F1' | 'F2' | 'F3'>('F1'); // Removed F0 from tabs
   const [answers, setAnswers] = useState<Record<string, any>>({});
 
   const isLocked = (formType === 'F1' && !canAccessF1) || (formType === 'F2' && !canAccessF2) || (formType === 'F3' && !canAccessF3);
@@ -796,18 +921,6 @@ const ConsultationsView = ({ user, submittedForms, logs, fetchUserForms, showNot
     const formattedAnswers = definition.questions.map(q => ({ questionId: q.id, question: q.text, answer: answers[q.id] || '' }));
     const { error } = await supabase.from('consultation_forms').insert({ user_id: user.id, form_type: formType, answers: formattedAnswers, status: 'pending', snapshot_stats: calculateAverages(logs) });
     if (!error) {
-      // IF F0, UPDATE PROFILE SYNC IMMEDIATELY
-      if (formType === 'F0') {
-        const updates: any = {};
-        if (answers['q2_weight']) updates.weight = parseFloat(answers['q2_weight']);
-        if (answers['q2_height']) updates.height = parseFloat(answers['q2_height']);
-        if (answers['q4_objective']) updates.main_objective = answers['q4_objective'];
-
-        if (Object.keys(updates).length > 0) {
-          await supabase.from('profiles').update(updates).eq('id', user.id);
-          onProfileUpdate(updates); // Callback to update parent state
-        }
-      }
       showNotif("Formulario enviado correctamente.", 'success');
       setAnswers({});
       fetchUserForms(user.id);
@@ -818,9 +931,9 @@ const ConsultationsView = ({ user, submittedForms, logs, fetchUserForms, showNot
 
   return (
     <div className="pb-24 space-y-6">
-      <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
+      <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas de Seguimiento</h2>
       <div className="flex bg-white p-1.5 rounded-xl shadow-sm border border-[#F4F0ED] overflow-x-auto">
-        {[{ id: 'F0', l: 'F0 Base' }, { id: 'F1', l: 'F1 (30d)' }, { id: 'F2', l: 'F2 (60d)' }, { id: 'F3', l: 'F3 (90d)' }].map(t => (
+        {[{ id: 'F1', l: 'F1 (30d)' }, { id: 'F2', l: 'F2 (60d)' }, { id: 'F3', l: 'F3 (90d)' }].map(t => (
           <button key={t.id} onClick={() => setFormType(t.id as any)} className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg whitespace-nowrap transition-all ${formType === t.id ? 'bg-[#C7958E] text-white shadow-md' : 'text-[#5D7180] hover:bg-[#F4F0ED]'}`}>
             {t.l} {submittedForms.find((f: any) => f.form_type === t.id) && '✅'}
           </button>
@@ -859,7 +972,7 @@ const ConsultationsView = ({ user, submittedForms, logs, fetchUserForms, showNot
               <div className="bg-yellow-100 p-2 rounded-full text-yellow-600"><Stethoscope size={16} /></div>
               <div>
                 <p className="text-xs font-bold text-yellow-800">En Revisión por Especialista</p>
-                <p className="text-[10px] text-yellow-700 mt-1">Recibirás una notificación cuando tu informe PDF esté listo para descargar.</p>
+                <p className="text-[10px] text-yellow-700 mt-1">Recibirás una notificación</p>
               </div>
             </div>
           )}
@@ -880,26 +993,26 @@ const ConsultationsView = ({ user, submittedForms, logs, fetchUserForms, showNot
           <div className="space-y-6">
             {definition.questions.map(q => (
               <div key={q.id}>
-                <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
+                <label className="block text-xs font-bold text-[#95706B] uppercase mb-2">{q.text}</label>
                 {q.type === 'textarea' ? (
-                  <textarea className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all" onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />
+                  <textarea className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all" value={answers[q.id] || ''} onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />
                 ) : q.type === 'yesno' ? (
                   <div className="flex gap-3">
                     <button onClick={() => setAnswers({ ...answers, [q.id]: 'Sí' })} className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === 'Sí' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}>Sí</button>
                     <button onClick={() => setAnswers({ ...answers, [q.id]: 'No' })} className={`flex-1 py-3 text-sm border rounded-xl transition-all font-bold ${answers[q.id] === 'No' ? 'bg-rose-50 border-rose-400 text-rose-500' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]'}`}>No</button>
                   </div>
                 ) : q.type === 'select' ? (
-                  <select className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-white text-[#5D7180] outline-none focus:ring-2 focus:ring-[#C7958E]/20" onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}>
+                  <select className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-white text-[#5D7180] outline-none focus:ring-2 focus:ring-[#C7958E]/20" value={answers[q.id] || ''} onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}>
                     <option value="">Seleccionar...</option>
                     {q.options?.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 ) : (
-                  <input type={q.type === 'number' ? 'number' : q.type === 'date' ? 'date' : 'text'} className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all" onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />
+                  <input type={q.type === 'number' ? 'number' : q.type === 'date' ? 'date' : 'text'} className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all" value={answers[q.id] || ''} onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })} />
                 )}
               </div>
             ))}
-            <button onClick={handleSubmit} className="w-full bg-[#4A4A4A] text-white py-4 rounded-xl font-bold shadow-lg mt-6 hover:bg-black transition-all flex items-center justify-center gap-2">
-              Enviar a Revisión <ArrowRight size={16} />
+            <button onClick={handleSubmit} className="w-full bg-[#C7958E] text-white py-4 rounded-xl font-bold shadow-lg shadow-rose-200 hover:bg-[#95706B] transition-colors flex items-center justify-center gap-2">
+              <CheckCircle size={20} /> Enviar Consulta
             </button>
           </div>
         </div>
@@ -975,6 +1088,64 @@ function AppContent() {
   const [todayLog, setTodayLog] = useState<Partial<DailyLog>>({ date: formatDateForDB(new Date()), cycleDay: 1, symptoms: [], alcohol: false, activityMinutes: 0, sunMinutes: 0, lhTest: 'No realizado' });
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
 
+  // --- Cycle Update Logic ---
+  const [showCycleUpdateConfirmation, setShowCycleUpdateConfirmation] = useState(false);
+  const [pendingNewCycleDate, setPendingNewCycleDate] = useState<string | null>(null);
+
+  const confirmCycleUpdate = async () => {
+    if (!user?.id || !pendingNewCycleDate) return;
+
+    // 1. Update Profile
+    const { error } = await supabase.from('profiles').update({ last_period_date: pendingNewCycleDate }).eq('id', user.id);
+
+    if (!error) {
+      // 2. Update F0 Form if exists
+      const f0 = submittedForms.find(f => f.form_type === 'F0');
+      if (f0 && f0.id) {
+        const newAnswers = f0.answers.map(a =>
+          a.questionId === 'q8_last_period' ? { ...a, answer: pendingNewCycleDate } : a
+        );
+        await supabase.from('consultation_forms').update({ answers: newAnswers }).eq('id', f0.id);
+
+        // UPDATE LOCAL STATE TO REFLECT CHANGE IMMEDIATELY
+        setSubmittedForms(prev => prev.map(f => f.id === f0.id ? { ...f, answers: newAnswers } : f));
+      }
+
+      showNotif("¡Ciclo actualizado! Bienvenida a tu nuevo ciclo.", 'success');
+      setShowCycleUpdateConfirmation(false);
+      setPendingNewCycleDate(null);
+      checkUser();
+    } else {
+      showNotif("Error al actualizar: " + error.message, 'error');
+    }
+  };
+
+  const rejectCycleUpdate = async () => {
+    if (!user?.id) return;
+
+    const { data: profile } = await supabase.from('profiles').select('last_period_date').eq('id', user.id).single();
+
+    if (profile?.last_period_date) {
+      const lastPeriod = new Date(profile.last_period_date);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - lastPeriod.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      const newLength = diffDays + 1;
+
+      const { error } = await supabase.from('profiles').update({ cycle_length: newLength }).eq('id', user.id);
+
+      if (!error) {
+        showNotif(`Entendido. Ciclo extendido a ${newLength} días.`, 'success');
+        setShowCycleUpdateConfirmation(false);
+        setPendingNewCycleDate(null);
+        checkUser();
+      } else {
+        showNotif("Error al actualizar: " + error.message, 'error');
+      }
+    }
+  };
+
   useEffect(() => { checkUser(); }, []);
 
   // REFRESH REPORTS WHEN ENTERING PROFILE
@@ -1025,6 +1196,20 @@ function AppContent() {
         }
 
         if (profile) {
+          // Calcular fecha de inicio de ciclo efectiva (proyectada)
+          let effectiveLastPeriodDate = profile.last_period_date;
+          if (profile.last_period_date && profile.cycle_length) {
+            const calculatedDate = calcularInicioCicloActual(profile.last_period_date, profile.cycle_length);
+            const calculatedDateStr = calculatedDate.toISOString().split('T')[0];
+
+            // DETECT NEW CYCLE START
+            if (calculatedDateStr !== profile.last_period_date) {
+              effectiveLastPeriodDate = calculatedDateStr;
+              setPendingNewCycleDate(calculatedDateStr);
+              setShowCycleUpdateConfirmation(true);
+            }
+          }
+
           setUser({
             id: session.user.id, email: session.user.email, joinedAt: profile.created_at,
             methodStartDate: profile.method_start_date,
@@ -1416,6 +1601,32 @@ function AppContent() {
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#F4F0ED] relative font-sans text-[#4A4A4A] pb-24">
+      {/* CYCLE UPDATE MODAL */}
+      {showCycleUpdateConfirmation && pendingNewCycleDate && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full border-4 border-white relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-rose-50 to-white -z-10"></div>
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-rose-100 text-[#C7958E]">
+              <Calendar size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-center text-[#4A4A4A] mb-2">¿Nuevo Ciclo?</h3>
+            <p className="text-center text-[#5D7180] text-sm mb-6">
+              Según tus promedios, tu ciclo podría haber comenzado el <span className="font-bold text-[#C7958E]">{new Date(pendingNewCycleDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>.
+              <br /><br />
+              ¿Te ha bajado la regla?
+            </p>
+            <div className="space-y-3">
+              <button onClick={confirmCycleUpdate} className="w-full bg-[#C7958E] text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-[#95706B] transition-colors flex items-center justify-center gap-2">
+                <CheckCircle size={18} /> Sí, confirmar inicio
+              </button>
+              <button onClick={rejectCycleUpdate} className="w-full bg-white border-2 border-[#F4F0ED] text-[#5D7180] py-3.5 rounded-xl font-bold hover:bg-[#F4F0ED] transition-colors">
+                No, aún no
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPhaseModal && <PhaseIntroModal phase={currentPhase} onClose={handleModalClose} userId={user?.id} />}
       {notif && <Notification message={notif.msg} type={notif.type} onClose={() => setNotif(null)} />}
 
@@ -1543,6 +1754,19 @@ function AppContent() {
                   <span className="text-[#5D7180]">Objetivo</span>
                   <span className="font-bold text-[#4A4A4A]">{user.mainObjective || '-'}</span>
                 </div>
+              </div>
+
+              {/* F0 FORM IN PROFILE */}
+              <div className="mb-6">
+                <h3 className="font-bold text-[#95706B] mb-4 uppercase text-xs tracking-widest px-2">Historia Clínica</h3>
+                <F0FormComponent
+                  user={user}
+                  submittedForm={submittedForms.find(f => f.form_type === 'F0')}
+                  logs={logs}
+                  showNotif={showNotif}
+                  onProfileUpdate={(updates: any) => setUser(prev => prev ? ({ ...prev, ...updates }) : null)}
+                  fetchUserForms={fetchUserForms}
+                />
               </div>
 
               {/* INFORMES GENERADOS */}
