@@ -1870,6 +1870,10 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
             await supabase.from('profiles').update(updates).eq('id', user.id);
             // Force update local state immediately for UI
             setUser(prev => prev ? ({ ...prev, ...updates }) : null);
+
+            // CRITICAL: Reload page to refresh all calculated data
+            showNotif('Perfil actualizado correctamente', 'success');
+            setTimeout(() => window.location.reload(), 500);
           }
 
           // CRITICAL: Recalculate cycle day for ALL existing logs when last_period_date changes

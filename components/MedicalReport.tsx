@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calendar, Clock, Sparkles, Heart, Activity, Moon, Zap, Droplet } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Heart, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { MedicalReportData } from '../services/MedicalReportHelpers';
 import { UserProfile } from '../types';
 
@@ -10,6 +10,8 @@ interface MedicalReportProps {
 }
 
 export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onCompleteProfile }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
     // Si no hay datos calculados (ni siquiera inferidos), mostrar estado vacío
     // Pero ahora con la inferencia, es difícil que llegue null si hay cycleDayOverride
     if (!data || (!data.diaDelCiclo && !user.cycleLength)) {
@@ -70,65 +72,58 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                 </div>
             </div>
 
-            {/* GRID - PRÓXIMA REGLA Y PROBABILIDAD */}
-            <div className="grid grid-cols-2 gap-4">
-                {/* PRÓXIMA REGLA */}
-                <div className="bg-white p-5 rounded-2xl border border-[#F4F0ED] shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-[#F9F6F4] rounded-lg">
-                            <Calendar size={20} className="text-[#C7958E]" />
+            {/* RESUMEN DEL CICLO - COLLAPSIBLE */}
+            <div className="bg-white rounded-2xl border border-[#F4F0ED] shadow-sm overflow-hidden">
+                {/* HEADER CON BOTONES MACOS */}
+                <div
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#F9F6F4] transition-colors"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                >
+                    <div className="flex items-center gap-3">
+                        {/* macOS Style Buttons */}
+                        <div className="flex gap-1.5">
+                            <div className="w-3 h-3 rounded-full bg-[#FF5F57]"></div>
+                            <div className="w-3 h-3 rounded-full bg-[#FEBC2E]"></div>
+                            <div className="w-3 h-3 rounded-full bg-[#28C840]"></div>
                         </div>
-                        <p className="text-xs font-bold text-[#95706B] uppercase">Próxima Regla</p>
+                        <h4 className="text-sm font-bold text-[#4A4A4A]">Resumen del Ciclo</h4>
                     </div>
-                    <div>
-                        <p className="text-xl font-bold text-[#4A4A4A]">{data.fechaProximaMenstruacion}</p>
-                        <p className="text-xs text-[#5D7180] mt-1">
-                            Faltan {data.diasHastaProximaRegla} días
-                        </p>
-                    </div>
+                    {isExpanded ? (
+                        <ChevronUp size={18} className="text-[#95706B]" />
+                    ) : (
+                        <ChevronDown size={18} className="text-[#95706B]" />
+                    )}
                 </div>
 
-                {/* PROBABILIDAD HOY */}
-                <div className="bg-white p-5 rounded-2xl border border-[#F4F0ED] shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-[#F9F6F4] rounded-lg">
-                            <Sparkles size={20} className="text-[#C7958E]" />
+                {/* CONTENIDO EXPANDIBLE */}
+                {isExpanded && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-[#F9F6F4]">
+                        <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
+                            <span className="text-xs text-[#5D7180]">Día actual del ciclo</span>
+                            <span className="text-sm font-bold text-[#4A4A4A]">{data.diaDelCiclo}</span>
                         </div>
-                        <p className="text-xs font-bold text-[#95706B] uppercase">Probabilidad</p>
+                        <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
+                            <span className="text-xs text-[#5D7180]">Día de ovulación estimado</span>
+                            <span className="text-sm font-bold text-[#4A4A4A]">Día {data.diaOvulacion}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
+                            <span className="text-xs text-[#5D7180]">Ventana fértil</span>
+                            <span className="text-sm font-bold text-[#C7958E]">Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
+                            <span className="text-xs text-[#5D7180]">Próxima menstruación</span>
+                            <span className="text-sm font-bold text-[#4A4A4A]">{data.fechaProximaMenstruacion}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-3 border-b border-[#F9F6F4]">
+                            <span className="text-xs text-[#5D7180]">Días hasta próxima regla</span>
+                            <span className="text-sm font-bold text-[#4A4A4A]">{data.diasHastaProximaRegla}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-3">
+                            <span className="text-xs text-[#5D7180]">Probabilidad de embarazo hoy</span>
+                            <span className="text-sm font-bold text-[#4A4A4A]">{data.probabilidadEmbarazoHoy}%</span>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-xl font-bold text-[#4A4A4A]">{data.probabilidadEmbarazoHoy}%</p>
-                        <p className="text-xs text-[#5D7180] mt-1">
-                            {data.probabilidadEmbarazoHoy >= 25 ? 'Alta' : data.probabilidadEmbarazoHoy >= 10 ? 'Media' : 'Baja'}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* TABLA COMPLETA DE FERTILIDAD */}
-            <div className="bg-white p-6 rounded-2xl border border-[#F4F0ED] shadow-sm">
-                <h4 className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Activity size={14} />
-                    Resumen del Ciclo
-                </h4>
-                <div className="space-y-3">
-                    <div className="flex justify-between items-center pb-2 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Día actual del ciclo</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">{data.diaDelCiclo}</span>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Día de ovulación estimado</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">Día {data.diaOvulacion}</span>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-[#F9F6F4]">
-                        <span className="text-xs text-[#5D7180]">Ventana fértil</span>
-                        <span className="text-sm font-bold text-[#C7958E]">Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-xs text-[#5D7180]">Próxima menstruación</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">{data.fechaProximaMenstruacion}</span>
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
