@@ -1740,7 +1740,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
     const canAccessF1 = daysActive >= 30;
     const canAccessF2 = daysActive >= 60;
     const canAccessF3 = daysActive >= 90;
-    const [formType, setFormType] = useState<'F0' | 'F1' | 'F2' | 'F3'>('F0');
+    const [formType, setFormType] = useState<'F1' | 'F2' | 'F3'>('F1');
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isEditMode, setIsEditMode] = useState(false);
 
@@ -1813,28 +1813,9 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
       }
 
       if (!error) {
-        // RULE ENGINE: F0 CREATE/UPDATE
-        if (formType === 'F0') {
-          const trigger = submittedForm ? 'F0_UPDATE' : 'F0_CREATE';
-          // We need to construct a context. We have 'user' and 'formattedAnswers'.
-          // We might need to reload 'submittedForms' to pass them, or construct a mock.
-          // For simplicity, we'll fetch the forms again or pass the new one.
-          // But evaluateRules expects 'submittedForms' array.
-          const newForm = { form_type: 'F0', answers: formattedAnswers };
-          const updatedForms = submittedForm
-          // TODO: Implement WEIGHT_UPDATE and AGE_CHECK triggers
-          // const trigger: 'F0_CREATE' | 'F0_UPDATE' = submittedForm ? 'F0_UPDATE' : 'F0_CREATE';
-          // const ruleNotifs = await evaluateRules(trigger, {
-          //   user: user,
-          //   previousUser: submittedForm ? user : undefined,
-          //   submittedForms: [newForm]
-          // });
-          // await saveNotifications(user.id, ruleNotifs);
-          await fetchNotifications(user.id);
-        }
-
-        // IF F0, UPDATE PROFILE SYNC IMMEDIATELY
-        if (formType === 'F0') {
+        // Profile sync logic removed - F0 is no longer in ConsultationsView
+        // IF F1/F2/F3, no special profile sync needed
+        if (false) {
           const updates: any = {};
 
           // Basic info
@@ -1957,10 +1938,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
         // setAnswers({}); // Don't clear answers so user can see what they submitted/updated
         fetchUserForms(user.id);
 
-        // Redirect to DASHBOARD after F0 submission
-        if (formType === 'F0') {
-          setTimeout(() => setView('DASHBOARD'), 1500);
-        }
+        // No redirect needed for F1/F2/F3
       } else {
         showNotif(error.message, 'error');
       }
@@ -1970,7 +1948,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
       <div className="pb-24 space-y-6">
         <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
         <div className="flex bg-white p-1.5 rounded-xl shadow-sm border border-[#F4F0ED] overflow-x-auto">
-          {[{ id: 'F0', l: 'F0 Base' }, { id: 'F1', l: 'F1 (30d)' }, { id: 'F2', l: 'F2 (60d)' }, { id: 'F3', l: 'F3 (90d)' }].map(t => (
+          {[{ id: 'F1', l: 'F1 (30d)' }, { id: 'F2', l: 'F2 (60d)' }, { id: 'F3', l: 'F3 (90d)' }].map(t => (
             <button key={t.id} onClick={() => setFormType(t.id as any)} className={'flex-1 py-2 px-3 text-xs font-bold rounded-lg whitespace-nowrap transition-all ' + (formType === t.id ? 'bg-[#C7958E] text-white shadow-md' : 'text-[#5D7180] hover:bg-[#F4F0ED]')}>
               {t.l} {submittedForms.find(f => f.form_type === t.id) && '✅'}
             </button>
@@ -2782,7 +2760,11 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                         )}
                       </div>
                       <button
-                        onClick={() => setView('CONSULTATIONS')}
+                        onClick={() => {
+                          // TODO: Implement inline F0 editing in Historia tab
+                          // For now, redirect to Consultations as fallback
+                          setView('CONSULTATIONS');
+                        }}
                         className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
                       >
                         <Edit2 size={16} />
