@@ -144,13 +144,13 @@ export function generarDatosInformeMedico(
     user: UserProfile,
     logs: DailyLog[]
 ): MedicalReportData | null {
-    // Calcular datos básicos (siempre posibles si hay peso/altura/edad)
+    // Calcular datos básicos
     const resultadoIMC = calcularIMC(user.weight || 0, user.height || 0);
     const pesoIdeal = calcularPesoIdeal(user.height || 0);
     const analisisEdad = analizarEdadFertilidad(user.age || 0);
     const promedios = calcularPromediosHabitos(logs);
 
-    // Valores por defecto para ciclo si faltan datos
+    // Valores por defecto
     let diaDelCiclo = 0;
     let diaOvulacion = 0;
     let ventanaFertil = { inicio: 0, fin: 0, diasFertiles: 0 };
@@ -159,20 +159,20 @@ export function generarDatosInformeMedico(
     let diasHastaProximaRegla = 0;
     let probabilidadEmbarazoHoy = 0;
 
-    // Calcular datos de ciclo solo si existen los datos necesarios
+    // CRITICAL: Calcular datos de ciclo solo si existen
     if (user.lastPeriodDate && user.cycleLength) {
-        const cycleLen = Number(user.cycleLength); // Asegurar número
-        console.log('🧮 Datos ciclo:', { lastPeriod: user.lastPeriodDate, cycleLen });
+        const cycleLen = Number(user.cycleLength);
+        console.log('🧮 Datos ciclo:', {
+            lastPeriod: user.lastPeriodDate,
+            cycleLen,
+            weight: user.weight,
+            height: user.height
+        });
 
-        diaDelCiclo = calcularDiaDelCiclo(user.lastPeriodDate);
+        // USAR cycleLength para calcular día del ciclo correctamente
+        diaDelCiclo = calcularDiaDelCiclo(user.lastPeriodDate, cycleLen);
 
-        // Si el día del ciclo es negativo (fecha futura) o muy alto, manejarlo
         if (diaDelCiclo < 1) diaDelCiclo = 1;
-
-        // Ajustar día del ciclo si excede la duración (reiniciar visualmente o mantener acumulado?)
-        // Para fertilidad, nos interesa el día relativo al inicio del ciclo actual.
-        // Si diaDelCiclo > cycleLen, significa que debería haber empezado uno nuevo.
-        // Por ahora, mostraremos el día acumulado para que la usuaria vea el retraso.
 
         const ventana = calcularVentanaFertil(cycleLen);
         ventanaFertil = {
@@ -187,7 +187,7 @@ export function generarDatosInformeMedico(
             cycleLen
         );
 
-        // Días restantes (pueden ser negativos si ya pasó)
+        // Días restantes
         diasHastaOvulacion = ventana.diaOvulacion - diaDelCiclo;
         diasHastaProximaRegla = cycleLen - diaDelCiclo;
 

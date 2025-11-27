@@ -2517,21 +2517,16 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       </div>
                     </div>
 
-                    {/* MEDICAL REPORT */}
+                    {/* MEDICAL REPORT - CICLO Y FERTILIDAD */}
                     {(() => {
-                      console.log('📊 Generating Medical Report for user:', {
-                        lastPeriod: user.lastPeriodDate,
-                        cycleLength: user.cycleLength,
-                        weight: user.weight,
-                        height: user.height
-                      });
                       const medicalData = generarDatosInformeMedico(user, logs);
-                      console.log('📊 Medical Report Data:', medicalData);
-                      return medicalData ? (
-                        <div className="mb-6">
-                          <MedicalReport data={medicalData} />
-                        </div>
-                      ) : null;
+                      return (
+                        <MedicalReport
+                          data={medicalData}
+                          user={user}
+                          onCompleteProfile={() => setView('CONSULTATIONS')}
+                        />
+                      );
                     })()}
 
                     {/* NOTIFICATIONS - Unread only in Dashboard */}
