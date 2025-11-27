@@ -288,18 +288,21 @@ const calculateFertyScore = (user: UserProfile, logs: DailyLog[]) => {
 const FORM_DEFINITIONS = {
   F0: {
     title: "F0: Ficha Personal Inicial",
-    description: "Esta información es la base de tu protocolo personalizado.",
+    description: "Esta información es la base de tu protocolo personalizado. Tus datos de ciclo son vitales para calcular tus predicciones de fertilidad.",
     questions: [
-      // EASY INTERACTIONS FIRST (sliders, steppers, buttons)
+      // CRITICAL CYCLE INFO FIRST
+      { id: 'q8_last_period', text: "Fecha última regla:", type: 'date' },
+      { id: 'q6_cycle', text: "Duración ciclo promedio:", type: 'stepper', min: 21, max: 40, unit: 'días' },
+      { id: 'q7_regularity', text: "¿Ciclos regulares?", type: 'buttons', options: ['Regulares', 'Irregulares'] },
+
+      // EASY INTERACTIONS (sliders, steppers, buttons)
       { id: 'q1_birthdate', text: "Tu fecha de nacimiento:", type: 'date' },
       { id: 'q2_height', text: "Altura:", type: 'slider', min: 140, max: 200, unit: 'cm' },
       { id: 'q2_weight', text: "Peso:", type: 'slider', min: 40, max: 150, unit: 'kg' },
       { id: 'q3_time_trying', text: "Tiempo buscando embarazo:", type: 'stepper', min: 0, max: 60, unit: 'meses' },
       { id: 'q4_objective', text: "Objetivo principal:", type: 'buttons', options: ['Concepción natural', 'Reproducción Asistida'] },
       { id: 'q5_partner', text: "¿Buscas en pareja o solitario?", type: 'buttons', options: ['Pareja', 'Solitario'] },
-      { id: 'q6_cycle', text: "Duración ciclo promedio:", type: 'stepper', min: 21, max: 40, unit: 'días' },
-      { id: 'q7_regularity', text: "¿Ciclos regulares?", type: 'buttons', options: ['Regulares', 'Irregulares'] },
-      { id: 'q8_last_period', text: "Fecha última regla:", type: 'date' },
+
       { id: 'q15_stress', text: "Nivel de Estrés:", type: 'segmented', min: 1, max: 5 },
       { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' },
       { id: 'q17_smoker', text: "¿Fumas?", type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'] },

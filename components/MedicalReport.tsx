@@ -24,7 +24,7 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                 </p>
                 <button
                     onClick={onCompleteProfile}
-                    className="bg-[#4A4A4A] text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition-colors text-xs uppercase tracking-wider"
+                    className="bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#b0847d] transition-colors text-xs uppercase tracking-wider"
                 >
                     Completar Datos
                 </button>
