@@ -878,17 +878,20 @@ function AppContent() {
             role: profile.role || 'user',
             // Add other fields if needed by rules
             cycleRegularity: profile.cycle_regularity,
+            cycleLength: profile.cycle_length,
+            lastPeriodDate: profile.last_period_date,
             fertilityTreatments: profile.fertility_treatments,
             supplements: profile.supplements,
             alcoholConsumption: profile.alcohol_consumption
           };
 
           if (fetchedLogs) {
-            const ruleNotifs = await evaluateRules('PERIODIC', {
-              user: currentUser as UserProfile,
-              recentLogs: fetchedLogs
-            });
-            await saveNotifications(session.user.id, ruleNotifs);
+            // TODO: Implement DAILY_CHECK trigger in useEffect
+            // const ruleNotifs = await evaluateRules('PERIODIC', {
+            //   user: currentUser as UserProfile,
+            //   recentLogs: fetchedLogs
+            // });
+            // await saveNotifications(session.user.id, ruleNotifs);
           }
 
           await fetchNotifications(session.user.id);
@@ -1311,12 +1314,13 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
       const updatedLogs = await supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: false });
 
       // RULE ENGINE EVALUATION
-      const ruleNotifications = await evaluateRules('DAILY_LOG_SAVE', {
-        user: user,
-        currentLog: formattedLog as DailyLog,
-        recentLogs: updatedLogs.data.map(mapLogFromDB)
-      });
-      await saveNotifications(user.id, ruleNotifications);
+      // TODO: Implement DAILY_CHECK trigger in useEffect
+      // const ruleNotifications = await evaluateRules('DAILY_LOG_SAVE', {
+      //   user: user,
+      //   currentLog: formattedLog as DailyLog,
+      //   recentLogs: updatedLogs.data.map(mapLogFromDB)
+      // });
+      // await saveNotifications(user.id, ruleNotifications);
       await fetchNotifications(user.id);
 
       if (updatedLogs.data && updatedLogs.data.length > 0) {
@@ -1808,15 +1812,14 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
           // But evaluateRules expects 'submittedForms' array.
           const newForm = { form_type: 'F0', answers: formattedAnswers };
           const updatedForms = submittedForm
-            ? submittedForms.map(f => f.id === submittedForm.id ? newForm : f)
-            : [...submittedForms, newForm];
-
-          const ruleNotifs = await evaluateRules(trigger, {
-            user: user,
-            previousUser: user, // For update comparison if needed, though we rely on form answers mostly
-            submittedForms: updatedForms
-          });
-          await saveNotifications(user.id, ruleNotifs);
+          // TODO: Implement WEIGHT_UPDATE and AGE_CHECK triggers
+          // const trigger: 'F0_CREATE' | 'F0_UPDATE' = submittedForm ? 'F0_UPDATE' : 'F0_CREATE';
+          // const ruleNotifs = await evaluateRules(trigger, {
+          //   user: user,
+          //   previousUser: submittedForm ? user : undefined,
+          //   submittedForms: [newForm]
+          // });
+          // await saveNotifications(user.id, ruleNotifs);
           await fetchNotifications(user.id);
         }
 
