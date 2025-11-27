@@ -199,14 +199,41 @@ export function generarDatosInformeMedico(
         };
         diaOvulacion = ventana.diaOvulacion;
 
-        fechaProximaMenstruacion = calcularFechaProximaMenstruacion(
-            effectiveLastPeriod,
-            effectiveCycleLength
-        );
+        // Calcular fecha próxima regla basada en calendario estricto
+        // Próxima Regla = Última Regla + (N * Duración Ciclo)
+        // Donde N es el número de ciclos necesarios para llegar al futuro
+        const diasDesdeInicio = Math.floor((new Date().getTime() - new Date(effectiveLastPeriod).getTime()) / (1000 * 60 * 60 * 24));
+        const ciclosCompletados = Math.floor(diasDesdeInicio / effectiveCycleLength);
+        // El ciclo actual es ciclosCompletados + 1
+        // La próxima regla será al finalizar el ciclo actual
+        const diasParaProxima = (ciclosCompletados + 1) * effectiveCycleLength;
 
-        // Días restantes
-        diasHastaOvulacion = ventana.diaOvulacion - diaDelCiclo;
-        diasHastaProximaRegla = effectiveCycleLength - diaDelCiclo;
+        const fechaRegla = new Date(effectiveLastPeriod);
+        fechaRegla.setDate(fechaRegla.getDate() + diasParaProxima);
+
+        fechaProximaMenstruacion = fechaRegla.toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'long'
+        });
+
+        // Días restantes (diferencia entre esa fecha futura y hoy)
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        fechaRegla.setHours(0, 0, 0, 0);
+        const diffTime = fechaRegla.getTime() - hoy.getTime();
+        diasHastaProximaRegla = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Días restantes para ovulación
+        // Ovulación es Día X del ciclo.
+        // Fecha Ovulación = Inicio Ciclo Actual + DiaOvulacion - 1
+        const inicioCicloActual = new Date(effectiveLastPeriod);
+        inicioCicloActual.setDate(inicioCicloActual.getDate() + (ciclosCompletados * effectiveCycleLength));
+
+        const fechaOvulacion = new Date(inicioCicloActual);
+        fechaOvulacion.setDate(fechaOvulacion.getDate() + ventana.diaOvulacion - 1);
+
+        const diffOvulacion = fechaOvulacion.getTime() - hoy.getTime();
+        diasHastaOvulacion = Math.ceil(diffOvulacion / (1000 * 60 * 60 * 24));
 
         // Probabilidad hoy
         const diaRelativoOvulacion = diaDelCiclo - ventana.diaOvulacion;
