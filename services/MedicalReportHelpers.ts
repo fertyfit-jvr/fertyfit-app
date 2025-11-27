@@ -239,16 +239,8 @@ export function generarDatosInformeMedico(
         diasHastaProximaRegla = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         // Días restantes para ovulación
-        // Ovulación es Día X del ciclo.
-        // Fecha Ovulación = Inicio Ciclo Actual + DiaOvulacion - 1
-        const inicioCicloActual = new Date(effectiveLastPeriod);
-        inicioCicloActual.setDate(inicioCicloActual.getDate() + (ciclosCompletados * effectiveCycleLength));
-
-        const fechaOvulacion = new Date(inicioCicloActual);
-        fechaOvulacion.setDate(fechaOvulacion.getDate() + ventana.diaOvulacion - 1);
-
-        const diffOvulacion = fechaOvulacion.getTime() - hoy.getTime();
-        diasHastaOvulacion = Math.ceil(diffOvulacion / (1000 * 60 * 60 * 24));
+        // Cálculo directo: Día de ovulación - Día actual del ciclo
+        diasHastaOvulacion = diaOvulacion - diaDelCiclo;
 
         // Probabilidad hoy
         const diaRelativoOvulacion = diaDelCiclo - ventana.diaOvulacion;
