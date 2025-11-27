@@ -10,21 +10,23 @@ interface MedicalReportProps {
 }
 
 export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onCompleteProfile }) => {
-    if (!data || !user.lastPeriodDate || !user.cycleLength) {
+    // Si no hay datos calculados (ni siquiera inferidos), mostrar estado vacío
+    // Pero ahora con la inferencia, es difícil que llegue null si hay cycleDayOverride
+    if (!data || (!data.diaDelCiclo && !user.cycleLength)) {
         return (
-            <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl text-center mb-6">
-                <div className="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Calendar size={32} className="text-amber-600" />
+            <div className="bg-[#F9F6F4] border border-[#F4F0ED] p-6 rounded-2xl text-center mb-6">
+                <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                    <Activity size={32} className="text-[#C7958E]" />
                 </div>
-                <h3 className="font-bold text-amber-800 text-sm mb-2">Datos de Ciclo Incompletos</h3>
-                <p className="text-xs text-amber-700 mb-4">
-                    Completa tu formulario F0 con tu última regla y duración de ciclo para ver predicciones.
+                <h3 className="font-bold text-[#4A4A4A] text-sm mb-2">Configura tu Ciclo</h3>
+                <p className="text-xs text-[#5D7180] mb-4">
+                    Necesitamos saber tu última regla y duración de ciclo para calcular tus predicciones.
                 </p>
                 <button
                     onClick={onCompleteProfile}
-                    className="bg-amber-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-amber-700 transition-colors"
+                    className="bg-[#4A4A4A] text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition-colors text-xs uppercase tracking-wider"
                 >
-                    Completar F0
+                    Completar Datos
                 </button>
             </div>
         );

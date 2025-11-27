@@ -142,7 +142,8 @@ function calcularPromediosHabitos(logs: DailyLog[]) {
  */
 export function generarDatosInformeMedico(
     user: UserProfile,
-    logs: DailyLog[]
+    logs: DailyLog[],
+    cycleDayOverride?: number
 ): MedicalReportData | null {
     // Calcular datos básicos
     const resultadoIMC = calcularIMC(user.weight || 0, user.height || 0);
@@ -159,22 +160,38 @@ export function generarDatosInformeMedico(
     let diasHastaProximaRegla = 0;
     let probabilidadEmbarazoHoy = 0;
 
-    // CRITICAL: Calcular datos de ciclo solo si existen
-    if (user.lastPeriodDate && user.cycleLength) {
-        const cycleLen = Number(user.cycleLength);
-        console.log('🧮 Datos ciclo:', {
-            lastPeriod: user.lastPeriodDate,
-            cycleLen,
-            weight: user.weight,
-            height: user.height
+    // CRITICAL: Calcular datos de ciclo si existen O si tenemos override
+    // Si falta lastPeriodDate pero tenemos cycleDayOverride, inferimos lastPeriodDate
+    let effectiveLastPeriod = user.lastPeriodDate;
+    if (!effectiveLastPeriod && cycleDayOverride) {
+        const hoy = new Date();
+        const estimatedLastPeriod = new Date(hoy);
+        estimatedLastPeriod.setDate(hoy.getDate() - (cycleDayOverride - 1));
+        effectiveLastPeriod = estimatedLastPeriod.toISOString().split('T')[0];
+        console.log('🔄 Inferida lastPeriodDate desde cycleDay:', effectiveLastPeriod);
+    }
+
+    // Si falta cycleLength, usamos 28 por defecto si tenemos override, o fallamos
+    let effectiveCycleLength = user.cycleLength ? Number(user.cycleLength) : (cycleDayOverride ? 28 : 0);
+
+    if (effectiveLastPeriod && effectiveCycleLength) {
+        console.log('🧮 Datos ciclo efectivos:', {
+            lastPeriod: effectiveLastPeriod,
+            cycleLen: effectiveCycleLength,
+            cycleDayOverride
         });
 
         // USAR cycleLength para calcular día del ciclo correctamente
-        diaDelCiclo = calcularDiaDelCiclo(user.lastPeriodDate, cycleLen);
+        // Si tenemos override, lo usamos directamente, si no calculamos
+        if (cycleDayOverride) {
+            diaDelCiclo = cycleDayOverride;
+        } else {
+            diaDelCiclo = calcularDiaDelCiclo(effectiveLastPeriod, effectiveCycleLength);
+        }
 
         if (diaDelCiclo < 1) diaDelCiclo = 1;
 
-        const ventana = calcularVentanaFertil(cycleLen);
+        const ventana = calcularVentanaFertil(effectiveCycleLength);
         ventanaFertil = {
             inicio: ventana.inicio,
             fin: ventana.fin,
@@ -183,13 +200,13 @@ export function generarDatosInformeMedico(
         diaOvulacion = ventana.diaOvulacion;
 
         fechaProximaMenstruacion = calcularFechaProximaMenstruacion(
-            user.lastPeriodDate,
-            cycleLen
+            effectiveLastPeriod,
+            effectiveCycleLength
         );
 
         // Días restantes
         diasHastaOvulacion = ventana.diaOvulacion - diaDelCiclo;
-        diasHastaProximaRegla = cycleLen - diaDelCiclo;
+        diasHastaProximaRegla = effectiveCycleLength - diaDelCiclo;
 
         // Probabilidad hoy
         const diaRelativoOvulacion = diaDelCiclo - ventana.diaOvulacion;
