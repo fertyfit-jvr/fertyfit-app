@@ -316,15 +316,51 @@ const FORM_DEFINITIONS = {
     ]
   },
   F1: {
-    title: "F1: Punto de Partida (Semana 4)",
+    title: "F1: Analíticas Médicas",
+    description: "Completa tus resultados de laboratorio para tu evaluación personalizada. Todos los valores aceptan decimales.",
     questions: [
-      { id: 'q1_confirm_tracker', text: "Confirma que has completado el registro de biomarcadores (30 días).", type: 'yesno' },
-      { id: 'q2_cycle_length', text: "¿Cuál es la duración promedio de tu ciclo (en días)?", type: 'number' },
-      { id: 'q3_immediate_changes', text: "¿Has implementado los 3 cambios inmediatos (sueño, caminar, sin azúcar)?", type: 'yesno' },
-      { id: 'q4_supplements', text: "Suplementos iniciados y dosis:", type: 'text', optional: true },
-      { id: 'q5_detox', text: "¿Has realizado la Auditoría de hogar (Detox)?", type: 'yesno' },
-      { id: 'q6_symptoms', text: "Describe síntomas nuevos o cambios importantes:", type: 'textarea', optional: true },
-      { id: 'q7_doubt', text: "¿Cuál es tu mayor duda ahora mismo?", type: 'textarea' }
+      // SECTION 1: PANEL HORMONAL FEMENINO (DÍA 3)
+      { id: 'section_hormonal', text: "📊 Panel Hormonal Femenino (Día 3)", type: 'section' },
+      { id: 'q1_fsh', text: "FSH", type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1 },
+      { id: 'q1_lh', text: "LH", type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1 },
+      { id: 'q1_estradiol', text: "Estradiol (E2)", type: 'number', unit: 'pg/mL', min: 0, max: 1000, step: 0.1 },
+      { id: 'q1_prolactina', text: "Prolactina", type: 'number', unit: 'ng/mL', step: 0.1 },
+      { id: 'q1_tsh', text: "TSH", type: 'number', unit: 'µUI/mL', step: 0.01 },
+      { id: 'q1_t4_libre', text: "T4 Libre", type: 'number', unit: 'ng/dL', step: 0.01 },
+      { id: 'q1_dia_ciclo', text: "Día del ciclo", type: 'number', defaultValue: 3, disabled: true },
+
+      // SECTION 2: PANEL METABÓLICO
+      { id: 'section_metabolico', text: "🩸 Panel Metabólico", type: 'section' },
+      { id: 'q2_glucosa', text: "Glucosa", type: 'number', unit: 'mg/dL', min: 40, max: 300, step: 0.1 },
+      { id: 'q2_insulina', text: "Insulina", type: 'number', unit: 'µUI/mL', min: 0, max: 100, step: 0.1 },
+      { id: 'q2_ferritina', text: "Ferritina", type: 'number', unit: 'ng/mL', min: 1, max: 500, step: 0.1 },
+      { id: 'q2_hierro', text: "Hierro", type: 'number', unit: 'µg/dL', step: 0.1 },
+      { id: 'q2_transferrina', text: "Transferrina", type: 'number', unit: 'mg/dL', step: 0.1 },
+      { id: 'q2_saturacion_transferrina', text: "Saturación de transferrina", type: 'number', unit: '%', step: 0.1 },
+      { id: 'q2_pcr', text: "PCR ultrasensible", type: 'number', unit: 'mg/L', min: 0, max: 20, step: 0.01 },
+      { id: 'q2_colesterol', text: "Colesterol total", type: 'number', unit: 'mg/dL', step: 0.1 },
+      { id: 'q2_trigliceridos', text: "Triglicéridos", type: 'number', unit: 'mg/dL', step: 0.1 },
+
+      // SECTION 3: VITAMINA D
+      { id: 'section_vitamina_d', text: "☀️ Vitamina D", type: 'section' },
+      { id: 'q3_vitamina_d', text: "Vitamina D 25-OH", type: 'number', unit: 'ng/mL', min: 1, max: 150, step: 0.1 },
+
+      // SECTION 4: ECOGRAFÍA TRANSVAGINAL + AFC
+      { id: 'section_ecografia', text: "🔬 Ecografía Transvaginal + AFC", type: 'section' },
+      { id: 'q4_afc_total', text: "AFC Total", type: 'number', min: 0, max: 50 },
+      { id: 'q4_afc_derecho', text: "AFC Ovario Derecho", type: 'number', min: 0, max: 50 },
+      { id: 'q4_afc_izquierdo', text: "AFC Ovario Izquierdo", type: 'number', min: 0, max: 50 },
+      { id: 'q4_grosor_endometrial', text: "Grosor Endometrial", type: 'number', unit: 'mm', min: 1, max: 20, step: 0.1 },
+      { id: 'q4_patron_endometrial', text: "Patrón Endometrial", type: 'text', optional: true },
+
+      // SECTION 5: ESPERMIOGRAMA (PAREJA)
+      { id: 'section_espermiograma', text: "👥 Espermiograma Básico (Pareja)", type: 'section', optional: true },
+      { id: 'q5_volumen', text: "Volumen", type: 'number', unit: 'mL', step: 0.1, optional: true },
+      { id: 'q5_concentracion', text: "Concentración", type: 'number', unit: 'millones/mL', step: 0.1, optional: true },
+      { id: 'q5_movilidad_total', text: "Movilidad Total", type: 'number', unit: '%', step: 0.1, optional: true },
+      { id: 'q5_movilidad_progresiva', text: "Movilidad Progresiva", type: 'number', unit: '%', step: 0.1, optional: true },
+      { id: 'q5_morfologia', text: "Morfología Normal", type: 'number', unit: '%', step: 0.1, optional: true },
+      { id: 'q5_vitalidad', text: "Vitalidad", type: 'number', unit: '%', step: 0.1, optional: true }
     ]
   },
   F2: {
@@ -1741,7 +1777,7 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
     const daysActive = user?.methodStartDate
       ? Math.floor((new Date().getTime() - new Date(user.methodStartDate).getTime()) / (1000 * 3600 * 24)) + 1
       : 0;
-    const canAccessF1 = daysActive >= 30;
+    const canAccessF1 = user?.methodStartDate != null;
     const canAccessF2 = daysActive >= 60;
     const canAccessF3 = daysActive >= 90;
     const [formType, setFormType] = useState<'F1' | 'F2' | 'F3'>('F1');
@@ -2088,100 +2124,127 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
               </div>
             )}
             <div className="space-y-6">
-              {definition.questions.map(q => (
-                <div key={q.id}>
-                  <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
-                  {q.type === 'textarea' ? (
-                    <textarea
-                      value={answers[q.id] || ''}
-                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
-                      onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
-                    />
-                  ) : q.type === 'yesno' ? (
-                    <div className="flex gap-3">
-                      <button onClick={() => setAnswers({ ...answers, [q.id]: 'Sí' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === 'Sí' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>Sí</button>
-                      <button onClick={() => setAnswers({ ...answers, [q.id]: 'No' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === 'No' ? 'bg-rose-50 border-rose-400 text-rose-500' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>No</button>
+              {definition.questions.map(q => {
+                // Render section headers
+                if (q.type === 'section') {
+                  return (
+                    <div key={q.id} className="pt-4 first:pt-0">
+                      <h4 className="text-sm font-bold text-[#95706B] mb-4 pb-2 border-b border-[#F4F0ED]">{q.text}</h4>
                     </div>
-                  ) : q.type === 'buttons' ? (
-                    <div className="flex gap-3">
-                      {q.options?.map(option => (
-                        <button
-                          key={option}
-                          onClick={() => setAnswers({ ...answers, [q.id]: option })}
-                          className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === option ? 'bg-[#C7958E] border-[#C7958E] text-white' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  ) : q.type === 'stepper' ? (
-                    <div className="flex items-center justify-center gap-4 bg-[#F4F0ED]/30 rounded-xl p-4">
-                      <button
-                        onClick={() => setAnswers({ ...answers, [q.id]: Math.max((q.min || 0), (parseInt(answers[q.id]) || q.min || 0) - 1) })}
-                        className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
-                      >
-                        −
-                      </button>
-                      <div className="text-center min-w-[100px]">
-                        <div className="text-3xl font-bold text-[#4A4A4A]">{answers[q.id] || q.min || 0}</div>
-                        <div className="text-xs text-[#5D7180] mt-1">{q.unit}</div>
-                      </div>
-                      <button
-                        onClick={() => setAnswers({ ...answers, [q.id]: Math.min((q.max || 100), (parseInt(answers[q.id]) || q.min || 0) + 1) })}
-                        className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
-                      >
-                        +
-                      </button>
-                    </div>
-                  ) : q.type === 'slider' ? (
-                    <div className="bg-[#F4F0ED]/30 rounded-xl p-4">
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-bold text-[#5D7180]">{q.text.replace(':', '')}</span>
-                        <span className="text-sm font-bold text-[#4A4A4A]">{answers[q.id] || q.min || 0} {q.unit}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={q.min || 0}
-                        max={q.max || 100}
-                        step={q.step || 1}
-                        value={answers[q.id] || q.min || 0}
-                        onChange={e => setAnswers({ ...answers, [q.id]: parseFloat(e.target.value) })}
-                        className="w-full accent-[#C7958E] h-2 bg-white rounded-lg appearance-none cursor-pointer"
+                  );
+                }
+
+                return (
+                  <div key={q.id}>
+                    <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
+                    {q.type === 'textarea' ? (
+                      <textarea
+                        value={answers[q.id] || ''}
+                        className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
+                        onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
                       />
-                      <div className="flex justify-between text-[10px] text-stone-400 mt-1">
-                        <span>{q.min} {q.unit}</span>
-                        <span>{q.max} {q.unit}</span>
+                    ) : q.type === 'yesno' ? (
+                      <div className="flex gap-3">
+                        <button onClick={() => setAnswers({ ...answers, [q.id]: 'Sí' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === 'Sí' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>Sí</button>
+                        <button onClick={() => setAnswers({ ...answers, [q.id]: 'No' })} className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === 'No' ? 'bg-rose-50 border-rose-400 text-rose-500' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}>No</button>
                       </div>
-                    </div>
-                  ) : q.type === 'segmented' ? (
-                    <div className="flex gap-2">
-                      {Array.from({ length: (q.max || 5) - (q.min || 1) + 1 }, (_, i) => i + (q.min || 1)).map(n => (
+                    ) : q.type === 'buttons' ? (
+                      <div className="flex gap-3">
+                        {q.options?.map(option => (
+                          <button
+                            key={option}
+                            onClick={() => setAnswers({ ...answers, [q.id]: option })}
+                            className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (answers[q.id] === option ? 'bg-[#C7958E] border-[#C7958E] text-white' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    ) : q.type === 'stepper' ? (
+                      <div className="flex items-center justify-center gap-4 bg-[#F4F0ED]/30 rounded-xl p-4">
                         <button
-                          key={n}
-                          onClick={() => setAnswers({ ...answers, [q.id]: n })}
-                          className={'flex-1 h-12 rounded-xl font-bold transition-all ' + (answers[q.id] === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200')}
+                          onClick={() => setAnswers({ ...answers, [q.id]: Math.max((q.min || 0), (parseInt(answers[q.id]) || q.min || 0) - 1) })}
+                          className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
                         >
-                          {n}
+                          −
                         </button>
-                      ))}
-                    </div>
-                  ) : q.type === 'date' ? (
-                    <input
-                      type="date"
-                      value={answers[q.id] || ''}
-                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
-                      onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
-                    />
-                  ) : (
-                    <input
-                      type={q.type === 'number' ? 'number' : 'text'}
-                      value={answers[q.id] || ''}
-                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
-                      onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
-                    />
-                  )}
-                </div>
-              ))}
+                        <div className="text-center min-w-[100px]">
+                          <div className="text-3xl font-bold text-[#4A4A4A]">{answers[q.id] || q.min || 0}</div>
+                          <div className="text-xs text-[#5D7180] mt-1">{q.unit}</div>
+                        </div>
+                        <button
+                          onClick={() => setAnswers({ ...answers, [q.id]: Math.min((q.max || 100), (parseInt(answers[q.id]) || q.min || 0) + 1) })}
+                          className="w-12 h-12 rounded-full bg-white border-2 border-[#F4F0ED] text-[#C7958E] font-bold text-xl hover:bg-[#F4F0ED] transition-all shadow-sm"
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : q.type === 'slider' ? (
+                      <div className="bg-[#F4F0ED]/30 rounded-xl p-4">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-sm font-bold text-[#5D7180]">{q.text.replace(':', '')}</span>
+                          <span className="text-sm font-bold text-[#4A4A4A]">{answers[q.id] || q.min || 0} {q.unit}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={q.min || 0}
+                          max={q.max || 100}
+                          step={q.step || 1}
+                          value={answers[q.id] || q.min || 0}
+                          onChange={e => setAnswers({ ...answers, [q.id]: parseFloat(e.target.value) })}
+                          className="w-full accent-[#C7958E] h-2 bg-white rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-stone-400 mt-1">
+                          <span>{q.min} {q.unit}</span>
+                          <span>{q.max} {q.unit}</span>
+                        </div>
+                      </div>
+                    ) : q.type === 'segmented' ? (
+                      <div className="flex gap-2">
+                        {Array.from({ length: (q.max || 5) - (q.min || 1) + 1 }, (_, i) => i + (q.min || 1)).map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setAnswers({ ...answers, [q.id]: n })}
+                            className={'flex-1 h-12 rounded-xl font-bold transition-all ' + (answers[q.id] === n ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200')}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    ) : q.type === 'date' ? (
+                      <input
+                        type="date"
+                        value={answers[q.id] || ''}
+                        className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                        onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
+                      />
+                    ) : q.type === 'number' ? (
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step={q.step || 0.1}
+                          min={q.min}
+                          max={q.max}
+                          disabled={q.disabled}
+                          value={answers[q.id] !== undefined ? answers[q.id] : (q.defaultValue || '')}
+                          className="w-full border border-[#F4F0ED] rounded-xl p-3 pr-16 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all disabled:opacity-60"
+                          onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
+                        />
+                        {q.unit && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#95706B]">{q.unit}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={answers[q.id] || ''}
+                        className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                        onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
+                      />
+                    )}
+                  </div>
+                )
+              })}
               <button onClick={handleSubmit} className="w-full bg-[#4A4A4A] text-white py-4 rounded-xl font-bold shadow-lg mt-6 hover:bg-black transition-all flex items-center justify-center gap-2">
                 Enviar a Revisión <ArrowRight size={16} />
               </button>
