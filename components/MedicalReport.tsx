@@ -98,8 +98,8 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                         <div className="flex items-center gap-4 flex-1">
                             {/* Círculo con probabilidad */}
                             <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-full border flex-shrink-0 ${enDiasFertiles
-                                    ? 'bg-emerald-50 border-emerald-200'
-                                    : 'bg-rose-50 border-rose-100'
+                                ? 'bg-emerald-50 border-emerald-200'
+                                : 'bg-rose-50 border-rose-100'
                                 }`}>
                                 <span className={`text-xs font-bold ${enDiasFertiles ? 'text-emerald-600' : 'text-[#C7958E]'
                                     }`}>PROB</span>
@@ -108,22 +108,25 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                             </div>
 
                             <div className="flex-1">
-                                {/* Fechas de ventana fértil */}
-                                <p className="font-bold text-[#4A4A4A] text-sm mb-1">
-                                    {fechasVentana ? `${fechasVentana.inicio} - ${fechasVentana.fin}` : 'Ventana fértil'}
-                                </p>
-                                <div className="flex items-center gap-2 text-xs flex-wrap">
-                                    {/* Badge Regla */}
-                                    <span className="bg-[#F4F0ED] text-[#5D7180] px-2 py-0.5 rounded-md">
-                                        Regla en {data.diasHastaProximaRegla}d
+                                {/* Line 1: Fertile Window with Heart Icon */}
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Heart size={14} className="text-rose-500 fill-rose-500" />
+                                    <span className="font-bold text-[#4A4A4A] text-sm">
+                                        {fechasVentana ? `${fechasVentana.inicio} - ${fechasVentana.fin}` : '--'}
                                     </span>
+                                    <span className="text-xs text-[#95706B] font-normal">
+                                        (Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin})
+                                    </span>
+                                </div>
 
-                                    {/* Badge Último registro */}
-                                    {fechaUltimoRegistro && (
-                                        <span className="bg-[#F4F0ED] text-[#5D7180] px-2 py-0.5 rounded-md flex items-center gap-1">
-                                            <Activity size={10} /> Último: {fechaUltimoRegistro}
-                                        </span>
-                                    )}
+                                {/* Line 2 & 3: Period Dates (No badges) */}
+                                <div className="flex flex-col gap-0.5">
+                                    <p className="text-[10px] text-[#5D7180]">
+                                        <span className="font-bold">Fecha Última Regla:</span> {user.lastPeriodDate ? new Date(user.lastPeriodDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '--'}
+                                    </p>
+                                    <p className="text-[10px] text-[#5D7180]">
+                                        <span className="font-bold">Fecha próxima regla (aprox):</span> {data.fechaProximaMenstruacion}
+                                    </p>
                                 </div>
                             </div>
                         </div>
