@@ -8,10 +8,12 @@ import {
 
 import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification } from './types';
 import { NotificationList } from './components/NotificationSystem';
+import { MedicalReport } from './components/MedicalReport';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus } from './services/dataService';
 import { supabase } from './services/supabase';
 import { evaluateRules, saveNotifications } from './services/RuleEngine';
+import { generarDatosInformeMedico } from './services/MedicalReportHelpers';
 
 // --- Error Boundary for Production Safety ---
 interface ErrorBoundaryProps {
@@ -2511,6 +2513,16 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                         </div>
                       </div>
                     </div>
+
+                    {/* MEDICAL REPORT */}
+                    {(() => {
+                      const medicalData = generarDatosInformeMedico(user, logs);
+                      return medicalData ? (
+                        <div className="mb-6">
+                          <MedicalReport data={medicalData} />
+                        </div>
+                      ) : null;
+                    })()}
 
                     {/* NOTIFICATIONS - Unread only in Dashboard */}
                     {visibleNotifications.filter(n => !n.is_read).length > 0 && (
