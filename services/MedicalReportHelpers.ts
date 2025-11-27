@@ -28,6 +28,8 @@ export interface MedicalReportData {
 
     // Datos de ciclo
     diaDelCiclo: number;
+    cycleLengthUsado: number;
+    usandoValorPorDefecto: boolean;
     diaOvulacion: number;
     ventanaFertil: {
         inicio: number;
@@ -63,7 +65,7 @@ export interface MedicalReportData {
 /**
  * Calcula el día actual del ciclo
  */
-function calcularDiaDelCiclo(lastPeriodDate: string | undefined): number {
+function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: number): number {
     if (!lastPeriodDate) return 0;
 
     console.log('🧮 Calculando día ciclo con:', lastPeriodDate);
@@ -172,7 +174,12 @@ export function generarDatosInformeMedico(
     }
 
     // Si falta cycleLength, usamos 28 por defecto si tenemos override, o fallamos
+    const usandoDefault = !user.cycleLength && cycleDayOverride ? true : false;
     let effectiveCycleLength = user.cycleLength ? Number(user.cycleLength) : (cycleDayOverride ? 28 : 0);
+
+    if (usandoDefault) {
+        console.warn('⚠️ cycleLength no está definido, usando 28 días por defecto');
+    }
 
     if (effectiveLastPeriod && effectiveCycleLength) {
         console.log('🧮 Datos ciclo efectivos:', {
@@ -243,12 +250,17 @@ export function generarDatosInformeMedico(
     return {
         edad: user.age || 0,
         imc: {
-            valor: resultadoIMC.valor,
+            valor: resultadoIMC.valor.toString(),
             categoria: resultadoIMC.categoria
         },
         pesoActual: user.weight || 0,
-        pesoIdeal,
+        pesoIdeal: {
+            minimo: Math.round(pesoIdeal.minimo),
+            maximo: Math.round(pesoIdeal.maximo)
+        },
         diaDelCiclo,
+        cycleLengthUsado: effectiveCycleLength,
+        usandoValorPorDefecto: usandoDefault,
         diaOvulacion,
         ventanaFertil,
         fechaProximaMenstruacion,
@@ -256,10 +268,6 @@ export function generarDatosInformeMedico(
         diasHastaProximaRegla,
         probabilidadEmbarazoHoy,
         promedios,
-        analisisEdad: {
-            categoria: analisisEdad.categoria,
-            probabilidad: analisisEdad.probabilidad,
-            mensaje: analisisEdad.mensaje
-        }
+        analisisEdad
     };
 }

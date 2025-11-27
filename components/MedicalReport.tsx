@@ -70,6 +70,25 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
             {/* TÍTULO FUERA DE LA CAJA */}
             <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Resumen del Ciclo</h3>
 
+            {/* AVISO SI USA VALOR POR DEFECTO */}
+            {data.usandoValorPorDefecto && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-start gap-2">
+                    <span className="text-amber-600 text-lg">⚠️</span>
+                    <div>
+                        <p className="text-xs font-bold text-amber-800 mb-1">Usando duración estimada</p>
+                        <p className="text-xs text-amber-700">
+                            No has especificado tu duración de ciclo. Estamos usando 28 días por defecto.
+                            <button
+                                onClick={onCompleteProfile}
+                                className="underline font-bold ml-1"
+                            >
+                                Actualiza tu perfil
+                            </button> para cálculos más precisos.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* CAJA COLAPSABLE */}
             <div className="bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all">
                 <div onClick={() => setIsExpanded(!isExpanded)} className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors">
@@ -119,6 +138,12 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, onComp
                         <div className="flex justify-between items-center py-2">
                             <span className="text-[#5D7180]">Día actual del ciclo</span>
                             <span className="font-bold text-[#4A4A4A]">{data.diaDelCiclo}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-[#5D7180]">Duración de ciclo{data.usandoValorPorDefecto ? ' (estimada)' : ''}</span>
+                            <span className={`font-bold ${data.usandoValorPorDefecto ? 'text-amber-600' : 'text-[#4A4A4A]'}`}>
+                                {data.cycleLengthUsado} días
+                            </span>
                         </div>
                         <div className="flex justify-between items-center py-2">
                             <span className="text-[#5D7180]">Días hasta ovulación</span>
