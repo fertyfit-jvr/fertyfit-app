@@ -769,6 +769,10 @@ function AppContent() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
 
+  // F0 Edit State (for Historia tab)
+  const [isEditingF0, setIsEditingF0] = useState(false);
+  const [f0Answers, setF0Answers] = useState<Record<string, any>>({});
+
   const handleSaveProfile = async () => {
     if (!user) return;
 
@@ -2744,9 +2748,53 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                   });
                 };
 
+                // Initialize answers when entering edit mode
+                const handleEditClick = () => {
+                  const initialAnswers: Record<string, any> = {};
+                  f0Form.answers.forEach((a: any) => initialAnswers[a.questionId] = a.answer);
+                  setF0Answers(initialAnswers);
+                  setIsEditingF0(true);
+                };
+
+                // Save F0 changes
+                const handleSaveF0 = async () => {
+                  if (!user?.id || !f0Form.id) return;
+
+                  const formattedAnswers = FORM_DEFINITIONS.F0.questions.map(q => ({
+                    questionId: q.id,
+                    question: q.text,
+                    answer: f0Answers[q.id] || ''
+                  }));
+
+                  const { error } = await supabase
+                    .from('consultation_forms')
+                    .update({ answers: formattedAnswers, status: 'pending' })
+                    .eq('id', f0Form.id);
+
+                  if (!error) {
+                    // Update profile sync
+                    const updates: any = {};
+                    if (f0Answers['q2_weight']) updates.weight = parseFloat(f0Answers['q2_weight']);
+                    if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
+                    if (f0Answers['q4_objective']) updates.main_objective = f0Answers['q4_objective'];
+                    if (f0Answers['q8_last_period']) updates.last_period_date = f0Answers['q8_last_period'];
+
+                    if (Object.keys(updates).length > 0) {
+                      await supabase.from('profiles').update(updates).eq('id', user.id);
+                      setUser(prev => prev ? ({ ...prev, ...updates }) : null);
+                    }
+
+                    showNotif('Ficha Personal actualizada correctamente', 'success');
+                    setIsEditingF0(false);
+                    fetchUserForms(user.id);
+                  } else {
+                    showNotif(error.message, 'error');
+                  }
+                };
+
                 return (
                   <div className="space-y-4">
-                    {/* DISCRETE HEADER - Same style as "Datos Personales" */}
+                    {/* DISCRETE HEADER */}
                     <div className="flex justify-between items-end mb-3">
                       <div>
                         <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
@@ -2761,47 +2809,94 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, 
                       </div>
                       <button
                         onClick={() => {
-                          // TODO: Implement inline F0 editing in Historia tab
-                          // For now, redirect to Consultations as fallback
-                          setView('CONSULTATIONS');
+                          if (isEditingF0) {
+                            handleSaveF0();
+                          } else {
+                            handleEditClick();
+                          }
                         }}
                         className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
                       >
-                        <Edit2 size={16} />
+                        {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
                       </button>
                     </div>
 
-                    {/* F0 DATA */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
-                      {f0Form.answers.map((answer, idx) => {
-                        // Find question text from FORM_DEFINITIONS
-                        const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
-                        if (!question) return null;
+                    {/* F0 DATA OR FORM */}
+                    {isEditingF0 ? (
+                      <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+                        <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                        <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">{FORM_DEFINITIONS.F0.description || "Rellena los datos para tu evaluación."}</p>
 
-                        let displayValue = answer.answer;
+                        <div className="space-y-6">
+                          {FORM_DEFINITIONS.F0.questions.map(q => (
+                            <div key={q.id}>
+                              <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
+                              {q.type === 'textarea' ? (
+                                <textarea
+                                  value={f0Answers[q.id] || ''}
+                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
+                                  onChange={e => setF0Answers({ ...f0Answers, [q.id]: e.target.value })}
+                                />
+                              ) : q.type === 'select' ? (
+                                <div className="flex gap-3">
+                                  {q.options?.map(option => (
+                                    <button
+                                      key={option}
+                                      onClick={() => setF0Answers({ ...f0Answers, [q.id]: option })}
+                                      className={'flex-1 py-3 text-sm border rounded-xl transition-all font-bold ' + (f0Answers[q.id] === option ? 'bg-[#C7958E] border-[#C7958E] text-white' : 'border-[#F4F0ED] text-[#5D7180] hover:bg-[#F4F0ED]')}
+                                    >
+                                      {option}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : q.type === 'date' ? (
+                                <input
+                                  type="date"
+                                  value={f0Answers[q.id] || ''}
+                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                                  onChange={e => setF0Answers({ ...f0Answers, [q.id]: e.target.value })}
+                                />
+                              ) : (
+                                <input
+                                  type={q.type === 'number' ? 'number' : 'text'}
+                                  value={f0Answers[q.id] || ''}
+                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                                  onChange={e => setF0Answers({ ...f0Answers, [q.id]: e.target.value })}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                        {f0Form.answers.map((answer, idx) => {
+                          const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
+                          if (!question) return null;
 
-                        // Format dates
-                        if (question.type === 'date' && typeof displayValue === 'string') {
-                          displayValue = formatDate(displayValue);
-                        }
+                          let displayValue = answer.answer;
 
-                        // Format arrays
-                        if (Array.isArray(displayValue)) {
-                          displayValue = displayValue.join(', ');
-                        }
+                          if (question.type === 'date' && typeof displayValue === 'string') {
+                            displayValue = formatDate(displayValue);
+                          }
 
-                        return (
-                          <div key={idx} className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                            <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
-                              {question.text}
-                            </p>
-                            <p className="text-sm text-[#4A4A4A]">
-                              {displayValue || '-'}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          if (Array.isArray(displayValue)) {
+                            displayValue = displayValue.join(', ');
+                          }
+
+                          return (
+                            <div key={idx} className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                                {question.text}
+                              </p>
+                              <p className="text-sm text-[#4A4A4A]">
+                                {displayValue || '-'}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
