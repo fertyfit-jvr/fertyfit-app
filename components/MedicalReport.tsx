@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Calendar, TrendingUp, Heart, Droplet, Moon, Zap } from 'lucide-react';
+import { Activity, Calendar, TrendingUp, Heart, Droplet, Moon, Zap, Scale } from 'lucide-react';
 import { MedicalReportData } from '../services/MedicalReportHelpers';
 
 interface MedicalReportProps {
@@ -7,183 +7,159 @@ interface MedicalReportProps {
 }
 
 export const MedicalReport: React.FC<MedicalReportProps> = ({ data }) => {
-    // Helper para determinar color según valor
-    const getColorClass = (value: number, thresholds: { good: number; warning: number }) => {
-        if (value >= thresholds.good) return 'text-emerald-600';
-        if (value >= thresholds.warning) return 'text-amber-600';
-        return 'text-rose-600';
-    };
-
     return (
-        <div className="bg-white rounded-2xl border border-[#F4F0ED] shadow-sm p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-bold text-[#4A4A4A] uppercase tracking-wider flex items-center gap-2">
-                    <Activity size={16} className="text-[#C7958E]" />
-                    Informe Médico
-                </h3>
-                <span className="text-xs text-[#95706B] font-medium">
-                    Actualizado hoy
-                </span>
-            </div>
-
-            {/* Grid de métricas */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100">
+            {/* Grid de métricas principales */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 
                 {/* Edad */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1">Edad</p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">{data.edad} años</p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">{data.analisisEdad.categoria}</p>
+                <div className="bg-stone-50 p-3 rounded-xl">
+                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider mb-1">Edad</p>
+                    <p className="text-lg font-bold text-stone-800">{data.edad} años</p>
+                    <p className="text-[10px] text-stone-500 mt-1">{data.analisisEdad.categoria}</p>
+                </div>
+
+                {/* Peso (Actual vs Ideal) */}
+                <div className="bg-stone-50 p-3 rounded-xl">
+                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Scale size={10} />
+                        Peso
+                    </p>
+                    <p className="text-lg font-bold text-stone-800">{data.pesoActual} kg</p>
+                    <p className="text-[10px] text-stone-500 mt-1">
+                        Ideal: {data.pesoIdeal.minimo}-{data.pesoIdeal.maximo} kg
+                    </p>
                 </div>
 
                 {/* IMC */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1">IMC</p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">{data.imc.valor}</p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">{data.imc.categoria}</p>
+                <div className="bg-stone-50 p-3 rounded-xl">
+                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider mb-1">IMC</p>
+                    <p className="text-lg font-bold text-stone-800">{data.imc.valor}</p>
+                    <p className="text-[10px] text-stone-500 mt-1">{data.imc.categoria}</p>
                 </div>
 
-                {/* Peso Ideal */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1">Peso Ideal</p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">
-                        {data.pesoIdeal.minimo}-{data.pesoIdeal.maximo} kg
-                    </p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">Rango saludable</p>
-                </div>
-
-                {/* Día del Ciclo */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                        <Calendar size={10} />
-                        Día del Ciclo
-                    </p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">Día {data.diaDelCiclo}</p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">Ciclo actual</p>
-                </div>
-
-                {/* Día de Ovulación */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1">Ovulación</p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">Día {data.diaOvulacion}</p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">Estimado</p>
-                </div>
-
-                {/* Ventana Fértil */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1">Ventana Fértil</p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">
-                        Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}
-                    </p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">{data.ventanaFertil.diasFertiles} días</p>
-                </div>
-
-                {/* Próxima Menstruación */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl col-span-2">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1">Próxima Regla</p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">{data.fechaProximaMenstruacion}</p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">
-                        En {data.diasHastaProximaRegla} día{data.diasHastaProximaRegla !== 1 ? 's' : ''}
-                    </p>
-                </div>
-
-                {/* Días hasta Ovulación */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1">Hasta Ovulación</p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">
-                        {data.diasHastaOvulacion > 0 ? data.diasHastaOvulacion : 'Pasó'}
-                    </p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">
-                        {data.diasHastaOvulacion > 0 ? 'días' : 'este ciclo'}
-                    </p>
-                </div>
-
-                {/* Probabilidad de Embarazo Hoy */}
-                <div className="bg-[#F9F6F4] p-3 rounded-xl col-span-2">
-                    <p className="text-[10px] text-[#95706B] font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                {/* Probabilidad Hoy */}
+                <div className="bg-stone-50 p-3 rounded-xl">
+                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                         <TrendingUp size={10} />
                         Probabilidad Hoy
                     </p>
-                    <p className="text-lg font-bold text-[#4A4A4A]">{data.probabilidadEmbarazoHoy}%</p>
-                    <p className="text-[10px] text-[#5D7180] mt-1">
-                        {data.probabilidadEmbarazoHoy >= 25 ? 'Alta fertilidad' :
-                            data.probabilidadEmbarazoHoy >= 10 ? 'Fertilidad moderada' :
-                                'Baja fertilidad'}
+                    <p className="text-lg font-bold text-stone-800">{data.probabilidadEmbarazoHoy}%</p>
+                    <p className="text-[10px] text-stone-500 mt-1">
+                        {data.probabilidadEmbarazoHoy >= 25 ? 'Alta' :
+                            data.probabilidadEmbarazoHoy >= 10 ? 'Moderada' :
+                                'Baja'}
                     </p>
                 </div>
             </div>
 
-            {/* Promedios de Hábitos (últimos 7 días) */}
-            <div className="mt-6 pt-6 border-t border-[#F4F0ED]">
-                <h4 className="text-xs font-bold text-[#4A4A4A] uppercase tracking-wider mb-4">
+            {/* Sección Ciclo */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {/* Día del Ciclo */}
+                <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+                    <p className="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Calendar size={10} />
+                        Día Ciclo
+                    </p>
+                    <p className="text-lg font-bold text-stone-800">
+                        {data.diaDelCiclo > 0 ? `Día ${data.diaDelCiclo}` : '-'}
+                    </p>
+                </div>
+
+                {/* Ovulación */}
+                <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+                    <p className="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1">Ovulación</p>
+                    <p className="text-lg font-bold text-stone-800">
+                        {data.diaOvulacion > 0 ? `Día ${data.diaOvulacion}` : '-'}
+                    </p>
+                    <p className="text-[10px] text-rose-400 mt-1">
+                        {data.diasHastaOvulacion > 0 ? `En ${data.diasHastaOvulacion} días` : 'Pasó'}
+                    </p>
+                </div>
+
+                {/* Ventana Fértil */}
+                <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+                    <p className="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1">Ventana Fértil</p>
+                    <p className="text-lg font-bold text-stone-800">
+                        {data.ventanaFertil.inicio > 0 ? `${data.ventanaFertil.inicio}-${data.ventanaFertil.fin}` : '-'}
+                    </p>
+                    <p className="text-[10px] text-rose-400 mt-1">Días del ciclo</p>
+                </div>
+
+                {/* Próxima Regla */}
+                <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-100">
+                    <p className="text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-1">Próxima Regla</p>
+                    <p className="text-sm font-bold text-stone-800 truncate">
+                        {data.fechaProximaMenstruacion}
+                    </p>
+                    <p className="text-[10px] text-rose-400 mt-1">
+                        {data.diasHastaProximaRegla > 0 ? `En ${data.diasHastaProximaRegla} días` : 'Pendiente'}
+                    </p>
+                </div>
+            </div>
+
+            {/* Promedios de Hábitos */}
+            <div>
+                <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-3">
                     Promedios Últimos 7 Días
                 </h4>
 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {/* Sueño */}
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-indigo-50">
-                            <Moon size={14} className="text-indigo-600" />
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 transition-colors">
+                        <div className="p-1.5 rounded-md bg-indigo-50">
+                            <Moon size={12} className="text-indigo-600" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-[#4A4A4A]">{data.promedios.sueno}h</p>
-                            <p className="text-[10px] text-[#5D7180]">Sueño</p>
+                            <p className="text-sm font-bold text-stone-700">{data.promedios.sueno}h</p>
+                            <p className="text-[10px] text-stone-500">Horas Sueño</p>
                         </div>
                     </div>
 
                     {/* Estrés */}
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-rose-50">
-                            <Zap size={14} className="text-rose-600" />
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 transition-colors">
+                        <div className="p-1.5 rounded-md bg-rose-50">
+                            <Zap size={12} className="text-rose-600" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-[#4A4A4A]">{data.promedios.estres}/5</p>
-                            <p className="text-[10px] text-[#5D7180]">Estrés</p>
+                            <p className="text-sm font-bold text-stone-700">{data.promedios.estres}/5</p>
+                            <p className="text-[10px] text-stone-500">Nivel Estrés</p>
                         </div>
                     </div>
 
                     {/* Agua */}
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-blue-50">
-                            <Droplet size={14} className="text-blue-600" />
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 transition-colors">
+                        <div className="p-1.5 rounded-md bg-blue-50">
+                            <Droplet size={12} className="text-blue-600" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-[#4A4A4A]">{data.promedios.agua}</p>
-                            <p className="text-[10px] text-[#5D7180]">Vasos</p>
+                            <p className="text-sm font-bold text-stone-700">{data.promedios.agua}</p>
+                            <p className="text-[10px] text-stone-500">Vasos Agua</p>
                         </div>
                     </div>
 
                     {/* Vegetales */}
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-green-50">
-                            <Heart size={14} className="text-green-600" />
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 transition-colors">
+                        <div className="p-1.5 rounded-md bg-green-50">
+                            <Heart size={12} className="text-green-600" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-[#4A4A4A]">{data.promedios.vegetales}</p>
-                            <p className="text-[10px] text-[#5D7180]">Vegetales</p>
+                            <p className="text-sm font-bold text-stone-700">{data.promedios.vegetales}</p>
+                            <p className="text-[10px] text-stone-500">Raciones Veg.</p>
                         </div>
                     </div>
 
                     {/* Alcohol */}
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-amber-50">
-                            <Activity size={14} className="text-amber-600" />
+                    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 transition-colors">
+                        <div className="p-1.5 rounded-md bg-amber-50">
+                            <Activity size={12} className="text-amber-600" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-[#4A4A4A]">{data.promedios.diasConAlcohol}</p>
-                            <p className="text-[10px] text-[#5D7180]">Días alcohol</p>
+                            <p className="text-sm font-bold text-stone-700">{data.promedios.diasConAlcohol}</p>
+                            <p className="text-[10px] text-stone-500">Días Alcohol</p>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* Disclaimer */}
-            <div className="mt-4 p-3 bg-[#F9F6F4] rounded-lg">
-                <p className="text-[10px] text-[#5D7180] leading-relaxed">
-                    ℹ️ <span className="font-bold">Importante:</span> Estos son cálculos estimados basados en promedios.
-                    La ovulación real puede variar ±2 días. Para decisiones médicas, consulta con un especialista.
-                </p>
             </div>
         </div>
     );

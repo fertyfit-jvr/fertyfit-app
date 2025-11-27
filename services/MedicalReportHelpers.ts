@@ -20,6 +20,7 @@ export interface MedicalReportData {
         valor: string;
         categoria: string;
     };
+    pesoActual: number;
     pesoIdeal: {
         minimo: number;
         maximo: number;
@@ -171,6 +172,7 @@ export function generarDatosInformeMedico(
             valor: resultadoIMC.valor,
             categoria: resultadoIMC.categoria
         },
+        pesoActual: user.weight || 0,
         pesoIdeal,
         diaDelCiclo,
         diaOvulacion,
