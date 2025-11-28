@@ -567,7 +567,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             </button>
           )}
         </div>
-      <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
         {(submittedForm?.answers || []).map(answer => (
           <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
             <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
