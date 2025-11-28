@@ -340,31 +340,99 @@ function AppContent() {
     : 0;
   const dashboardProgress = Math.min(100, dashboardDaysActive > 0 ? (dashboardDaysActive / 90) * 100 : 0);
 
-  const handleSaveProfile = async () => {
-    if (!user) return;
+  const showNotif = (msg: string, type: 'success' | 'error') => {
+    setNotif({ msg, type });
+    setTimeout(() => setNotif(null), 4000);
+  };
 
-    const { error } = await supabase.from('profiles').update({
-      name: editName
-    }).eq('id', user.id);
+  // Define ALL fetch functions FIRST to avoid circular dependencies
+  const fetchLogs = async (userId: string) => {
+    const { data, error } = await supabase.from('daily_logs').select('*').eq('user_id', userId).order('date', { ascending: false });
 
-    if (!error) {
-      setUser({ ...user, name: editName });
-      setIsEditingProfile(false);
-      showNotif('Perfil actualizado correctamente', 'success');
-    } else {
-      showNotif('Error al actualizar perfil', 'error');
+    if (error) {
+      console.error('❌ Error fetching logs:', error);
+      showNotif('Error cargando registros: ' + error.message, 'error');
+      return;
+    }
+
+    if (data) {
+      const mappedLogs = data.map(mapLogFromDB);
+      setLogs(mappedLogs);
+      const todayStr = formatDateForDB(new Date());
+      const existingToday = mappedLogs.find(l => l.date === todayStr);
+      if (existingToday) {
+        setTodayLog(existingToday);
+      } else if (mappedLogs.length > 0) {
+        const last = mappedLogs[0];
+        const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
+        setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
+      }
+      return mappedLogs;
+    }
+    return [];
+  };
+
+  const fetchNotifications = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) console.error('❌ Error fetching notifications:', error);
+    if (data) {
+      // Filter out soft-deleted notifications (metadata.deleted === true)
+      const activeNotifications = data.filter(n => !n.metadata?.deleted);
+      setNotifications(activeNotifications);
     }
   };
 
-  const handleRestartMethod = async () => {
-    if (!user?.id) return;
-    const { error } = await supabase.from('profiles').update({ method_start_date: null }).eq('id', user.id);
-    if (error) {
-      showNotif('No se pudo reiniciar el método', 'error');
-      return;
+  const fetchReports = async (userId: string) => {
+    const { data, error } = await supabase.from('admin_reports').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+
+    if (error) console.error('❌ Error fetching reports:', error);
+    if (data) {
+      setReports(data);
     }
-    setUser(user ? { ...user, methodStartDate: null } : null);
-    showNotif('Método reiniciado correctamente', 'success');
+  };
+
+  const fetchUserForms = async (userId: string) => {
+    const { data, error } = await supabase.from('consultation_forms').select('*').eq('user_id', userId);
+    if (error) {
+      console.error('❌ Error fetching forms:', error);
+      showNotif('Error cargando formularios: ' + error.message, 'error');
+    }
+    if (data) setSubmittedForms(data);
+  };
+
+  const fetchEducation = async (userId: string, methodStart?: string) => {
+    const { data: modulesData } = await supabase.from('content_modules').select(`*, content_lessons (*)`).order('order_index');
+    const { data: progressData } = await supabase.from('user_progress').select('lesson_id').eq('user_id', userId);
+    const completedSet = new Set(progressData?.map(p => p.lesson_id) || []);
+
+    let currentWeek = 0;
+    if (methodStart) {
+      const start = new Date(methodStart);
+      start.setHours(0, 0, 0, 0);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+      currentWeek = Math.ceil(days / 7) || 1;
+    }
+
+    if (modulesData) {
+      setCourseModules(modulesData.map(m => ({
+        id: m.id, title: m.title, description: m.description, order_index: m.order_index, phase: m.phase as any,
+        lessons: m.content_lessons?.sort((a: any, b: any) => {
+          if (a.type === 'video' && b.type !== 'video') return -1;
+          if (a.type !== 'video' && b.type === 'video') return 1;
+          return 0;
+        }) || [],
+        completedLessons: Array.from(completedSet).filter(id => m.content_lessons?.some((l: any) => l.id === id)) as number[],
+        isCompleted: false,
+        isLocked: m.phase > 0 && (!methodStart || m.order_index > currentWeek)
+      })));
+    }
   };
 
   // Initialize edit state when entering profile
@@ -405,7 +473,16 @@ function AppContent() {
 
         if (!cancelled && ruleNotifications.length > 0) {
           await saveNotifications(user.id!, ruleNotifications);
-          await fetchNotifications(user.id);
+          // Fetch notifications after saving
+          const { data: notifData } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          if (notifData) {
+            const activeNotifications = notifData.filter(n => !n.metadata?.deleted);
+            setNotifications(activeNotifications);
+          }
         }
       } catch (err) {
         console.error('❌ Error running DAILY_CHECK trigger', err);
@@ -420,11 +497,6 @@ function AppContent() {
 
     return () => { cancelled = true; };
   }, [user?.id, user?.lastPeriodDate, user?.cycleLength]);
-
-  const showNotif = (msg: string, type: 'success' | 'error') => {
-    setNotif({ msg, type });
-    setTimeout(() => setNotif(null), 4000);
-  };
 
   const checkUser = async () => {
     setLoading(true);
@@ -585,58 +657,6 @@ function AppContent() {
     setUser(null);
     setLogs([]);
     setView('ONBOARDING');
-  };
-
-  const fetchLogs = async (userId: string) => {
-    const { data, error } = await supabase.from('daily_logs').select('*').eq('user_id', userId).order('date', { ascending: false });
-
-    if (error) {
-      console.error('❌ Error fetching logs:', error);
-      showNotif('Error cargando registros: ' + error.message, 'error');
-      return;
-    }
-
-    if (data) {
-      const mappedLogs = data.map(mapLogFromDB);
-      setLogs(mappedLogs);
-      const todayStr = formatDateForDB(new Date());
-      const existingToday = mappedLogs.find(l => l.date === todayStr);
-      if (existingToday) {
-        setTodayLog(existingToday);
-      } else if (mappedLogs.length > 0) {
-        const last = mappedLogs[0];
-        const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
-        setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
-      }
-      return mappedLogs;
-    }
-    return [];
-  };
-
-
-
-  const fetchNotifications = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) console.error('❌ Error fetching notifications:', error);
-    if (data) {
-      // Filter out soft-deleted notifications (metadata.deleted === true)
-      const activeNotifications = data.filter(n => !n.metadata?.deleted);
-      setNotifications(activeNotifications);
-    }
-  };
-
-  const fetchReports = async (userId: string) => {
-    const { data, error } = await supabase.from('admin_reports').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-
-    if (error) console.error('❌ Error fetching reports:', error);
-    if (data) {
-      setReports(data);
-    }
   };
 
   const markNotificationRead = async (notifId: number) => {
@@ -826,45 +846,6 @@ function AppContent() {
 
     } catch (error) {
       console.error('Error analyzing with AI:', error);
-    }
-  };
-
-  const fetchUserForms = async (userId: string) => {
-    const { data, error } = await supabase.from('consultation_forms').select('*').eq('user_id', userId);
-    if (error) {
-      console.error('❌ Error fetching forms:', error);
-      showNotif('Error cargando formularios: ' + error.message, 'error');
-    }
-    if (data) setSubmittedForms(data);
-  };
-
-  const fetchEducation = async (userId: string, methodStart?: string) => {
-    const { data: modulesData } = await supabase.from('content_modules').select(`*, content_lessons (*)`).order('order_index');
-    const { data: progressData } = await supabase.from('user_progress').select('lesson_id').eq('user_id', userId);
-    const completedSet = new Set(progressData?.map(p => p.lesson_id) || []);
-
-    let currentWeek = 0;
-    if (methodStart) {
-      const start = new Date(methodStart);
-      start.setHours(0, 0, 0, 0);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
-      currentWeek = Math.ceil(days / 7) || 1;
-    }
-
-    if (modulesData) {
-      setCourseModules(modulesData.map(m => ({
-        id: m.id, title: m.title, description: m.description, order_index: m.order_index, phase: m.phase as any,
-        lessons: m.content_lessons?.sort((a: any, b: any) => {
-          if (a.type === 'video' && b.type !== 'video') return -1;
-          if (a.type !== 'video' && b.type === 'video') return 1;
-          return 0;
-        }) || [],
-        completedLessons: Array.from(completedSet).filter(id => m.content_lessons?.some((l: any) => l.id === id)) as number[],
-        isCompleted: false,
-        isLocked: m.phase > 0 && (!methodStart || m.order_index > currentWeek)
-      })));
     }
   };
 
@@ -1222,81 +1203,81 @@ function AppContent() {
       <div className="h-full overflow-y-auto custom-scrollbar">
         {view === 'PROFILE' && user ? (
           <ProfileView
-            user={user}
-            logs={logs}
-            submittedForms={submittedForms}
-            reports={reports}
-            scores={dashboardScores}
-            visibleNotifications={visibleNotifications}
-            profileTab={profileTab}
-            setProfileTab={setProfileTab}
-            isEditingProfile={isEditingProfile}
-            setIsEditingProfile={setIsEditingProfile}
-            editName={editName}
-            setEditName={setEditName}
-            onSaveProfile={handleSaveProfile}
-            isEditingF0={isEditingF0}
-            setIsEditingF0={setIsEditingF0}
-            f0Answers={f0Answers}
-            setF0Answers={setF0Answers}
-            showNotif={showNotif}
-            setView={setView}
-            fetchUserForms={fetchUserForms}
-            setUser={setUser}
-            markNotificationRead={markNotificationRead}
-            deleteNotification={deleteNotification}
-            onNotificationAction={handleNotificationAction}
-            onRestartMethod={handleRestartMethod}
-            onLogout={handleLogout}
-          />
+              user={user}
+              logs={logs}
+              submittedForms={submittedForms}
+              reports={reports}
+              scores={dashboardScores}
+              visibleNotifications={visibleNotifications}
+              profileTab={profileTab}
+              setProfileTab={setProfileTab}
+              isEditingProfile={isEditingProfile}
+              setIsEditingProfile={setIsEditingProfile}
+              editName={editName}
+              setEditName={setEditName}
+              onSaveProfile={handleSaveProfile}
+              isEditingF0={isEditingF0}
+              setIsEditingF0={setIsEditingF0}
+              f0Answers={f0Answers}
+              setF0Answers={setF0Answers}
+              showNotif={showNotif}
+              setView={setView}
+              fetchUserForms={fetchUserForms}
+              setUser={setUser}
+              markNotificationRead={markNotificationRead}
+              deleteNotification={deleteNotification}
+              onNotificationAction={handleNotificationAction}
+              onRestartMethod={handleRestartMethod}
+              onLogout={handleLogout}
+            />
         ) : (
           <div className="p-5">
             {view === 'DASHBOARD' && user && (
               <DashboardView
-                user={user}
-                logs={logs}
-                todayLog={todayLog}
-                scores={dashboardScores}
-                progressPercent={dashboardProgress}
-                daysActive={dashboardDaysActive}
-                unreadNotifications={unreadNotifications}
-                submittedForms={submittedForms}
-                onStartMethod={startMethod}
-                onNavigate={setView}
-                showNotif={showNotif}
-                onMarkNotificationRead={markNotificationRead}
-                onDeleteNotification={deleteNotification}
-                onNotificationAction={handleNotificationAction}
-              />
+                  user={user}
+                  logs={logs}
+                  todayLog={todayLog}
+                  scores={dashboardScores}
+                  progressPercent={dashboardProgress}
+                  daysActive={dashboardDaysActive}
+                  unreadNotifications={unreadNotifications}
+                  submittedForms={submittedForms}
+                  onStartMethod={startMethod}
+                  onNavigate={setView}
+                  showNotif={showNotif}
+                  onMarkNotificationRead={markNotificationRead}
+                  onDeleteNotification={deleteNotification}
+                  onNotificationAction={handleNotificationAction}
+                />
             )}
             {view === 'TRACKER' && (
               <TrackerView
-                todayLog={todayLog}
-                setTodayLog={setTodayLog}
-                submittedForms={submittedForms}
-                logs={logs}
-                handleDateChange={handleDateChange}
-                saveDailyLog={saveDailyLog}
-                user={user}
-                onUserUpdate={(updatedUser) => setUser(updatedUser)}
-                showNotif={showNotif}
-                fetchUserForms={fetchUserForms}
-              />
+                  todayLog={todayLog}
+                  setTodayLog={setTodayLog}
+                  submittedForms={submittedForms}
+                  logs={logs}
+                  handleDateChange={handleDateChange}
+                  saveDailyLog={saveDailyLog}
+                  user={user}
+                  onUserUpdate={(updatedUser) => setUser(updatedUser)}
+                  showNotif={showNotif}
+                  fetchUserForms={fetchUserForms}
+                />
             )}
             {view === 'EDUCATION' && (
               <EducationView
-                courseModules={courseModules}
-                onSelectLesson={setActiveLesson}
-              />
+                  courseModules={courseModules}
+                  onSelectLesson={setActiveLesson}
+                />
             )}
             {view === 'CONSULTATIONS' && user && (
               <ConsultationsView
-                user={user}
-                logs={logs}
-                submittedForms={submittedForms}
-                showNotif={showNotif}
-                fetchUserForms={fetchUserForms}
-              />
+                  user={user}
+                  logs={logs}
+                  submittedForms={submittedForms}
+                  showNotif={showNotif}
+                  fetchUserForms={fetchUserForms}
+                />
             )}
           </div>
         )}
