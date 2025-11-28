@@ -31,6 +31,7 @@ import {
   initializeTodayLog
 } from './hooks/useUserData';
 import { logger } from './lib/logger';
+import { EXTERNAL_URLS } from './constants/api';
 
 // Lazy load views for better performance
 const TrackerView = lazy(() => import('./views/Tracker/TrackerView'));
@@ -76,7 +77,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           <h1 className="text-2xl font-bold text-[#95706B] mb-4">Algo salió mal</h1>
           <p className="text-[#5D7180] mb-6">Lo sentimos. Ha ocurrido un error inesperado.</p>
           <button
-            onClick={() => window.location.href = 'https://fertyfit.com'}
+            onClick={() => window.location.href = EXTERNAL_URLS.FERTYFIT_HOME}
             className="bg-[#C7958E] text-white px-6 py-3 rounded-full font-bold shadow-lg"
           >
             Volver a FertyFit.com
@@ -549,14 +550,9 @@ function AppContent() {
             alcoholConsumption: profile.alcohol_consumption
           };
 
-          if (fetchedLogs) {
-            // TODO: Implement DAILY_CHECK trigger in useEffect
-            // const ruleNotifs = await evaluateRules('PERIODIC', {
-            //   user: currentUser as UserProfile,
-            //   recentLogs: fetchedLogs
-            // });
-            // await saveNotifications(session.user.id, ruleNotifs);
-          }
+          // Note: DAILY_CHECK trigger is implemented in useEffect (line ~368)
+          // This evaluates rules daily when user data changes, not on initial load
+          // to avoid duplicate notifications on login
 
           await fetchNotifications(session.user.id);
           await fetchEducation(session.user.id, profile.method_start_date);
@@ -831,14 +827,9 @@ function AppContent() {
       // 2. Every 7 days after first -> Generate AI
       const updatedLogs = await supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: false });
 
-      // RULE ENGINE EVALUATION
-      // TODO: Implement DAILY_CHECK trigger in useEffect
-      // const ruleNotifications = await evaluateRules('DAILY_LOG_SAVE', {
-      //   user: user,
-      //   currentLog: formattedLog as DailyLog,
-      //   recentLogs: updatedLogs.data.map(mapLogFromDB)
-      // });
-      // await saveNotifications(user.id, ruleNotifications);
+      // Note: Rule engine evaluation happens in useEffect (DAILY_CHECK trigger)
+      // This ensures rules are evaluated once per day, not on every log save
+      // to avoid notification spam
       await fetchNotifications(user.id);
 
       if (updatedLogs.data && updatedLogs.data.length > 0) {

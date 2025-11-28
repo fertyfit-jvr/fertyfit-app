@@ -6,6 +6,7 @@ import { supabase } from '../../services/supabase';
 import { calculateAverages } from '../../services/dataService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
 import { formatDate } from '../../services/utils';
+import { PILLAR_ICONS } from '../../constants/api';
 
 interface ConsultationsViewProps {
   user: UserProfile;
@@ -18,10 +19,10 @@ interface ConsultationsViewProps {
 type PillarFormType = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
 const PILLAR_TABS: { id: PillarFormType; label: string; iconUrl: string; accent: string }[] = [
-  { id: 'FUNCTION', label: 'Function', iconUrl: 'https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FUNCTION.png', accent: '#C7958E' },
-  { id: 'FOOD', label: 'Food', iconUrl: 'https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FOOD.png', accent: '#B67977' },
-  { id: 'FLORA', label: 'Flora', iconUrl: 'https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLORA.png', accent: '#6F8A6E' },
-  { id: 'FLOW', label: 'Flow', iconUrl: 'https://zoanaxbpbklpbhtcqiwb.supabase.co/storage/v1/object/public/assets/FLOW.png', accent: '#5B7A92' }
+  { id: 'FUNCTION', label: 'Function', iconUrl: PILLAR_ICONS.FUNCTION, accent: '#C7958E' },
+  { id: 'FOOD', label: 'Food', iconUrl: PILLAR_ICONS.FOOD, accent: '#B67977' },
+  { id: 'FLORA', label: 'Flora', iconUrl: PILLAR_ICONS.FLORA, accent: '#6F8A6E' },
+  { id: 'FLOW', label: 'Flow', iconUrl: PILLAR_ICONS.FLOW, accent: '#5B7A92' }
 ];
 
 const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {

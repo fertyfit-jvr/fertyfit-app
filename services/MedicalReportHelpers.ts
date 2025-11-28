@@ -145,31 +145,12 @@ export function generarDatosInformeMedico(
         const estimatedLastPeriod = new Date(hoy);
         estimatedLastPeriod.setDate(hoy.getDate() - (cycleDayOverride - 1));
         effectiveLastPeriod = estimatedLastPeriod.toISOString().split('T')[0];
-        // logger.log('🔄 Inferida lastPeriodDate desde cycleDay:', effectiveLastPeriod);
     }
-
-    // Si falta cycleLength, usamos 28 por defecto si tenemos override, o fallamos
-    // logger.log('🔍 DEBUG cycleLength:', {
-    //     userCycleLength: user.cycleLength,
-    //     type: typeof user.cycleLength,
-    //     cycleDayOverride: cycleDayOverride
-    // });
 
     const usandoDefault = !user.cycleLength && cycleDayOverride ? true : false;
     let effectiveCycleLength = user.cycleLength ? Number(user.cycleLength) : (cycleDayOverride ? 28 : 0);
 
-    if (usandoDefault) {
-        // logger.warn('⚠️ cycleLength no está definido, usando 28 días por defecto');
-    } else {
-        // logger.log('✅ Usando cycleLength del usuario:', effectiveCycleLength);
-    }
-
     if (effectiveLastPeriod && effectiveCycleLength) {
-        // logger.log('🧮 Datos ciclo efectivos:', {
-        //     lastPeriod: effectiveLastPeriod,
-        //     cycleLen: effectiveCycleLength,
-        //     cycleDayOverride
-        // });
 
         // USAR cycleLength para calcular día del ciclo correctamente
         // Si tenemos override, lo usamos directamente, si no calculamos

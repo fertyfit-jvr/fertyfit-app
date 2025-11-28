@@ -48,13 +48,6 @@ const TrackerView = ({
   const [cycleLength, setCycleLength] = useState(user?.cycleLength?.toString() || '28');
   const [suggestedCycleLength, setSuggestedCycleLength] = useState<number | null>(null);
 
-  // Este efecto puede causar loops, mejor removerlo o hacerlo más específico
-  // useEffect(() => {
-  //   if (todayLog.date && todayLog.cycleDay === 1 && submittedForms.length > 0) {
-  //     handleDateChange(todayLog.date);
-  //   }
-  // }, [submittedForms, todayLog.cycleDay, todayLog.date, handleDateChange]);
-
   useEffect(() => {
     if (!user) return;
     
@@ -79,7 +72,7 @@ const TrackerView = ({
           });
         }
       } catch (error) {
-        console.error('Error calculating cycle day:', error);
+        logger.error('Error calculating cycle day:', error);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
