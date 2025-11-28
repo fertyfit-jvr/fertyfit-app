@@ -664,9 +664,10 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
                 <div>
                   <h4 className="text-lg font-bold text-[#4A4A4A]">{currentTab.label}</h4>
                   {submittedForm?.submitted_at && (
-                    <p className="text-xs text-[#5D7180] mt-0.5">
-                      Última actualización: {formatDate(submittedForm.submitted_at, 'long')}
-                    </p>
+                    <div className="mt-0.5">
+                      <p className="text-xs font-semibold text-[#5D7180]">Última Actualización:</p>
+                      <p className="text-xs text-[#5D7180]">{formatDate(submittedForm.submitted_at, 'long')}</p>
+                    </div>
                   )}
                 </div>
               </>
@@ -720,6 +721,57 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const renderSubmittedView = () => {
     // formatDate is now imported from services/utils
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
+    
+    // For FUNCTION form, group answers by sections
+    const renderFunctionSubmittedView = () => {
+      if (!definition?.sections || !submittedForm?.answers) return null;
+      
+      return (
+        <div className="space-y-4">
+          {definition.sections.map(section => {
+            // Get answers for this section
+            const sectionAnswers = submittedForm.answers.filter((answer: any) => 
+              section.fields.some(field => field.id === answer.questionId)
+            );
+            
+            // Only show section if it has answers
+            if (sectionAnswers.length === 0) return null;
+            
+            return (
+              <div key={section.id} className="bg-white border border-[#F4F0ED] rounded-3xl shadow-sm overflow-hidden">
+                <div className="px-5 py-4 bg-[#F9F6F4] border-b border-[#F4F0ED]">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-[#4A4A4A]">{section.title}</p>
+                    {!section.optional && (
+                      <span className="text-[10px] px-3 py-1 rounded-full bg-[#F4F0ED] text-[#95706B] font-bold">Obligatorio</span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-2 gap-3">
+                    {sectionAnswers.map((answer: any) => {
+                      const field = section.fields.find(f => f.id === answer.questionId);
+                      return (
+                        <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
+                          <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
+                          <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
+                            {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
+                            {field?.unit && answer.answer && (
+                              <span className="text-[10px] text-[#95706B]/80 ml-1">{field.unit}</span>
+                            )}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+    
     return (
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
         {/* Header with Icon, Name, Date, and Edit buttons */}
@@ -733,9 +785,10 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
                 <div>
                   <h4 className="text-lg font-bold text-[#4A4A4A]">{currentTab.label}</h4>
                   {submittedForm?.submitted_at && (
-                    <p className="text-xs text-[#5D7180] mt-0.5">
-                      Última actualización: {formatDate(submittedForm.submitted_at, 'long')}
-                    </p>
+                    <div className="mt-0.5">
+                      <p className="text-xs font-semibold text-[#5D7180]">Última Actualización:</p>
+                      <p className="text-xs text-[#5D7180]">{formatDate(submittedForm.submitted_at, 'long')}</p>
+                    </div>
                   )}
                 </div>
               </>
@@ -769,16 +822,22 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             </div>
           )}
         </div>
-      <div className="grid grid-cols-2 gap-3">
-        {(submittedForm?.answers || []).map(answer => (
-          <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
-            <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
-            <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
-              {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
-            </p>
+        
+        {/* Render grouped by sections for FUNCTION, grid for others */}
+        {formType === 'FUNCTION' ? (
+          renderFunctionSubmittedView()
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {(submittedForm?.answers || []).map((answer: any) => (
+              <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
+                <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
+                <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
+                  {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
+                </p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        )}
       {submittedForm?.status === 'pending' && (
         <div className="mt-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-start gap-3">
           <div className="bg-yellow-100 p-2 rounded-full text-yellow-600">
