@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Minus, Plus, Droplets, Leaf, Calendar, X } from 'lucide-react';
+import { Minus, Plus, Droplets, Leaf, X } from 'lucide-react';
 import InputField from '../../components/forms/InputField';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
 import {
@@ -107,10 +107,10 @@ const TrackerView = ({
           </div>
           <button
             onClick={() => setIsCycleModalOpen(true)}
-            className="w-8 h-8 rounded-full bg-[#F4F0ED] hover:bg-[#C7958E] text-[#5D7180] hover:text-white transition-all flex items-center justify-center shadow-sm"
+            className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"
             title="Editar ciclo menstrual"
           >
-            <Calendar size={14} />
+            <Droplets size={18} />
           </button>
         </div>
       </div>
