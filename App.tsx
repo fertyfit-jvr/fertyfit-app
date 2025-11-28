@@ -345,6 +345,33 @@ function AppContent() {
     setTimeout(() => setNotif(null), 4000);
   };
 
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    const { error } = await supabase.from('profiles').update({
+      name: editName
+    }).eq('id', user.id);
+
+    if (!error) {
+      setUser({ ...user, name: editName });
+      setIsEditingProfile(false);
+      showNotif('Perfil actualizado correctamente', 'success');
+    } else {
+      showNotif('Error al actualizar perfil', 'error');
+    }
+  };
+
+  const handleRestartMethod = async () => {
+    if (!user?.id) return;
+    const { error } = await supabase.from('profiles').update({ method_start_date: null }).eq('id', user.id);
+    if (error) {
+      showNotif('No se pudo reiniciar el método', 'error');
+      return;
+    }
+    setUser(user ? { ...user, methodStartDate: null } : null);
+    showNotif('Método reiniciado correctamente', 'success');
+  };
+
   // Define ALL fetch functions FIRST to avoid circular dependencies
   const fetchLogs = async (userId: string) => {
     const { data, error } = await supabase.from('daily_logs').select('*').eq('user_id', userId).order('date', { ascending: false });
