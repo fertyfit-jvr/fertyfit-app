@@ -1280,6 +1280,7 @@ function AppContent() {
                 user={user}
                 onUserUpdate={(updatedUser) => setUser(updatedUser)}
                 showNotif={showNotif}
+                fetchUserForms={fetchUserForms}
               />
             )}
             {view === 'EDUCATION' && (

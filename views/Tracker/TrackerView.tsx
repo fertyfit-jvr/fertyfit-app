@@ -27,6 +27,7 @@ interface TrackerViewProps {
   user: UserProfile | null;
   onUserUpdate?: (updatedUser: UserProfile) => void;
   showNotif?: (msg: string, type: 'success' | 'error') => void;
+  fetchUserForms?: (userId: string) => Promise<void>;
 }
 
 const TrackerView = ({
@@ -38,7 +39,8 @@ const TrackerView = ({
   saveDailyLog,
   user,
   onUserUpdate,
-  showNotif
+  showNotif,
+  fetchUserForms
 }: TrackerViewProps) => {
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [lastPeriodDate, setLastPeriodDate] = useState(user?.lastPeriodDate || '');
@@ -73,7 +75,8 @@ const TrackerView = ({
     const cycleLengthNum = parseInt(cycleLength) || 28;
     const lastPeriodDateFormatted = lastPeriodDate || new Date().toISOString().split('T')[0];
 
-    const { error } = await supabase
+    // Actualizar perfil en Supabase
+    const { error: profileError } = await supabase
       .from('profiles')
       .update({
         last_period_date: lastPeriodDateFormatted,
@@ -81,9 +84,63 @@ const TrackerView = ({
       })
       .eq('id', user.id);
 
-    if (error) {
+    if (profileError) {
       showNotif?.('Error al actualizar datos del ciclo', 'error');
       return;
+    }
+
+    // Sincronizar también el F0 form si existe (para que ProfileView tenga los datos actualizados)
+    const f0Form = submittedForms.find(f => f.form_type === 'F0');
+    if (f0Form) {
+      // Obtener las respuestas actuales del F0
+      const { data: currentF0Data } = await supabase
+        .from('consultation_forms')
+        .select('answers')
+        .eq('id', f0Form.id)
+        .single();
+
+      if (currentF0Data?.answers) {
+        // Actualizar q8_last_period y q6_cycle en las respuestas del F0
+        const updatedAnswers = (currentF0Data.answers as any[]).map((answer: any) => {
+          if (answer.questionId === 'q8_last_period') {
+            return { ...answer, answer: lastPeriodDateFormatted };
+          }
+          if (answer.questionId === 'q6_cycle') {
+            return { ...answer, answer: cycleLengthNum };
+          }
+          return answer;
+        });
+
+        // Si no existe el campo q8_last_period, agregarlo
+        const hasLastPeriodField = updatedAnswers.some((a: any) => a.questionId === 'q8_last_period');
+        if (!hasLastPeriodField) {
+          updatedAnswers.push({
+            questionId: 'q8_last_period',
+            question: 'Fecha última regla:',
+            answer: lastPeriodDateFormatted
+          });
+        }
+
+        // Si no existe el campo q6_cycle, agregarlo
+        const hasCycleField = updatedAnswers.some((a: any) => a.questionId === 'q6_cycle');
+        if (!hasCycleField) {
+          updatedAnswers.push({
+            questionId: 'q6_cycle',
+            question: 'Duración ciclo promedio:',
+            answer: cycleLengthNum
+          });
+        }
+
+        await supabase
+          .from('consultation_forms')
+          .update({ answers: updatedAnswers })
+          .eq('id', f0Form.id);
+        
+        // Refrescar submittedForms para que ProfileView tenga los datos actualizados
+        if (fetchUserForms && user.id) {
+          await fetchUserForms(user.id);
+        }
+      }
     }
 
     const updatedUser = {

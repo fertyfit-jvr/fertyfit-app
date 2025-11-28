@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Award, Check, Edit2, FileText, LogOut, AlertCircle } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
@@ -187,13 +187,15 @@ const ProfileView = ({
     if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
     if (f0Answers['q4_objective']) updates.mainObjective = f0Answers['q4_objective'];
     if (f0Answers['q8_last_period']) updates.lastPeriodDate = f0Answers['q8_last_period'];
+    if (f0Answers['q6_cycle']) updates.cycleLength = parseFloat(f0Answers['q6_cycle']) || parseInt(f0Answers['q6_cycle']);
 
     if (Object.keys(updates).length > 0) {
       await supabase.from('profiles').update({
         weight: updates.weight,
         height: updates.height,
         main_objective: updates.mainObjective,
-        last_period_date: updates.lastPeriodDate
+        last_period_date: updates.lastPeriodDate,
+        cycle_length: updates.cycleLength
       }).eq('id', user.id);
       setUser({ ...user, ...updates });
     }
@@ -215,6 +217,31 @@ const ProfileView = ({
     const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
     return Math.max(0, currentCycleDay - user.cycleLength);
   }, [user?.lastPeriodDate, user?.cycleLength]);
+
+  // Sincronizar f0Answers cuando user o submittedForms cambien (solo si no está editando)
+  useEffect(() => {
+    if (isEditingF0) return; // No sincronizar si está editando para no perder cambios del usuario
+    
+    const f0Form = submittedForms.find(f => f.form_type === 'F0');
+    if (f0Form && f0Form.answers) {
+      const syncedAnswers: Record<string, any> = {};
+      f0Form.answers.forEach((a: any) => { 
+        syncedAnswers[a.questionId] = a.answer; 
+      });
+      
+      // Si user.lastPeriodDate cambió, actualizar también en f0Answers
+      if (user?.lastPeriodDate && syncedAnswers['q8_last_period'] !== user.lastPeriodDate) {
+        syncedAnswers['q8_last_period'] = user.lastPeriodDate;
+      }
+      
+      // Si user.cycleLength cambió, actualizar también en f0Answers
+      if (user?.cycleLength && syncedAnswers['q6_cycle'] !== user.cycleLength) {
+        syncedAnswers['q6_cycle'] = user.cycleLength;
+      }
+      
+      setF0Answers(syncedAnswers);
+    }
+  }, [user?.lastPeriodDate, user?.cycleLength, submittedForms, isEditingF0]);
 
   return (
     <div className="pb-24">
