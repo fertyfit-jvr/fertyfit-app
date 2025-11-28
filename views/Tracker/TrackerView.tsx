@@ -173,24 +173,24 @@ const TrackerView = ({
               Hoy es: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
             </p>
           </div>
-          <div className="flex flex-col items-end">
-            <button
-              onClick={() => setIsCycleModalOpen(true)}
-              className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0 mb-1"
-              title="Editar ciclo menstrual"
-            >
-              <Droplets size={18} />
-            </button>
-            <p className="text-[10px] text-[#5D7180] whitespace-nowrap">
-              Última Regla: {formatDate(user?.lastPeriodDate)}
-            </p>
-          </div>
+          <button
+            onClick={() => setIsCycleModalOpen(true)}
+            className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0"
+            title="Editar ciclo menstrual"
+          >
+            <Droplets size={18} />
+          </button>
         </div>
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
         <div className="space-y-6">
-          <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
+          <div>
+            <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
+            <p className="text-[10px] text-[#5D7180] mt-2">
+              Última Regla: {formatDate(user?.lastPeriodDate)}
+            </p>
+          </div>
 
           <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">
             <div>
