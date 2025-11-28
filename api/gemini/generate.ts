@@ -2,62 +2,103 @@
  * Vercel Serverless Function
  * API Route para Gemini
  * POST /api/gemini/generate
+ * 
+ * Security: Rate limiting, input validation, error handling
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { GeminiRequestSchema } from '../../lib/validation';
+import { geminiRateLimiter, rateLimitMiddleware } from '../../lib/rateLimiter';
+import { sendErrorResponse, createError } from '../../lib/errorHandler';
+import { applySecurityHeaders } from '../../lib/security';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Solo permitir POST
+  // Apply security headers
+  applySecurityHeaders(res);
+
+  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Rate limiting
+  const rateLimit = rateLimitMiddleware(geminiRateLimiter, req, res);
+  if (!rateLimit.allowed) {
+    Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
+    return res.status(429).json({
+      error: 'Demasiadas solicitudes. Por favor, intenta de nuevo en un momento.',
+      code: 'RATE_LIMIT_EXCEEDED',
+    });
+  }
+  Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+
   try {
-    const { prompt, context, maxTokens = 200, temperature = 0.9 } = req.body;
+    // Validate input
+    const validatedData = GeminiRequestSchema.parse(req.body);
+    const { prompt, maxTokens = 200, temperature = 0.9 } = validatedData;
 
-    if (!prompt) {
-      return res.status(400).json({ error: 'Prompt is required' });
-    }
-
-    // Obtener API key de variables de entorno
+    // Get API key from environment
     const apiKey = process.env.GEMINI_API;
-
     if (!apiKey) {
-      console.error('❌ GEMINI_API not configured');
-      return res.status(500).json({ error: 'Gemini API key not configured' });
+      throw createError('Gemini API key not configured', 500, 'CONFIG_ERROR');
     }
+
+    // Sanitize prompt (remove potential injection)
+    const sanitizedPrompt = prompt
+      .replace(/<script[^>]*>.*?<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .slice(0, 10000); // Hard limit
 
     const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-    const response = await fetch(GEMINI_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens,
+    // Add timeout to request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    try {
+      const response = await fetch(GEMINI_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: sanitizedPrompt }] }],
+          generationConfig: {
+            temperature: Math.max(0, Math.min(2, temperature)), // Clamp between 0-2
+            maxOutputTokens: Math.max(1, Math.min(2000, maxTokens)), // Clamp between 1-2000
+          },
+        }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('❌ Gemini API error:', errorData);
-      return res.status(response.status).json({ error: errorData.error || 'Gemini API error' });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw createError(
+          'Error en la API de Gemini',
+          response.status,
+          'GEMINI_API_ERROR'
+        );
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      return res.status(200).json({ text });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw createError('Timeout al conectar con Gemini API', 504, 'TIMEOUT_ERROR');
+      }
+      throw fetchError;
     }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    return res.status(200).json({ text });
   } catch (error) {
-    console.error('❌ Error in Gemini API route:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'Internal server error',
-    });
+    sendErrorResponse(res, error, req);
   }
 }
 

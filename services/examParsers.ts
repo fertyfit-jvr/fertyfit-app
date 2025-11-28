@@ -41,6 +41,34 @@ function sanitizeText(text: string): string {
 }
 
 /**
+ * Sanitiza un número asegurándose de que sea válido y esté en rango
+ */
+function sanitizeNumber(value: unknown, min?: number, max?: number): number | null {
+  let num: number;
+  
+  if (typeof value === 'number') {
+    num = value;
+  } else if (typeof value === 'string') {
+    // Remove any non-numeric characters except decimal point and minus
+    const cleaned = value.replace(/[^\d.,-]/g, '').replace(',', '.');
+    num = parseFloat(cleaned);
+  } else {
+    return null;
+  }
+
+  // Check if valid number
+  if (isNaN(num) || !isFinite(num)) {
+    return null;
+  }
+
+  // Apply min/max constraints
+  if (min !== undefined && num < min) return null;
+  if (max !== undefined && num > max) return null;
+
+  return num;
+}
+
+/**
  * Busca un valor numérico después de una etiqueta en el texto
  */
 function findValueAfterLabel(
@@ -57,16 +85,14 @@ function findValueAfterLabel(
   
   for (const label of labels) {
     const labelLower = label.toLowerCase();
-    const labelRegex = new RegExp(`(${labelLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})[\\s:]*([\\d.,]+)`, 'i');
+    // Escape regex special characters to prevent injection
+    const escapedLabel = labelLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const labelRegex = new RegExp(`(${escapedLabel})[\\s:]*([\\d.,]+)`, 'i');
     const match = text.match(labelRegex);
     
-    if (match) {
-      let value = parseFloat(match[2].replace(',', '.'));
-      
-      // Validar rango si se especifica
-      if (options.min !== undefined && value < options.min) return null;
-      if (options.max !== undefined && value > options.max) return null;
-      
+    if (match && match[2]) {
+      // Sanitize and validate the extracted value
+      const value = sanitizeNumber(match[2], options.min, options.max);
       return value;
     }
   }
