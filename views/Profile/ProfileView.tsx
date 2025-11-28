@@ -30,10 +30,27 @@ const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: Profil
   const level = logsCount > 30 ? 'Experta' : logsCount > 7 ? 'Comprometida' : 'Iniciada';
   const currentWeek = daysActive > 0 ? Math.ceil(daysActive / 7) : 0;
 
+  // Calculate months trying dynamically: initial value + months since F0 was submitted
   const monthsTrying = useMemo(() => {
     const f0Form = submittedForms.find(f => f.form_type === 'F0');
-    const answer = f0Form?.answers?.find(a => a.questionId === 'q3_time_trying');
-    return answer?.answer ? parseInt(answer.answer as string) : null;
+    if (!f0Form) return null;
+    
+    const answer = f0Form.answers?.find(a => a.questionId === 'q3_time_trying');
+    if (!answer?.answer) return null;
+    
+    const initialMonths = parseInt(answer.answer as string);
+    if (isNaN(initialMonths)) return null;
+    
+    // Calculate months since F0 was submitted
+    const submittedDate = f0Form.submitted_at ? new Date(f0Form.submitted_at) : null;
+    if (!submittedDate || isNaN(submittedDate.getTime())) return initialMonths;
+    
+    const today = new Date();
+    const monthsDiff = (today.getFullYear() - submittedDate.getFullYear()) * 12 + 
+                       (today.getMonth() - submittedDate.getMonth());
+    
+    // Add months since submission to initial value
+    return initialMonths + monthsDiff;
   }, [submittedForms]);
 
   return (
@@ -735,9 +752,23 @@ const ProfileView = ({
                     if (!question) return null;
 
                     let displayValue = answer.answer;
-                    if (question.type === 'date' && typeof displayValue === 'string') {
+                    
+                    // Special handling for "Tiempo buscando embarazo" - show calculated value
+                    if (answer.questionId === 'q3_time_trying') {
+                      const initialMonths = parseInt(answer.answer as string);
+                      if (!isNaN(initialMonths) && f0Form.submitted_at) {
+                        const submittedDate = new Date(f0Form.submitted_at);
+                        if (!isNaN(submittedDate.getTime())) {
+                          const today = new Date();
+                          const monthsDiff = (today.getFullYear() - submittedDate.getFullYear()) * 12 + 
+                                           (today.getMonth() - submittedDate.getMonth());
+                          displayValue = `${initialMonths + monthsDiff} meses`;
+                        }
+                      }
+                    } else if (question.type === 'date' && typeof displayValue === 'string') {
                       displayValue = formatDate(displayValue, 'long');
                     }
+                    
                     if (Array.isArray(displayValue)) {
                       displayValue = displayValue.join(', ');
                     }

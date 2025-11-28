@@ -67,22 +67,39 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const submittedForm = useMemo(() => findSubmission(submittedForms, formType), [submittedForms, formType]);
   const isPdfGenerated = Boolean(submittedForm?.generated_pdf_url);
 
-  // Calculate progress for current form
+  // Calculate progress for current form based on submitted form, not local answers
   const progress = useMemo(() => {
     if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
     
+    // If no form has been submitted, progress is 0%
+    if (!submittedForm || !submittedForm.answers || !Array.isArray(submittedForm.answers)) {
+      return { answered: 0, total: definition.questions.length, percentage: 0 };
+    }
+    
     const totalQuestions = definition.questions.length;
     const answeredQuestions = definition.questions.filter(question => {
-      const value = answers[question.id];
+      const answer = submittedForm.answers.find((a: any) => a.questionId === question.id);
+      if (!answer) return false;
+      const value = answer.answer;
+      
       // Consider answered if value exists and is not empty string
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-      // For Flora "Otra" fields, check if main value is set and if "Otra"/"Otro", also check the "_otro" field
-      if (question.id === 'flora_pruebas' || question.id === 'flora_suplementos') {
-        if (value === 'Otra' || value === 'Otro') {
-          return Boolean(answers[`${question.id}_otro`] && answers[`${question.id}_otro`].trim() !== '');
-        }
+      
+      // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
+      if (question.defaultValue !== undefined) {
+        // Convert both to strings for comparison to handle number/string mismatches
+        const defaultValueStr = String(question.defaultValue);
+        const valueStr = String(value);
+        if (valueStr === defaultValueStr) return false;
       }
+      
+      // For Flora "Otra" fields, check if contains ": " (combined format)
+      if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
+        const [, otherValue] = value.split(': ', 2);
+        return Boolean(otherValue && otherValue.trim() !== '');
+      }
+      
       return true;
     }).length;
     
@@ -91,9 +108,10 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       total: totalQuestions,
       percentage: totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0
     };
-  }, [definition, answers]);
+  }, [definition, submittedForm]);
 
   // Calculate progress for each pillar based on submitted forms
+  // Only counts answers that differ from default values (user actually filled them)
   const getPillarProgress = (pillarId: PillarFormType): number => {
     const form = findSubmission(submittedForms, pillarId);
     if (!form || !form.answers || !Array.isArray(form.answers)) return 0;
@@ -106,13 +124,24 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       const answer = form.answers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
+      
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
+      
+      // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
+      if (question.defaultValue !== undefined) {
+        // Convert both to strings for comparison to handle number/string mismatches
+        const defaultValueStr = String(question.defaultValue);
+        const valueStr = String(value);
+        if (valueStr === defaultValueStr) return false;
+      }
+      
       // For Flora "Otra" fields, check if contains ": " (combined format)
       if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
         const [, otherValue] = value.split(': ', 2);
         return Boolean(otherValue && otherValue.trim() !== '');
       }
+      
       return true;
     }).length;
     
