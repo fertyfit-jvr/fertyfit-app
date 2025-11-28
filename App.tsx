@@ -14,6 +14,7 @@ import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, forma
 import { supabase } from './services/supabase';
 import { evaluateRules, saveNotifications, calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from './services/RuleEngine';
 import { generarDatosInformeMedico } from './services/MedicalReportHelpers';
+import { generateF0Notification, generateLogAnalysis } from './services/googleCloud/geminiService';
 import { useAppStore } from './store/useAppStore';
 import Notification from './components/common/Notification';
 import LogHistoryItem from './components/common/LogHistoryItem';
@@ -702,75 +703,30 @@ function AppContent() {
 
   const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'f0_update' | 'daily' = 'daily') => {
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API;
-      console.log('🤖 AI Analysis triggered:', { context, userId, apiKey: apiKey ? '✅ Found' : '❌ Missing' });
+      console.log('🤖 AI Analysis triggered:', { context, userId });
 
-      if (!apiKey) {
-        console.error('❌ Gemini API key not configured. Check .env file for VITE_GEMINI_API');
-        return;
-      }
       if (context === 'f0' || context === 'f0_update') {
         // Fetch fresh profile data to ensure we have the latest F0 answers
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
         if (!profile) return;
 
-        const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-        // Add randomness to prompt to prevent caching/repetition
-        const seed = new Date().getTime();
-
-        const F0_PROMPT = `
-        Eres un asistente experto en fertilidad y salud femenina (FertyFit).
-        La usuaria ${profile.name} acaba de actualizar su perfil.
-        
-        DATOS ACTUALES:
-        - Edad: ${profile.age} años
-        - Objetivo Principal: "${profile.main_objective || 'Mejorar salud hormonal'}"
-        - Tiempo buscando: ${profile.time_trying || 'Recién empezando'}
-        - Diagnósticos: ${profile.diagnoses && profile.diagnoses.length > 0 ? profile.diagnoses.join(', ') : 'Ninguno'}
-        - Estado Civil: ${profile.partner_status || 'No especificado'}
-        - Semilla aleatoria: ${seed}
-        
-        TAREA:
-        Genera un mensaje de notificación ÚNICO y PERSONALIZADO (máximo 40 palabras).
-        
-        REGLAS OBLIGATORIAS:
-        1. MENCIONA EXPLÍCITAMENTE su objetivo ("${profile.main_objective}") o sus diagnósticos si los tiene.
-        2. NO repitas frases genéricas como "Bienvenida a FertyFit".
-        3. Si tiene diagnósticos (SOP, Endometriosis), valida su esfuerzo.
-        4. Si lleva tiempo buscando, dale una frase de esperanza específica.
-        5. Usa un tono cercano, como una amiga experta.
-        6. Usa emojis variados (no siempre los mismos).
-        
-        Ejemplo malo: "Bienvenida, estamos aquí para ayudarte."
-        Ejemplo bueno: "¡Hola ${profile.name}! Veo que tu meta es ${profile.main_objective}. Con tu diagnóstico de SOP, trabajaremos juntas en tu balance hormonal. 💪✨"
-      `;
-
-        const response = await fetch(GEMINI_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: F0_PROMPT }] }],
-            generationConfig: {
-              temperature: 0.9, // High creativity to avoid repetition
-              maxOutputTokens: 100,
-            }
-          })
+        // Usar nuevo servicio de Gemini
+        const aiMessage = await generateF0Notification({
+          name: profile.name,
+          age: profile.age,
+          main_objective: profile.main_objective,
+          time_trying: profile.time_trying,
+          diagnoses: profile.diagnoses,
+          partner_status: profile.partner_status,
         });
-
-        const data = await response.json();
-        const aiMessage = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
         let title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '✨ Perfil Actualizado';
         let message = aiMessage || (context === 'f0'
           ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
           : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.');
 
-
-
         // CHECK FOR DUPLICATES BEFORE INSERTING
-        // Fix: Use localStorage to prevent re-generation if deleted by user
         const localSentKey = `fertyfit_welcome_sent_${userId}`;
         const alreadySentLocal = localStorage.getItem(localSentKey);
 
@@ -793,7 +749,6 @@ function AppContent() {
         }
       } else {
         // Daily logs: Generate TWO notifications using Gemini API
-        // FETCH PROFILE DATA (F0) to include context
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
         if (!profile) {
@@ -801,39 +756,13 @@ function AppContent() {
           return;
         }
 
-        const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-        const SYSTEM_CONTEXT = `
-Eres un asistente especializado en fertilidad y salud reproductiva femenina. 
-Tu objetivo es analizar datos de seguimiento de fertilidad y proporcionar insights personalizados.
-
-IMPORTANTE:
-- Usa un tono cálido, empoderador y profesional
-- Sé conciso: máximo 2-3 oraciones por insight
-- Enfoca en lo ACCIONABLE, no solo en observaciones
-- Usa emojis sutiles para hacer el mensaje más amigable
-- NUNCA des diagnósticos médicos
-- SIEMPRE recomienda consultar con un profesional si hay algo preocupante
-        `;
-
-        // Include F0 profile context
-        const profileContext = {
-          nombre: profile.name,
-          edad: profile.age,
-          objetivo: profile.main_objective,
-          diagnosticos: profile.diagnoses && profile.diagnoses.length > 0 ? profile.diagnoses.join(', ') : 'Ninguno',
-          tiempoBuscando: profile.time_trying || 'No especificado',
-          cicloPromedio: profile.cycle_length,
-          regularidad: profile.cycle_regularity
-        };
-
         const logSummary = recentLogs.slice(0, 14).map(log => ({
           date: log.date,
           cycleDay: log.cycleDay,
           bbt: log.bbt,
           mucus: log.mucus,
-          stress: log.stressLevel,
-          sleep: log.sleepHours,
+          stressLevel: log.stressLevel,
+          sleepHours: log.sleepHours,
           symptoms: log.symptoms,
           lhTest: log.lhTest,
           alcohol: log.alcohol,
@@ -841,30 +770,19 @@ IMPORTANTE:
         }));
 
         // 1. POSITIVE NOTIFICATION
-        const POSITIVE_PROMPT = `${SYSTEM_CONTEXT}
-
-CONTEXTO DE LA USUARIA (F0):
-${JSON.stringify(profileContext, null, 2)}
-
-DATOS DE LOS ÚLTIMOS 14 DÍAS:
-${JSON.stringify(logSummary, null, 2)}
-
-TAREA: Analiza los datos considerando el contexto de la usuaria y encuentra UN ASPECTO POSITIVO específico y personalizado.
-
-Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono positivo y motivador.`;
-
-        const positiveResponse = await fetch(GEMINI_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: POSITIVE_PROMPT }]
-            }]
-          })
-        });
-
-        const positiveData = await positiveResponse.json();
-        const positiveMessage = positiveData.candidates?.[0]?.content?.parts?.[0]?.text;
+        const positiveMessage = await generateLogAnalysis(
+          {
+            name: profile.name,
+            age: profile.age,
+            main_objective: profile.main_objective,
+            diagnoses: profile.diagnoses,
+            time_trying: profile.time_trying,
+            cycle_length: profile.cycle_length,
+            cycle_regularity: profile.cycle_regularity,
+          },
+          logSummary,
+          'positive'
+        );
 
         if (positiveMessage) {
           const { error } = await supabase.from('notifications').insert({
@@ -878,30 +796,19 @@ Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono positivo y mot
         }
 
         // 2. ALERT NOTIFICATION
-        const ALERT_PROMPT = `${SYSTEM_CONTEXT}
-
-CONTEXTO DE LA USUARIA (F0):
-${JSON.stringify(profileContext, null, 2)}
-
-DATOS DE LOS ÚLTIMOS 14 DÍAS:
-${JSON.stringify(logSummary, null, 2)}
-
-TAREA: Analiza los datos considerando el contexto de la usuaria y encuentra UN ÁREA DE MEJORA prioritaria y personalizada.
-
-Genera SOLO el mensaje (sin título). Máximo 2-3 oraciones. Tono constructivo, no alarmista.`;
-
-        const alertResponse = await fetch(GEMINI_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: ALERT_PROMPT }]
-            }]
-          })
-        });
-
-        const alertData = await alertResponse.json();
-        const alertMessage = alertData.candidates?.[0]?.content?.parts?.[0]?.text;
+        const alertMessage = await generateLogAnalysis(
+          {
+            name: profile.name,
+            age: profile.age,
+            main_objective: profile.main_objective,
+            diagnoses: profile.diagnoses,
+            time_trying: profile.time_trying,
+            cycle_length: profile.cycle_length,
+            cycle_regularity: profile.cycle_regularity,
+          },
+          logSummary,
+          'alert'
+        );
 
         if (alertMessage) {
           const { error } = await supabase.from('notifications').insert({

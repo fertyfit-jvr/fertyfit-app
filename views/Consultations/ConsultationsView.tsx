@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, Lock } from 'lucide-react';
+import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, Lock } from 'lucide-react';
 import { ConsultationForm, DailyLog, UserProfile } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { supabase } from '../../services/supabase';
 import { calculateAverages } from '../../services/dataService';
+import { ExamScanner } from '../../components/forms/ExamScanner';
 
 interface ConsultationsViewProps {
   user: UserProfile;
@@ -43,6 +44,17 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [scanningSection, setScanningSection] = useState<string | null>(null);
+
+  // Mapeo de secciones a tipos de examen
+  const SECTION_TO_EXAM_TYPE: Record<string, 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'> = {
+    function_panel_hormonal: 'hormonal',
+    function_panel_metabolico: 'metabolic',
+    function_vitamina_d: 'vitamin_d',
+    function_ecografia: 'ecografia',
+    function_hsg: 'hsg',
+    function_espermio: 'espermio',
+  };
 
   const hasF0 = submittedForms.some(form => form.form_type === 'F0');
   const methodStarted = Boolean(user?.methodStartDate);
@@ -182,6 +194,12 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
 
   const toggleSection = (sectionId: string) => {
     setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  };
+
+  const handleDataExtracted = (data: Record<string, any>) => {
+    // Actualizar respuestas con los datos extraídos
+    setAnswers(prev => ({ ...prev, ...data }));
+    showNotif('Datos extraídos correctamente. Revisa y confirma los valores.', 'success');
   };
 
   const renderNumberControl = (question: any) => {
@@ -470,6 +488,17 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             </button>
             {isOpen && (
               <div className="px-5 pb-5 space-y-4">
+                {/* Botón de escaneo si la sección tiene mapeo */}
+                {SECTION_TO_EXAM_TYPE[section.id] && (
+                  <button
+                    type="button"
+                    onClick={() => setScanningSection(section.id)}
+                    className="w-full flex items-center justify-center gap-2 bg-[#F4F0ED] hover:bg-[#E1D7D3] border border-[#E1D7D3] rounded-xl py-3 transition-colors"
+                  >
+                    <Camera size={18} className="text-[#95706B]" />
+                    <span className="text-sm font-bold text-[#95706B]">Escanear examen</span>
+                  </button>
+                )}
                 {section.fields.map(field => {
                   const question = { ...field, text: field.label };
                   return (
@@ -693,6 +722,16 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             ? renderSubmittedView()
             : renderFormCard()}
         </div>
+      )}
+
+      {/* Exam Scanner Modal */}
+      {scanningSection && SECTION_TO_EXAM_TYPE[scanningSection] && (
+        <ExamScanner
+          examType={SECTION_TO_EXAM_TYPE[scanningSection]}
+          onDataExtracted={handleDataExtracted}
+          onClose={() => setScanningSection(null)}
+          sectionTitle={definition.sections?.find(s => s.id === scanningSection)?.title}
+        />
       )}
     </div>
   );
