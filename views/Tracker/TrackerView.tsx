@@ -166,10 +166,12 @@ const TrackerView = ({
   return (
     <div className="pb-24 space-y-6">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-[#4A4A4A] mb-1">Registro Diario</h2>
-        <p className="text-[10px] text-[#5D7180]">
-          Hoy es: {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-        </p>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-[#4A4A4A]">Registro Diario</h2>
+          <p className="text-[10px] text-[#5D7180]">
+            Hoy es: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+          </p>
+        </div>
       </div>
       <div className="flex items-center justify-end gap-2 mb-4">
         <div className="text-right">
