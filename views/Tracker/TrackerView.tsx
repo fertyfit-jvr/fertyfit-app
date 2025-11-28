@@ -154,22 +154,36 @@ const TrackerView = ({
     setIsCycleModalOpen(false);
   };
 
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return 'No registrada';
+    return new Date(dateStr).toLocaleDateString('es-ES', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  };
+
   return (
     <div className="pb-24 space-y-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-[#4A4A4A]">Registro Diario</h2>
-        <div className="flex items-center gap-2">
-          <div className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#5D7180] shadow-sm font-medium">
-            {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-          </div>
-          <button
-            onClick={() => setIsCycleModalOpen(true)}
-            className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"
-            title="Editar ciclo menstrual"
-          >
-            <Droplets size={18} />
-          </button>
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-[#4A4A4A] mb-1">Registro Diario</h2>
+        <p className="text-[10px] text-[#5D7180]">
+          Hoy es: {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+      </div>
+      <div className="flex items-center justify-end gap-2 mb-4">
+        <div className="text-right">
+          <p className="text-[10px] text-[#5D7180]">
+            Última Regla: {formatDate(user?.lastPeriodDate)}
+          </p>
         </div>
+        <button
+          onClick={() => setIsCycleModalOpen(true)}
+          className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"
+          title="Editar ciclo menstrual"
+        >
+          <Droplets size={18} />
+        </button>
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
