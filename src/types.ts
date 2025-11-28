@@ -96,7 +96,7 @@ export interface FormAnswer {
 export interface ConsultationForm {
   id?: number;
   user_id?: string;
-  form_type: 'F0' | 'F1' | 'F2' | 'F3';
+  form_type: 'F0' | 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
   submitted_at?: string;
 
   answers: FormAnswer[]; // Structured answers

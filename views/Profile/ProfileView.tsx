@@ -434,6 +434,12 @@ const ProfileView = ({
                       </div>
                     ))}
                   </div>
+                  <button
+                    onClick={() => handleF0Save(f0Form)}
+                    className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2"
+                  >
+                    Guardar cambios
+                  </button>
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">

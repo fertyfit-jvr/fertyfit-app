@@ -1,96 +1,185 @@
-export const FORM_DEFINITIONS = {
-  F0: {
-    title: "F0: Ficha Personal Inicial",
-    description: "Esta información es la base de tu protocolo personalizado. Tus datos de ciclo son vitales para calcular tus predicciones de fertilidad.",
-    questions: [
-      { id: 'q8_last_period', text: "Fecha última regla:", type: 'date' },
-      { id: 'q6_cycle', text: "Duración ciclo promedio:", type: 'stepper', min: 21, max: 40, unit: 'días' },
-      { id: 'q7_regularity', text: "¿Ciclos regulares?", type: 'buttons', options: ['Regulares', 'Irregulares'] },
-      { id: 'q1_birthdate', text: "Tu fecha de nacimiento:", type: 'date' },
-      { id: 'q2_height', text: "Altura:", type: 'slider', min: 140, max: 200, unit: 'cm' },
-      { id: 'q2_weight', text: "Peso:", type: 'slider', min: 40, max: 150, unit: 'kg' },
-      { id: 'q3_time_trying', text: "Tiempo buscando embarazo:", type: 'stepper', min: 0, max: 60, unit: 'meses' },
-      { id: 'q4_objective', text: "Objetivo principal:", type: 'buttons', options: ['Concepción natural', 'Reproducción Asistida'] },
-      { id: 'q5_partner', text: "¿Buscas en pareja o solitario?", type: 'buttons', options: ['Pareja', 'Solitario'] },
-      { id: 'q15_stress', text: "Nivel de Estrés:", type: 'segmented', min: 1, max: 5 },
-      { id: 'q16_sleep', text: "Horas de sueño promedio:", type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' },
-      { id: 'q17_smoker', text: "¿Fumas?", type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'] },
-      { id: 'q18_alcohol', text: "¿Consumo de alcohol?", type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'] },
-      { id: 'q19_supplements', text: "¿Tomas suplementos actualmente?", type: 'yesno' },
-      { id: 'q20_fertility_treatments', text: "Tratamientos de fertilidad previos:", type: 'buttons', options: ['Ninguno', 'FIV', 'Inseminación', 'Ovodonación'] },
-      { id: 'q9_diagnoses', text: "Diagnósticos / Breve Historia Médica:", type: 'textarea', optional: true },
-      { id: 'q21_family_history', text: "Antecedentes familiares relevantes:", type: 'textarea', optional: true }
+const flattenSectionQuestions = (sections) =>
+  sections.flatMap((section) =>
+    section.fields.map((field) => ({
+      id: field.id,
+      text: field.label,
+      type: field.type,
+      unit: field.unit,
+      min: field.min,
+      max: field.max,
+      step: field.step,
+      defaultValue: field.defaultValue,
+      optional: field.optional ?? section.optional,
+      control: field.control,
+      recommendedValue: field.recommendedValue,
+      averageValue: field.averageValue
+    }))
+  );
+
+const FUNCTION_SECTIONS = [
+  {
+    id: 'function_panel_hormonal',
+    title: 'Panel hormonal femenino (día 3)',
+    fields: [
+      { id: 'function_fsh', label: 'FSH', type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1, control: 'slider', recommendedValue: '3-10', defaultValue: 6.5 },
+      { id: 'function_lh', label: 'LH', type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1, control: 'slider', recommendedValue: '2-8', defaultValue: 5 },
+      { id: 'function_estradiol', label: 'Estradiol (E2)', type: 'number', unit: 'pg/mL', min: 0, max: 1000, step: 1, control: 'slider', recommendedValue: '30-100', defaultValue: 65 },
+      { id: 'function_prolactina', label: 'Prolactina', type: 'number', unit: 'ng/mL', min: 0, max: 100, step: 0.1, control: 'slider', recommendedValue: '5-25', defaultValue: 15 },
+      { id: 'function_tsh', label: 'TSH', type: 'number', unit: 'µUI/mL', min: 0, max: 10, step: 0.01, control: 'slider', recommendedValue: '0.5-2.5', defaultValue: 1.5 },
+      { id: 'function_t4', label: 'T4 libre', type: 'number', unit: 'ng/dL', min: 0, max: 5, step: 0.01, control: 'slider', recommendedValue: '0.8-1.8', defaultValue: 1.3 },
+      { id: 'function_cycle_day', label: 'Día del ciclo', type: 'number', unit: 'día', min: 1, max: 40, step: 1, defaultValue: 3, control: 'stepper' }
     ]
   },
-  F1: {
-    title: "F1: Analíticas Médicas",
-    description: "Completa tus resultados de laboratorio para tu evaluación personalizada. Todos los valores aceptan decimales.",
-    questions: [
-      { id: 'section_hormonal', text: "📊 Panel Hormonal Femenino (Día 3)", type: 'section' },
-      { id: 'q1_fsh', text: "FSH", type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1 },
-      { id: 'q1_lh', text: "LH", type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1 },
-      { id: 'q1_estradiol', text: "Estradiol (E2)", type: 'number', unit: 'pg/mL', min: 0, max: 1000, step: 0.1 },
-      { id: 'q1_prolactina', text: "Prolactina", type: 'number', unit: 'ng/mL', step: 0.1 },
-      { id: 'q1_tsh', text: "TSH", type: 'number', unit: 'µUI/mL', step: 0.01 },
-      { id: 'q1_t4_libre', text: "T4 Libre", type: 'number', unit: 'ng/dL', step: 0.01 },
-      { id: 'q1_dia_ciclo', text: "Día del ciclo", type: 'number', defaultValue: 3, disabled: true },
-      { id: 'section_metabolico', text: "🩸 Panel Metabólico", type: 'section' },
-      { id: 'q2_glucosa', text: "Glucosa", type: 'number', unit: 'mg/dL', min: 40, max: 300, step: 0.1 },
-      { id: 'q2_insulina', text: "Insulina", type: 'number', unit: 'µUI/mL', min: 0, max: 100, step: 0.1 },
-      { id: 'q2_ferritina', text: "Ferritina", type: 'number', unit: 'ng/mL', min: 1, max: 500, step: 0.1 },
-      { id: 'q2_hierro', text: "Hierro", type: 'number', unit: 'µg/dL', step: 0.1 },
-      { id: 'q2_transferrina', text: "Transferrina", type: 'number', unit: 'mg/dL', step: 0.1 },
-      { id: 'q2_saturacion_transferrina', text: "Saturación de transferrina", type: 'number', unit: '%', step: 0.1 },
-      { id: 'q2_pcr', text: "PCR ultrasensible", type: 'number', unit: 'mg/L', min: 0, max: 20, step: 0.01 },
-      { id: 'q2_colesterol', text: "Colesterol total", type: 'number', unit: 'mg/dL', step: 0.1 },
-      { id: 'q2_trigliceridos', text: "Triglicéridos", type: 'number', unit: 'mg/dL', step: 0.1 },
-      { id: 'section_vitamina_d', text: "☀️ Vitamina D", type: 'section' },
-      { id: 'q3_vitamina_d', text: "Vitamina D 25-OH", type: 'number', unit: 'ng/mL', min: 1, max: 150, step: 0.1 },
-      { id: 'section_ecografia', text: "🔬 Ecografía Transvaginal + AFC", type: 'section' },
-      { id: 'q4_afc_total', text: "AFC Total", type: 'number', min: 0, max: 50 },
-      { id: 'q4_afc_derecho', text: "AFC Ovario Derecho", type: 'number', min: 0, max: 50 },
-      { id: 'q4_afc_izquierdo', text: "AFC Ovario Izquierdo", type: 'number', min: 0, max: 50 },
-      { id: 'q4_grosor_endometrial', text: "Grosor Endometrial", type: 'number', unit: 'mm', min: 1, max: 20, step: 0.1 },
-      { id: 'q4_patron_endometrial', text: "Patrón Endometrial", type: 'text', optional: true },
-      { id: 'section_espermiograma', text: "👥 Espermiograma Básico (Pareja)", type: 'section', optional: true },
-      { id: 'q5_volumen', text: "Volumen", type: 'number', unit: 'mL', step: 0.1, optional: true },
-      { id: 'q5_concentracion', text: "Concentración", type: 'number', unit: 'millones/mL', step: 0.1, optional: true },
-      { id: 'q5_movilidad_total', text: "Movilidad Total", type: 'number', unit: '%', step: 0.1, optional: true },
-      { id: 'q5_movilidad_progresiva', text: "Movilidad Progresiva", type: 'number', unit: '%', step: 0.1, optional: true },
-      { id: 'q5_morfologia', text: "Morfología Normal", type: 'number', unit: '%', step: 0.1, optional: true },
-      { id: 'q5_vitalidad', text: "Vitalidad", type: 'number', unit: '%', step: 0.1, optional: true }
+  {
+    id: 'function_panel_metabolico',
+    title: 'Panel metabólico + analítica general',
+    fields: [
+      { id: 'function_glucosa', label: 'Glucosa', type: 'number', unit: 'mg/dL', min: 40, max: 300, step: 1, control: 'slider', recommendedValue: '70-100', defaultValue: 85 },
+      { id: 'function_insulina', label: 'Insulina', type: 'number', unit: 'µUI/mL', min: 0, max: 100, step: 0.5, control: 'slider', recommendedValue: '2-25', defaultValue: 13.5 },
+      { id: 'function_hemograma', label: 'Hemograma completo', type: 'text' },
+      { id: 'function_ferritina', label: 'Ferritina', type: 'number', unit: 'ng/mL', min: 1, max: 500, step: 1, control: 'slider', recommendedValue: '40-150', defaultValue: 95 },
+      { id: 'function_hierro', label: 'Hierro', type: 'number', unit: 'µg/dL', min: 0, max: 300, step: 1, control: 'slider', recommendedValue: '50-170', defaultValue: 110 },
+      { id: 'function_transferrina', label: 'Transferrina', type: 'number', unit: 'mg/dL', min: 0, max: 600, step: 1 },
+      { id: 'function_saturacion', label: 'Sat. transferrina', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '20-50', defaultValue: 35 },
+      { id: 'function_pcr', label: 'PCR-us', type: 'number', unit: 'mg/L', min: 0, max: 20, step: 0.1, control: 'slider', recommendedValue: '<1', defaultValue: 0.5 },
+      { id: 'function_colesterol', label: 'Colesterol total', type: 'number', unit: 'mg/dL', min: 0, max: 400, step: 1, control: 'slider', recommendedValue: '<200', defaultValue: 150 },
+      { id: 'function_trigliceridos', label: 'Triglicéridos', type: 'number', unit: 'mg/dL', min: 0, max: 500, step: 1, control: 'slider', recommendedValue: '<150', defaultValue: 100 }
     ]
   },
-  F2: {
-    title: "F2: Resultados Clínicos (Semana 8)",
-    questions: [
-      { id: 'q1_amh', text: "Valor AMH y fecha:", type: 'text' },
-      { id: 'q2_tsh', text: "Valor TSH y T4 libre:", type: 'text' },
-      { id: 'q3_fsh_e2', text: "Valores FSH y Estradiol (Día 3-5):", type: 'text' },
-      { id: 'q4_prog', text: "Valor Progesterona (Fase Lútea):", type: 'text' },
-      { id: 'q5_vitd', text: "Valor Vitamina D:", type: 'text' },
-      { id: 'q6_afc', text: "Recuento Folículos Antrales:", type: 'text' },
-      { id: 'q7_male', text: "Resumen Seminograma Pareja:", type: 'textarea', optional: true },
-      { id: 'q8_microbiota', text: "Resumen Test Microbiota (si aplica):", type: 'textarea', optional: true },
-      { id: 'q9_nutrition', text: "% Adherencia Nutricional estimada (0-100):", type: 'number' },
-      { id: 'q10_supp_adj', text: "¿Ajustaste suplementación tras analíticas?", type: 'yesno' },
-      { id: 'q11_emotional', text: "Práctica emocional y frecuencia:", type: 'text' },
-      { id: 'q12_changes', text: "¿Cambios en bienestar tras protocolos?", type: 'textarea', optional: true },
-      { id: 'q13_doubt', text: "Duda principal tras resultados:", type: 'textarea' }
+  {
+    id: 'function_vitamina_d',
+    title: 'Vitamina D (25-OH)',
+    fields: [{ id: 'function_vitamina_d_valor', label: 'Vitamina D 25-OH', type: 'number', unit: 'ng/mL', min: 1, max: 150, step: 1, control: 'slider', recommendedValue: '30-60', defaultValue: 45 }]
+  },
+  {
+    id: 'function_ecografia',
+    title: 'Ecografía transvaginal + AFC',
+    fields: [
+      { id: 'function_afc_total', label: 'AFC total', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper' },
+      { id: 'function_afc_derecho', label: 'AFC derecho', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper' },
+      { id: 'function_afc_izquierdo', label: 'AFC izquierdo', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper' },
+      { id: 'function_endometrio', label: 'Grosor endometrial', type: 'number', unit: 'mm', min: 1, max: 20, step: 0.1, control: 'slider' },
+      { id: 'function_patron', label: 'Patrón endometrial', type: 'text' }
     ]
   },
-  F3: {
-    title: "F3: Hoja de Ruta Final (Semana 12)",
-    questions: [
-      { id: 'q1_value', text: "¿Qué ha sido lo más valioso del método?", type: 'textarea' },
-      { id: 'q2_improvements', text: "Mejoras en Estrés/Sueño/Ciclo vs Semana 1:", type: 'textarea' },
-      { id: 'q3_final_labs', text: "¿Mejoraron valores VitD/Ferritina/TSH?", type: 'text' },
-      { id: 'q4_masterplan', text: "Confirma completado 'Plan Maestro':", type: 'yesno' },
-      { id: 'q5_route', text: "Ruta Estratégica Decidida:", type: 'select', options: ['Concepción Natural', 'Reproducción Asistida', 'Pausa'] },
-      { id: 'q6_next_action', text: "Fecha y detalle próxima acción clave:", type: 'text' },
-      { id: 'q7_needs', text: "¿Qué necesitas de FertyFit a futuro?", type: 'textarea' },
-      { id: 'q8_testimonial', text: "Testimonio / Feedback (Opcional):", type: 'textarea', optional: true }
+  {
+    id: 'function_hsg',
+    title: 'Histerosalpingografía (HSG)',
+    fields: [
+      { id: 'function_hsg_derecha', label: 'Permeabilidad derecha', type: 'buttons', options: ['Sí', 'No'] },
+      { id: 'function_hsg_izquierda', label: 'Permeabilidad izquierda', type: 'buttons', options: ['Sí', 'No'] },
+      { id: 'function_hsg_contorno', label: 'Contorno uterino', type: 'text' },
+      { id: 'function_hsg_defectos', label: 'Defectos', type: 'text' },
+      { id: 'function_hsg_observaciones', label: 'Observaciones', type: 'text' }
+    ]
+  },
+  {
+    id: 'function_espermio',
+    title: 'Espermiograma básico',
+    optional: true,
+    fields: [
+      { id: 'function_espermio_volumen', label: 'Volumen', type: 'number', unit: 'mL', min: 0, max: 10, step: 0.1, control: 'stepper', recommendedValue: '1.5-5', defaultValue: 3.25 },
+      { id: 'function_espermio_concentracion', label: 'Concentración', type: 'number', unit: 'millones/mL', min: 0, max: 300, step: 1, control: 'slider', recommendedValue: '15-200', defaultValue: 107.5 },
+      { id: 'function_espermio_mov_total', label: 'Movilidad total', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>40', defaultValue: 50 },
+      { id: 'function_espermio_mov_prog', label: 'Movilidad progresiva', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>32', defaultValue: 40 },
+      { id: 'function_espermio_morfologia', label: 'Morfología', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>4', defaultValue: 6 },
+      { id: 'function_espermio_vitalidad', label: 'Vitalidad', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>58', defaultValue: 65 }
     ]
   }
-};
+];
 
+const FOOD_QUESTIONS = [
+  { id: 'food_proteina', text: 'Proteína diaria (g)', type: 'number', min: 0, max: 200, step: 5, unit: 'g', control: 'slider', defaultValue: 80 },
+  { id: 'food_fibra', text: 'Fibra total diaria (g)', type: 'number', min: 0, max: 80, step: 5, unit: 'g', control: 'slider', defaultValue: 30 },
+  { id: 'food_diversidad', text: 'Diversidad vegetal semanal', type: 'segmented', min: 0, max: 7, defaultValue: 4 },
+  { id: 'food_ultraprocesados', text: 'Consumo de ultraprocesados', type: 'buttons', options: ['Nunca', '1-2', '3-4', '5+ veces'], defaultValue: 'Nunca' },
+  { id: 'food_omega', text: 'Omega-3 en dieta', type: 'buttons', options: ['Bajo', 'Moderado', 'Alto'], defaultValue: 'Moderado' },
+  { id: 'food_horarios', text: 'Horarios de comida', type: 'buttons', options: ['Regulares', 'Irregulares'], defaultValue: 'Regulares' },
+  { id: 'food_digestivo', text: 'Sintomatología digestiva', type: 'textarea', optional: true },
+  { id: 'food_bristol', text: 'Escala de Bristol', type: 'segmented', min: 1, max: 7, defaultValue: 4 },
+  { id: 'food_entrenamiento', text: 'Entrenamiento semanal', type: 'buttons', options: ['0', '1-2', '3-4', '5+'], defaultValue: '3-4' },
+  { id: 'food_cintura', text: 'Perímetro cintura (cm)', type: 'number', min: 50, max: 140, step: 1, unit: 'cm', control: 'slider', defaultValue: 75 }
+];
+
+const FLORA_QUESTIONS = [
+  { id: 'flora_antibioticos', text: 'Antibióticos últimos 12 meses', type: 'buttons', options: ['No', '1 vez', '2+ veces'], defaultValue: 'No' },
+  { id: 'flora_infecciones', text: 'Infecciones vaginales repetidas', type: 'yesno', defaultValue: 'No' },
+  { id: 'flora_ph', text: 'pH vaginal alterado', type: 'yesno', defaultValue: 'No' },
+  { id: 'flora_probio', text: 'Probióticos previos', type: 'yesno', defaultValue: 'No' },
+  { id: 'flora_parto', text: 'Parto/lactancia', type: 'buttons', options: ['No', 'Sí'], defaultValue: 'No' },
+  { id: 'flora_bristol', text: 'Heces Bristol', type: 'segmented', min: 1, max: 7, defaultValue: 4 },
+  { id: 'flora_pruebas', text: 'Pruebas microbioma realizadas', type: 'buttons', options: ['Ninguna', 'Test vaginal', 'Test intestinal', 'Ambas', 'Otra'], defaultValue: 'Ninguna' },
+  { id: 'flora_suplementos', text: 'Suplementos recomendados/uso', type: 'buttons', options: ['Ninguno', 'Probióticos', 'Prebióticos', 'Probióticos + Prebióticos', 'Otro'], defaultValue: 'Ninguno' }
+];
+
+const FLOW_QUESTIONS = [
+  { id: 'flow_carga_mental', text: 'Sobrecarga mental (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 2 },
+  { id: 'flow_rumiacion', text: 'Rumiación mental (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
+  { id: 'flow_ansiedad', text: 'Ansiedad física', type: 'yesno', defaultValue: 'No' },
+  { id: 'flow_alerta', text: 'Sensación de alerta continua (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
+  { id: 'flow_regulacion', text: 'Herramientas de regulación emocional', type: 'yesno', defaultValue: 'Sí' },
+  { id: 'flow_presion_social', text: 'Presión social/familiar (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 2 },
+  { id: 'flow_soporte', text: 'Soporte emocional real', type: 'yesno', defaultValue: 'Sí' },
+  { id: 'flow_soledad', text: 'Sensación de soledad (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
+  { id: 'flow_conflictos', text: 'Conflictos frecuentes', type: 'yesno', defaultValue: 'No' },
+  { id: 'flow_sueno_calidad', text: 'Calidad del sueño (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
+  { id: 'flow_despertares', text: 'Despertares nocturnos', type: 'buttons', options: ['0', '1', '2+'], defaultValue: '0' },
+  { id: 'flow_pantallas', text: 'Uso de pantallas nocturno (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
+  { id: 'flow_snacks', text: 'Snacks fuera de horario', type: 'buttons', options: ['Nunca', 'Pocas veces', 'Muchas veces'], defaultValue: 'Pocas veces' },
+  { id: 'flow_siesta', text: 'Siesta', type: 'buttons', options: ['No', 'Sí <20m', 'Sí >20m'], defaultValue: 'No' },
+  { id: 'flow_energia_manana', text: 'Energía por la mañana (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
+  { id: 'flow_energia_tarde', text: 'Energía por la tarde (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 2 },
+  { id: 'flow_cafe', text: 'Tazas de café al día', type: 'segmented', min: 0, max: 6, defaultValue: 1 },
+  { id: 'flow_libido', text: 'Libido (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
+  { id: 'flow_conexion', text: 'Conexión emocional con la pareja (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
+  { id: 'flow_dolor', text: 'Dolor o sequedad en relaciones', type: 'yesno', defaultValue: 'No' },
+  { id: 'flow_ansiedad_relaciones', text: 'Ansiedad ligada a fertilidad en relaciones', type: 'yesno', defaultValue: 'No' }
+];
+
+export const FORM_DEFINITIONS = {
+  F0: {
+    title: 'F0: Ficha Personal Inicial',
+    description:
+      'Esta información es la base de tu protocolo personalizado. Tus datos de ciclo son vitales para calcular tus predicciones de fertilidad.',
+    questions: [
+      { id: 'q8_last_period', text: 'Fecha última regla:', type: 'date' },
+      { id: 'q6_cycle', text: 'Duración ciclo promedio:', type: 'stepper', min: 21, max: 40, unit: 'días' },
+      { id: 'q7_regularity', text: '¿Ciclos regulares?', type: 'buttons', options: ['Regulares', 'Irregulares'] },
+      { id: 'q1_birthdate', text: 'Tu fecha de nacimiento:', type: 'date' },
+      { id: 'q2_height', text: 'Altura:', type: 'slider', min: 140, max: 200, unit: 'cm' },
+      { id: 'q2_weight', text: 'Peso:', type: 'slider', min: 40, max: 150, unit: 'kg' },
+      { id: 'q3_time_trying', text: 'Tiempo buscando embarazo:', type: 'stepper', min: 0, max: 60, unit: 'meses' },
+      { id: 'q4_objective', text: 'Objetivo principal:', type: 'buttons', options: ['Concepción natural', 'Reproducción Asistida'] },
+      { id: 'q5_partner', text: '¿Buscas en pareja o solitario?', type: 'buttons', options: ['Pareja', 'Solitario'] },
+      { id: 'q15_stress', text: 'Nivel de estrés:', type: 'segmented', min: 1, max: 5 },
+      { id: 'q16_sleep', text: 'Horas de sueño promedio:', type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' },
+      { id: 'q17_smoker', text: '¿Fumas?', type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'] },
+      { id: 'q18_alcohol', text: '¿Consumo de alcohol?', type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'] },
+      { id: 'q19_supplements', text: '¿Tomas suplementos actualmente?', type: 'yesno' },
+      { id: 'q20_fertility_treatments', text: 'Tratamientos de fertilidad previos:', type: 'buttons', options: ['Ninguno', 'FIV', 'Inseminación', 'Ovodonación'] },
+      { id: 'q9_diagnoses', text: 'Diagnósticos / Breve Historia Médica:', type: 'textarea', optional: true },
+      { id: 'q21_family_history', text: 'Antecedentes familiares relevantes:', type: 'textarea', optional: true }
+    ]
+  },
+  FUNCTION: {
+    title: 'Function · Exámenes clínicos imprescindibles',
+    description: 'Registra los resultados de tus pruebas médicas para calibrar tu FunctionScore.',
+    sections: FUNCTION_SECTIONS,
+    questions: flattenSectionQuestions(FUNCTION_SECTIONS)
+  },
+  FOOD: {
+    title: 'Food · Nutrición y hábitos',
+    description: 'Hábitos alimentarios, síntomas digestivos y estilo de vida.',
+    questions: FOOD_QUESTIONS
+  },
+  FLORA: {
+    title: 'Flora · Microbiota e historial',
+    description: 'Historial de antibióticos, infecciones y pruebas de microbiota.',
+    questions: FLORA_QUESTIONS
+  },
+  FLOW: {
+    title: 'Flow · Ritmos y psico-emocional',
+    description: 'Estrés, sueño, ritmos circadianos y conexión emocional.',
+    questions: FLOW_QUESTIONS
+  }
+};
