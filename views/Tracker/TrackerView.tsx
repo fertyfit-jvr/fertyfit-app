@@ -166,24 +166,26 @@ const TrackerView = ({
   return (
     <div className="pb-24 space-y-6">
       <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-bold text-[#4A4A4A]">Registro Diario</h2>
-          <p className="text-[10px] text-[#5D7180]">
-            Hoy es: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-[#4A4A4A] mb-1">Registro Diario</h2>
+            <p className="text-[10px] text-[#5D7180]">
+              Hoy es: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
+          <div className="flex flex-col items-end">
+            <button
+              onClick={() => setIsCycleModalOpen(true)}
+              className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0 mb-1"
+              title="Editar ciclo menstrual"
+            >
+              <Droplets size={18} />
+            </button>
+            <p className="text-[10px] text-[#5D7180] whitespace-nowrap">
+              Última Regla: {formatDate(user?.lastPeriodDate)}
+            </p>
+          </div>
         </div>
-      </div>
-      <div className="flex items-center justify-end gap-2 mb-4 flex-wrap">
-        <p className="text-[10px] text-[#5D7180] whitespace-nowrap">
-          Última Regla: {formatDate(user?.lastPeriodDate)}
-        </p>
-        <button
-          onClick={() => setIsCycleModalOpen(true)}
-          className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0"
-          title="Editar ciclo menstrual"
-        >
-          <Droplets size={18} />
-        </button>
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
