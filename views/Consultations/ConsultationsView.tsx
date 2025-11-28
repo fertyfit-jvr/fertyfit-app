@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Activity, AlertCircle, CheckCircle, ChevronDown, Clock, Download, FileText, Lock } from 'lucide-react';
+import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, Lock } from 'lucide-react';
 import { ConsultationForm, DailyLog, UserProfile } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { supabase } from '../../services/supabase';
@@ -28,8 +28,15 @@ const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {
   F3: 'FLOW'
 };
 
-const findSubmission = (forms: ConsultationForm[], type: PillarFormType) =>
-  forms.find(form => form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type);
+const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
+  const matching = forms.filter(form => form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type);
+  // Return the most recent one (last submitted)
+  return matching.sort((a, b) => {
+    const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+    const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+    return dateB - dateA;
+  })[0];
+};
 
 const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserForms }: ConsultationsViewProps) => {
   const [formType, setFormType] = useState<PillarFormType>('FUNCTION');
@@ -43,6 +50,32 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const definition = FORM_DEFINITIONS[formType];
   const submittedForm = useMemo(() => findSubmission(submittedForms, formType), [submittedForms, formType]);
   const isPdfGenerated = Boolean(submittedForm?.generated_pdf_url);
+
+  // Calculate progress
+  const progress = useMemo(() => {
+    if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
+    
+    const totalQuestions = definition.questions.length;
+    const answeredQuestions = definition.questions.filter(question => {
+      const value = answers[question.id];
+      // Consider answered if value exists and is not empty string
+      if (value === undefined || value === null) return false;
+      if (typeof value === 'string' && value.trim() === '') return false;
+      // For Flora "Otra" fields, check if main value is set and if "Otra"/"Otro", also check the "_otro" field
+      if (question.id === 'flora_pruebas' || question.id === 'flora_suplementos') {
+        if (value === 'Otra' || value === 'Otro') {
+          return Boolean(answers[`${question.id}_otro`] && answers[`${question.id}_otro`].trim() !== '');
+        }
+      }
+      return true;
+    }).length;
+    
+    return {
+      answered: answeredQuestions,
+      total: totalQuestions,
+      percentage: totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0
+    };
+  }, [definition, answers]);
 
   useEffect(() => {
     if (!definition?.sections) {
@@ -128,30 +161,17 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       };
     });
 
-    let error;
-    if (submittedForm) {
-      const { error: updateError } = await supabase
-        .from('consultation_forms')
-        .update({
-          answers: formattedAnswers,
-          status: 'pending',
-          snapshot_stats: calculateAverages(logs)
-        })
-        .eq('id', submittedForm.id);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase.from('consultation_forms').insert({
-        user_id: user.id,
-        form_type: formType,
-        answers: formattedAnswers,
-        status: 'pending',
-        snapshot_stats: calculateAverages(logs)
-      });
-      error = insertError;
-    }
+    // Always insert a new record to keep all submissions
+    const { error } = await supabase.from('consultation_forms').insert({
+      user_id: user.id,
+      form_type: formType,
+      answers: formattedAnswers,
+      status: 'pending',
+      snapshot_stats: calculateAverages(logs)
+    });
 
     if (!error) {
-      showNotif(submittedForm ? 'Formulario actualizado correctamente.' : 'Formulario enviado correctamente.', 'success');
+      showNotif('Formulario guardado correctamente.', 'success');
       fetchUserForms(user.id);
     } else {
       showNotif(error.message, 'error');
@@ -493,9 +513,17 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
 
   const renderFormCard = () => (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-      <div className="flex flex-col gap-2 mb-6 border-b border-[#F4F0ED] pb-4">
-        <h3 className="text-lg font-bold text-[#C7958E]">{definition.title}</h3>
-        {definition.description && <p className="text-xs text-[#5D7180]">{definition.description}</p>}
+      <div className="flex justify-between items-start mb-6 border-b border-[#F4F0ED] pb-4">
+        <div className="flex-1">
+          {definition.description && <h3 className="text-lg font-bold text-[#C7958E]">{definition.description}</h3>}
+        </div>
+        <button
+          onClick={handleSubmit}
+          className="text-[#5D7180] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors ml-3"
+          title="Guardar formulario"
+        >
+          <Check size={18} />
+        </button>
       </div>
       {submittedForm && !isPdfGenerated && (
         <div className="mb-6 bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-center gap-3 text-xs text-yellow-800">
@@ -522,7 +550,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
         <div className="flex justify-between items-start mb-4 border-b border-[#F4F0ED] pb-4">
           <div>
-            <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.title}</h3>
+            {definition.description && <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.description}</h3>}
             {submittedForm?.submitted_at && (
               <p className="text-xs text-[#5D7180] mt-1">
                 Primer registro: {formatDate(submittedForm.submitted_at)}
@@ -530,8 +558,12 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             )}
           </div>
           {!isPdfGenerated && (
-            <button onClick={() => setIsEditMode(true)} className="bg-[#C7958E] text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-[#95706B] transition-colors flex items-center gap-2">
-              <FileText size={16} /> Editar
+            <button
+              onClick={() => setIsEditMode(true)}
+              className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+              title="Editar formulario"
+            >
+              <Edit2 size={16} />
             </button>
           )}
         </div>
@@ -635,7 +667,26 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       {requireMethodStart && renderLockedCard('Inicia el método', 'Cuando confirmes el inicio en tu panel, habilitaremos Function, Food, Flora y Flow para que puedas actualizarlos durante las 12 semanas.')}
 
       {!requireF0 && !requireMethodStart && (
-        <div>
+        <div className="space-y-4">
+          {/* Progress Bar - Always visible, more discrete */}
+          <div className="bg-[#F9F6F4] px-4 py-2.5 rounded-xl border border-[#F4F0ED]">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-semibold text-[#5D7180]">Progreso</p>
+              <p className="text-[10px] font-bold text-[#95706B]">{progress.percentage}%</p>
+            </div>
+            <div className="w-full bg-[#F4F0ED] rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[#C7958E] to-[#95706B] transition-all duration-500 rounded-full"
+                style={{ width: `${progress.percentage}%` }}
+              />
+            </div>
+            {progress.percentage === 100 && (
+              <p className="text-[9px] text-[#5D7180] mt-1.5 text-center">
+                Puedes editarlo si surge algún cambio
+              </p>
+            )}
+          </div>
+          
           {isPdfGenerated
             ? renderPdfLockedView()
             : submittedForm && !isEditMode

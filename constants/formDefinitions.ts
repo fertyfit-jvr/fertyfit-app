@@ -36,10 +36,10 @@ const FUNCTION_SECTIONS = [
     fields: [
       { id: 'function_glucosa', label: 'Glucosa', type: 'number', unit: 'mg/dL', min: 40, max: 300, step: 1, control: 'slider', recommendedValue: '70-100', defaultValue: 85 },
       { id: 'function_insulina', label: 'Insulina', type: 'number', unit: 'µUI/mL', min: 0, max: 100, step: 0.5, control: 'slider', recommendedValue: '2-25', defaultValue: 13.5 },
-      { id: 'function_hemograma', label: 'Hemograma completo', type: 'text' },
+      { id: 'function_hemograma', label: 'Hemograma completo', type: 'text', optional: true },
       { id: 'function_ferritina', label: 'Ferritina', type: 'number', unit: 'ng/mL', min: 1, max: 500, step: 1, control: 'slider', recommendedValue: '40-150', defaultValue: 95 },
       { id: 'function_hierro', label: 'Hierro', type: 'number', unit: 'µg/dL', min: 0, max: 300, step: 1, control: 'slider', recommendedValue: '50-170', defaultValue: 110 },
-      { id: 'function_transferrina', label: 'Transferrina', type: 'number', unit: 'mg/dL', min: 0, max: 600, step: 1 },
+      { id: 'function_transferrina', label: 'Transferrina', type: 'number', unit: 'mg/dL', min: 0, max: 600, step: 1, optional: true },
       { id: 'function_saturacion', label: 'Sat. transferrina', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '20-50', defaultValue: 35 },
       { id: 'function_pcr', label: 'PCR-us', type: 'number', unit: 'mg/L', min: 0, max: 20, step: 0.1, control: 'slider', recommendedValue: '<1', defaultValue: 0.5 },
       { id: 'function_colesterol', label: 'Colesterol total', type: 'number', unit: 'mg/dL', min: 0, max: 400, step: 1, control: 'slider', recommendedValue: '<200', defaultValue: 150 },
@@ -49,28 +49,31 @@ const FUNCTION_SECTIONS = [
   {
     id: 'function_vitamina_d',
     title: 'Vitamina D (25-OH)',
+    optional: true,
     fields: [{ id: 'function_vitamina_d_valor', label: 'Vitamina D 25-OH', type: 'number', unit: 'ng/mL', min: 1, max: 150, step: 1, control: 'slider', recommendedValue: '30-60', defaultValue: 45 }]
   },
   {
     id: 'function_ecografia',
     title: 'Ecografía transvaginal + AFC',
+    optional: true,
     fields: [
-      { id: 'function_afc_total', label: 'AFC total', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper' },
-      { id: 'function_afc_derecho', label: 'AFC derecho', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper' },
-      { id: 'function_afc_izquierdo', label: 'AFC izquierdo', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper' },
-      { id: 'function_endometrio', label: 'Grosor endometrial', type: 'number', unit: 'mm', min: 1, max: 20, step: 0.1, control: 'slider' },
-      { id: 'function_patron', label: 'Patrón endometrial', type: 'text' }
+      { id: 'function_afc_total', label: 'AFC total', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
+      { id: 'function_afc_derecho', label: 'AFC derecho', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
+      { id: 'function_afc_izquierdo', label: 'AFC izquierdo', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
+      { id: 'function_endometrio', label: 'Grosor endometrial', type: 'number', unit: 'mm', min: 1, max: 20, step: 0.1, control: 'slider', optional: true },
+      { id: 'function_patron', label: 'Patrón endometrial', type: 'text', optional: true }
     ]
   },
   {
     id: 'function_hsg',
     title: 'Histerosalpingografía (HSG)',
+    optional: true,
     fields: [
-      { id: 'function_hsg_derecha', label: 'Permeabilidad derecha', type: 'buttons', options: ['Sí', 'No'] },
-      { id: 'function_hsg_izquierda', label: 'Permeabilidad izquierda', type: 'buttons', options: ['Sí', 'No'] },
-      { id: 'function_hsg_contorno', label: 'Contorno uterino', type: 'text' },
-      { id: 'function_hsg_defectos', label: 'Defectos', type: 'text' },
-      { id: 'function_hsg_observaciones', label: 'Observaciones', type: 'text' }
+      { id: 'function_hsg_derecha', label: 'Permeabilidad derecha', type: 'buttons', options: ['Sí', 'No'], optional: true },
+      { id: 'function_hsg_izquierda', label: 'Permeabilidad izquierda', type: 'buttons', options: ['Sí', 'No'], optional: true },
+      { id: 'function_hsg_contorno', label: 'Contorno uterino', type: 'text', optional: true },
+      { id: 'function_hsg_defectos', label: 'Defectos', type: 'text', optional: true },
+      { id: 'function_hsg_observaciones', label: 'Observaciones', type: 'text', optional: true }
     ]
   },
   {
@@ -162,23 +165,23 @@ export const FORM_DEFINITIONS = {
     ]
   },
   FUNCTION: {
-    title: 'Function · Exámenes clínicos imprescindibles',
+    title: 'Exámenes clínicos imprescindibles',
     description: 'Registra los resultados de tus pruebas médicas para calibrar tu FunctionScore.',
     sections: FUNCTION_SECTIONS,
     questions: flattenSectionQuestions(FUNCTION_SECTIONS)
   },
   FOOD: {
-    title: 'Food · Nutrición y hábitos',
+    title: 'Nutrición y hábitos',
     description: 'Hábitos alimentarios, síntomas digestivos y estilo de vida.',
     questions: FOOD_QUESTIONS
   },
   FLORA: {
-    title: 'Flora · Microbiota e historial',
+    title: 'Microbiota e historial',
     description: 'Historial de antibióticos, infecciones y pruebas de microbiota.',
     questions: FLORA_QUESTIONS
   },
   FLOW: {
-    title: 'Flow · Ritmos y psico-emocional',
+    title: 'Ritmos y psico-emocional',
     description: 'Estrés, sueño, ritmos circadianos y conexión emocional.',
     questions: FLOW_QUESTIONS
   }
