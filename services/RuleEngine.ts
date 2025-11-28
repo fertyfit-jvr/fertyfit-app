@@ -1,5 +1,6 @@
 import { UserProfile, AppNotification, NotificationAction, NotificationMetadata } from '../types';
 import { supabase } from './supabase';
+import { logger } from '../lib/logger';
 import {
     calcularVentanaFertil,
     calcularIMC,
@@ -157,7 +158,7 @@ export const RULES: Rule[] = [
         cooldownDays: 0,
         condition: ({ user, currentCycleDay }) => {
             if (!user.lastPeriodDate || !user.cycleLength) {
-                console.warn('[RuleEngine] CYCLE-1 skipped: missing data', {
+                logger.warn('[RuleEngine] CYCLE-1 skipped: missing data', {
                     userId: user.id,
                     hasLastPeriodDate: Boolean(user.lastPeriodDate),
                     hasCycleLength: Boolean(user.cycleLength)
@@ -326,10 +327,10 @@ export const evaluateRules = async (
     trigger: RuleTrigger,
     context: RuleContext
 ): Promise<AppNotification[]> => {
-    console.log(`🔍 Evaluating Rules for Trigger: ${trigger}`);
+    logger.log(`🔍 Evaluating Rules for Trigger: ${trigger}`);
 
     const applicableRules = RULES.filter(r => r.trigger.includes(trigger));
-    console.log(`📋 Found ${applicableRules.length} applicable rules`);
+    logger.log(`📋 Found ${applicableRules.length} applicable rules`);
 
     const newNotifications: AppNotification[] = [];
 
@@ -341,7 +342,7 @@ export const evaluateRules = async (
                 // Check Cooldown
                 const inCooldown = await checkCooldown(rule.id, context.user.id!, rule.cooldownDays);
                 if (!inCooldown) {
-                    console.log(`  🚀 Triggering Rule ${rule.id}`);
+                    logger.log(`  🚀 Triggering Rule ${rule.id}`);
                     const { title, message } = rule.getMessage(context);
 
                     const baseMetadata: NotificationMetadata = { ruleId: rule.id };
@@ -362,15 +363,15 @@ export const evaluateRules = async (
                         metadata
                     });
                 } else {
-                    console.log(`  ⏳ Rule ${rule.id} in cooldown`);
+                    logger.log(`  ⏳ Rule ${rule.id} in cooldown`);
                 }
             }
         } catch (err) {
-            console.error(`Error evaluating rule ${rule.id}:`, err);
+            logger.error(`Error evaluating rule ${rule.id}:`, err);
         }
     }
 
-    console.log(`🔔 Generated ${newNotifications.length} notifications`);
+    logger.log(`🔔 Generated ${newNotifications.length} notifications`);
     return newNotifications.sort((a, b) => a.priority - b.priority);
 };
 
@@ -414,7 +415,7 @@ export const saveNotifications = async (userId: string, notifications: AppNotifi
     const remaining = limit - sentToday;
 
     if (remaining <= 0) {
-        console.log('Daily notification limit reached. Skipping.');
+        logger.log('Daily notification limit reached. Skipping.');
         return;
     }
 

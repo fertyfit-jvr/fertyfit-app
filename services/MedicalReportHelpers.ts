@@ -145,31 +145,31 @@ export function generarDatosInformeMedico(
         const estimatedLastPeriod = new Date(hoy);
         estimatedLastPeriod.setDate(hoy.getDate() - (cycleDayOverride - 1));
         effectiveLastPeriod = estimatedLastPeriod.toISOString().split('T')[0];
-        console.log('🔄 Inferida lastPeriodDate desde cycleDay:', effectiveLastPeriod);
+        // logger.log('🔄 Inferida lastPeriodDate desde cycleDay:', effectiveLastPeriod);
     }
 
     // Si falta cycleLength, usamos 28 por defecto si tenemos override, o fallamos
-    console.log('🔍 DEBUG cycleLength:', {
-        userCycleLength: user.cycleLength,
-        type: typeof user.cycleLength,
-        cycleDayOverride: cycleDayOverride
-    });
+    // logger.log('🔍 DEBUG cycleLength:', {
+    //     userCycleLength: user.cycleLength,
+    //     type: typeof user.cycleLength,
+    //     cycleDayOverride: cycleDayOverride
+    // });
 
     const usandoDefault = !user.cycleLength && cycleDayOverride ? true : false;
     let effectiveCycleLength = user.cycleLength ? Number(user.cycleLength) : (cycleDayOverride ? 28 : 0);
 
     if (usandoDefault) {
-        console.warn('⚠️ cycleLength no está definido, usando 28 días por defecto');
+        // logger.warn('⚠️ cycleLength no está definido, usando 28 días por defecto');
     } else {
-        console.log('✅ Usando cycleLength del usuario:', effectiveCycleLength);
+        // logger.log('✅ Usando cycleLength del usuario:', effectiveCycleLength);
     }
 
     if (effectiveLastPeriod && effectiveCycleLength) {
-        console.log('🧮 Datos ciclo efectivos:', {
-            lastPeriod: effectiveLastPeriod,
-            cycleLen: effectiveCycleLength,
-            cycleDayOverride
-        });
+        // logger.log('🧮 Datos ciclo efectivos:', {
+        //     lastPeriod: effectiveLastPeriod,
+        //     cycleLen: effectiveCycleLength,
+        //     cycleDayOverride
+        // });
 
         // USAR cycleLength para calcular día del ciclo correctamente
         // Si tenemos override, lo usamos directamente, si no calculamos

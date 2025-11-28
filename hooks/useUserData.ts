@@ -6,6 +6,7 @@
 import { DailyLog, ConsultationForm, AppNotification, AdminReport, CourseModule } from '../types';
 import { supabase } from '../services/supabase';
 import { formatDateForDB } from '../services/dataService';
+import { logger } from '../lib/logger';
 
 /**
  * Maps database log format to application log format
@@ -34,22 +35,30 @@ const mapLogFromDB = (dbLog: any): DailyLog => ({
 });
 
 /**
- * Hook for fetching user logs
+ * Hook for fetching user logs with pagination (default: last 90 days)
  */
 export const useFetchLogs = () => {
   const fetchLogs = async (
     userId: string,
+    daysLimit: number = 90,
     onSuccess?: (logs: DailyLog[]) => void,
     onError?: (error: string) => void
   ): Promise<DailyLog[]> => {
+    // Calculate cutoff date (default: last 90 days)
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
+    const cutoffDateStr = formatDateForDB(cutoffDate);
+
     const { data, error } = await supabase
       .from('daily_logs')
       .select('*')
       .eq('user_id', userId)
-      .order('date', { ascending: false });
+      .gte('date', cutoffDateStr)
+      .order('date', { ascending: false })
+      .limit(daysLimit);
 
     if (error) {
-      console.error('❌ Error fetching logs:', error);
+      logger.error('❌ Error fetching logs:', error);
       onError?.('Error cargando registros: ' + error.message);
       return [];
     }
@@ -63,7 +72,33 @@ export const useFetchLogs = () => {
     return [];
   };
 
-  return { fetchLogs };
+  const fetchAllLogs = async (
+    userId: string,
+    onSuccess?: (logs: DailyLog[]) => void,
+    onError?: (error: string) => void
+  ): Promise<DailyLog[]> => {
+    const { data, error } = await supabase
+      .from('daily_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      logger.error('❌ Error fetching all logs:', error);
+      onError?.('Error cargando historial completo: ' + error.message);
+      return [];
+    }
+
+    if (data) {
+      const mappedLogs = data.map(mapLogFromDB);
+      onSuccess?.(mappedLogs);
+      return mappedLogs;
+    }
+
+    return [];
+  };
+
+  return { fetchLogs, fetchAllLogs };
 };
 
 /**
@@ -81,7 +116,7 @@ export const useFetchNotifications = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ Error fetching notifications:', error);
+      logger.error('❌ Error fetching notifications:', error);
       return [];
     }
 
@@ -113,7 +148,7 @@ export const useFetchUserForms = () => {
       .eq('user_id', userId);
 
     if (error) {
-      console.error('❌ Error fetching forms:', error);
+      logger.error('❌ Error fetching forms:', error);
       onError?.('Error cargando formularios: ' + error.message);
       return [];
     }
@@ -144,7 +179,7 @@ export const useFetchReports = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ Error fetching reports:', error);
+      logger.error('❌ Error fetching reports:', error);
       return [];
     }
 

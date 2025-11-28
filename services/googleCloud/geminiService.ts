@@ -3,6 +3,8 @@
  * Servicio centralizado para interactuar con Google Gemini API
  */
 
+import { logger } from '../../lib/logger';
+
 export interface GeminiRequest {
   prompt: string;
   context?: Record<string, any>;
@@ -47,7 +49,7 @@ export async function callGeminiAPI(request: GeminiRequest): Promise<GeminiRespo
       error: data.error,
     };
   } catch (error) {
-    console.error('❌ Error calling Gemini API:', error);
+    logger.error('❌ Error calling Gemini API:', error);
     return {
       text: '',
       error: error instanceof Error ? error.message : 'Unknown error',

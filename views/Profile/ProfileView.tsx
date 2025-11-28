@@ -1,5 +1,5 @@
-import { useMemo, useEffect, useRef } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X } from 'lucide-react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2 } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
@@ -115,6 +115,8 @@ interface ProfileViewProps {
   setView: (view: ViewState) => void;
   fetchUserForms: (userId: string) => Promise<void>;
   setUser: (user: UserProfile | null) => void;
+  fetchAllLogs?: (userId: string) => Promise<DailyLog[]>;
+  setLogs?: (logs: DailyLog[]) => void;
   markNotificationRead: (id: number) => Promise<void>;
   deleteNotification: (id: number) => Promise<void>;
   onNotificationAction: (notification: AppNotification, action: NotificationAction) => Promise<void>;
@@ -148,8 +150,13 @@ const ProfileView = ({
   deleteNotification,
   onNotificationAction,
   onRestartMethod,
-  onLogout
+  onLogout,
+  fetchAllLogs,
+  setLogs
 }: ProfileViewProps) => {
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [hasLoadedAllHistory, setHasLoadedAllHistory] = useState(false);
+  
   // Guardar valores originales para poder cancelar
   const originalEditName = useRef<string>(user.name);
   const originalF0Answers = useRef<Record<string, any>>({});
@@ -178,6 +185,28 @@ const ProfileView = ({
     if (!confirmed) return;
     await onRestartMethod();
   };
+
+  const handleLoadFullHistory = async () => {
+    if (!user?.id || !fetchAllLogs || !setLogs) return;
+    
+    setIsLoadingHistory(true);
+    try {
+      const allLogs = await fetchAllLogs(user.id);
+      setLogs(allLogs);
+      setHasLoadedAllHistory(true);
+      showNotif(`Historial completo cargado: ${allLogs.length} registros`, 'success');
+    } catch (error) {
+      showNotif('Error al cargar historial completo', 'error');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Check if we should show "Load full history" button
+  // Show if logs.length is exactly 90 (default limit) and we haven't loaded all history yet
+  const shouldShowLoadHistoryButton = useMemo(() => {
+    return logs.length >= 90 && !hasLoadedAllHistory && fetchAllLogs && setLogs;
+  }, [logs.length, hasLoadedAllHistory, fetchAllLogs, setLogs]);
 
   const handleF0Save = async (f0Form: ConsultationForm) => {
     if (!user?.id) return;
@@ -443,6 +472,38 @@ const ProfileView = ({
                   )}
                 </div>
               </div>
+
+            {shouldShowLoadHistoryButton && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-blue-800 mb-1">
+                      Historial limitado a últimos 90 días
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      Tienes más registros disponibles. Carga el historial completo para ver todos tus datos.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleLoadFullHistory}
+                    disabled={isLoadingHistory}
+                    className="ml-4 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 flex-shrink-0"
+                  >
+                    {isLoadingHistory ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Cargando...
+                      </>
+                    ) : (
+                      <>
+                        <Download size={16} />
+                        Cargar todo
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div>
               <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>

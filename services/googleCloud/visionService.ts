@@ -3,6 +3,8 @@
  * Servicio para procesar imágenes con Google Cloud Vision API (OCR)
  */
 
+import { logger } from '../../lib/logger';
+
 export interface OCRRequest {
   image: string; // Base64 encoded image
   examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio';
@@ -43,7 +45,7 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
       error: data.error,
     };
   } catch (error) {
-    console.error('❌ Error calling OCR API:', error);
+    logger.error('❌ Error calling OCR API:', error);
     return {
       text: '',
       error: error instanceof Error ? error.message : 'Unknown error',

@@ -30,6 +30,7 @@ import {
   useFetchEducation,
   initializeTodayLog
 } from './hooks/useUserData';
+import { logger } from './lib/logger';
 
 // Lazy load views for better performance
 const TrackerView = lazy(() => import('./views/Tracker/TrackerView'));
@@ -65,7 +66,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: any, errorInfo: ErrorInfo) {
-    console.error("App Crash:", error, errorInfo);
+    logger.error("App Crash:", error, errorInfo);
   }
 
   render() {
@@ -246,11 +247,22 @@ function AppContent() {
   };
 
   // Define ALL fetch functions FIRST to avoid circular dependencies
-  const fetchLogs = async (userId: string) => {
-    const { data, error } = await supabase.from('daily_logs').select('*').eq('user_id', userId).order('date', { ascending: false });
+  const fetchLogs = async (userId: string, daysLimit: number = 90) => {
+    // Calculate cutoff date (default: last 90 days)
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
+    const cutoffDateStr = formatDateForDB(cutoffDate);
+
+    const { data, error } = await supabase
+      .from('daily_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('date', cutoffDateStr)
+      .order('date', { ascending: false })
+      .limit(daysLimit);
 
     if (error) {
-      console.error('❌ Error fetching logs:', error);
+      logger.error('❌ Error fetching logs:', error);
       showNotif('Error cargando registros: ' + error.message, 'error');
       return;
     }
@@ -293,6 +305,28 @@ function AppContent() {
     return [];
   };
 
+  // Function to fetch all logs (for history view)
+  const fetchAllLogs = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('daily_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      logger.error('❌ Error fetching all logs:', error);
+      showNotif('Error cargando historial completo: ' + error.message, 'error');
+      return [];
+    }
+
+    if (data) {
+      const mappedLogs = data.map(mapLogFromDB);
+      setLogs(mappedLogs);
+      return mappedLogs;
+    }
+    return [];
+  };
+
   const fetchNotifications = async (userId: string) => {
     const { data, error } = await supabase
       .from('notifications')
@@ -300,7 +334,7 @@ function AppContent() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error) console.error('❌ Error fetching notifications:', error);
+    if (error) logger.error('❌ Error fetching notifications:', error);
     if (data) {
       // Filter out soft-deleted notifications (metadata.deleted === true)
       const activeNotifications = data.filter(n => !n.metadata?.deleted);
@@ -311,7 +345,7 @@ function AppContent() {
   const fetchReports = async (userId: string) => {
     const { data, error } = await supabase.from('admin_reports').select('*').eq('user_id', userId).order('created_at', { ascending: false });
 
-    if (error) console.error('❌ Error fetching reports:', error);
+    if (error) logger.error('❌ Error fetching reports:', error);
     if (data) {
       setReports(data);
     }
@@ -320,7 +354,7 @@ function AppContent() {
   const fetchUserForms = async (userId: string) => {
     const { data, error } = await supabase.from('consultation_forms').select('*').eq('user_id', userId);
     if (error) {
-      console.error('❌ Error fetching forms:', error);
+      logger.error('❌ Error fetching forms:', error);
       showNotif('Error cargando formularios: ' + error.message, 'error');
     }
     if (data) setSubmittedForms(data);
@@ -368,7 +402,7 @@ function AppContent() {
   useEffect(() => {
     if (!user?.id) return;
     if (!user.lastPeriodDate || !user.cycleLength) {
-      console.warn('🔁 Cycle tracking skipped - missing data', {
+      logger.warn('🔁 Cycle tracking skipped - missing data', {
         userId: user.id,
         hasLastPeriodDate: Boolean(user.lastPeriodDate),
         hasCycleLength: Boolean(user.cycleLength)
@@ -406,7 +440,7 @@ function AppContent() {
           }
         }
       } catch (err) {
-        console.error('❌ Error running DAILY_CHECK trigger', err);
+        logger.error('❌ Error running DAILY_CHECK trigger', err);
       } finally {
         if (!cancelled) {
           localStorage.setItem(todayKey, todayStr);
@@ -446,7 +480,7 @@ function AppContent() {
 
           if (createError) {
 
-            console.error("Profile creation failed:", createError);
+            logger.error("Profile creation failed:", createError);
           } else {
             // RECURSIVELY CALL CHECKUSER TO LOAD STATE WITHOUT RELOAD
             return checkUser();
@@ -493,7 +527,7 @@ function AppContent() {
           }
 
           // Fetch data CRITICAL: Wait for data before showing dashboard
-          console.log('🔄 Fetching user data...');
+          logger.log('🔄 Fetching user data...');
           const fetchedLogs = await fetchLogs(session.user.id);
           const fetchedForms = await fetchUserForms(session.user.id); // Assuming we might need this too, but for now logs is enough
 
@@ -531,7 +565,7 @@ function AppContent() {
             await fetchReports(session.user.id);
           }
 
-          console.log('✅ Data fetched successfully');
+          logger.log('✅ Data fetched successfully');
 
           if (!profile.disclaimer_accepted) setView('DISCLAIMER');
           else setView('DASHBOARD');
@@ -540,7 +574,7 @@ function AppContent() {
         setView('ONBOARDING');
       }
     } catch (err) {
-      console.error('❌ Error in checkUser:', err);
+      logger.error('❌ Error in checkUser:', err);
       setAuthError('Error al cargar perfil: ' + (err as any).message);
       setView('ONBOARDING');
     } finally { setLoading(false); }
@@ -604,9 +638,9 @@ function AppContent() {
     const { error } = await supabase.from('notifications').update({ metadata: newMeta }).eq('id', notifId);
 
     if (error) {
-      console.error('Error deleting notification:', error);
+      logger.error('Error deleting notification:', error);
     } else {
-      console.log('✅ Notification soft-deleted', notifId);
+      logger.log('✅ Notification soft-deleted', notifId);
     }
   };
 
@@ -630,21 +664,21 @@ function AppContent() {
         }
         showNotif(`Entendido. Ajustamos tu ciclo a ${newLength} días.`, 'success');
       } else {
-        console.warn('No handler registered for notification action', action);
+        logger.warn('No handler registered for notification action', action);
         return;
       }
 
       await markNotificationRead(notification.id);
       await fetchNotifications(user.id);
     } catch (error) {
-      console.error('Error handling notification action', error);
+      logger.error('Error handling notification action', error);
       showNotif('No pudimos actualizar tu información. Intenta nuevamente.', 'error');
     }
   };
 
   const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'f0_update' | 'daily' = 'daily') => {
     try {
-      console.log('🤖 AI Analysis triggered:', { context, userId });
+      logger.log('🤖 AI Analysis triggered:', { context, userId });
 
       if (context === 'f0' || context === 'f0_update') {
         // Fetch fresh profile data to ensure we have the latest F0 answers
@@ -684,16 +718,16 @@ function AppContent() {
           if (!error) {
             localStorage.setItem(localSentKey, 'true');
           }
-          console.log('✅ F0 AI notification created:', { title, success: !error });
+          logger.log('✅ F0 AI notification created:', { title, success: !error });
         } else {
-          console.log('⚠️ Notification already exists or sent previously, skipping:', title);
+          logger.log('⚠️ Notification already exists or sent previously, skipping:', title);
         }
       } else {
         // Daily logs: Generate TWO notifications using Gemini API
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
         if (!profile) {
-          console.error('❌ No profile found for AI notification');
+          logger.error('❌ No profile found for AI notification');
           return;
         }
 
@@ -733,7 +767,7 @@ function AppContent() {
             type: 'success',
             priority: 2
           });
-          console.log('✅ Positive AI notification created:', { success: !error });
+          logger.log('✅ Positive AI notification created:', { success: !error });
         }
 
         // 2. ALERT NOTIFICATION
@@ -759,14 +793,14 @@ function AppContent() {
             type: 'alert',
             priority: 2
           });
-          console.log('✅ Alert AI notification created:', { success: !error });
+          logger.log('✅ Alert AI notification created:', { success: !error });
         }
       }
 
       fetchNotifications(userId);
 
     } catch (error) {
-      console.error('Error analyzing with AI:', error);
+      logger.error('Error analyzing with AI:', error);
     }
   };
 
@@ -1156,6 +1190,8 @@ function AppContent() {
               onNotificationAction={handleNotificationAction}
               onRestartMethod={handleRestartMethod}
               onLogout={handleLogout}
+              fetchAllLogs={fetchAllLogs}
+              setLogs={setLogs}
             />
           </Suspense>
         ) : (
