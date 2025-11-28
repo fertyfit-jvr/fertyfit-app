@@ -4,4 +4,19 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom'],
+          'ui-vendor': ['lucide-react'],
+          'data-vendor': ['@supabase/supabase-js', 'zustand'],
+          'chart-vendor': ['recharts'],
+        },
+      },
+    },
+    // Optimize chunk size
+    chunkSizeWarningLimit: 1000,
+  },
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { AlertCircle, Droplets, Heart, Moon, Thermometer, Zap } from 'lucide-react';
 import { DailyLog } from '../../types';
 
@@ -6,7 +6,7 @@ interface Props {
   log: DailyLog;
 }
 
-const LogHistoryItem = ({ log }: Props) => {
+const LogHistoryItem = memo(({ log }: Props) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -124,7 +124,9 @@ const LogHistoryItem = ({ log }: Props) => {
       )}
     </div>
   );
-};
+});
+
+LogHistoryItem.displayName = 'LogHistoryItem';
 
 export default LogHistoryItem;
 

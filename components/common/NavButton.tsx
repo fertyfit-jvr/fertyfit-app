@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { LucideIcon } from 'lucide-react';
 
 interface NavButtonProps {
@@ -7,7 +8,7 @@ interface NavButtonProps {
   label: string;
 }
 
-const NavButton = ({ active, onClick, icon: Icon, label }: NavButtonProps) => (
+const NavButton = memo(({ active, onClick, icon: Icon, label }: NavButtonProps) => (
   <button
     onClick={onClick}
     className={`flex flex-col items-center justify-center w-full py-2 transition-colors duration-200 ${
@@ -17,7 +18,9 @@ const NavButton = ({ active, onClick, icon: Icon, label }: NavButtonProps) => (
     <Icon size={24} strokeWidth={active ? 2.5 : 2} />
     <span className="text-[10px] mt-1 font-medium uppercase tracking-wide">{label}</span>
   </button>
-);
+));
+
+NavButton.displayName = 'NavButton';
 
 export default NavButton;
 

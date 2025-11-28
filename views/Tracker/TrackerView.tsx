@@ -11,7 +11,8 @@ import {
 } from '../../constants';
 import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '../../types';
 import { supabase } from '../../services/supabase';
-import { calcularDuracionPromedioCiclo } from '../../services/RuleEngine';
+import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../services/RuleEngine';
+import { formatDate, formatCurrentDate } from '../../services/utils';
 
 type SetTodayLog = (
   value: Partial<DailyLog> | ((prev: Partial<DailyLog>) => Partial<DailyLog>)
@@ -47,18 +48,42 @@ const TrackerView = ({
   const [cycleLength, setCycleLength] = useState(user?.cycleLength?.toString() || '28');
   const [suggestedCycleLength, setSuggestedCycleLength] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (todayLog.date && todayLog.cycleDay === 1 && submittedForms.length > 0) {
-      handleDateChange(todayLog.date);
-    }
-  }, [submittedForms, todayLog.cycleDay, todayLog.date, handleDateChange]);
+  // Este efecto puede causar loops, mejor removerlo o hacerlo más específico
+  // useEffect(() => {
+  //   if (todayLog.date && todayLog.cycleDay === 1 && submittedForms.length > 0) {
+  //     handleDateChange(todayLog.date);
+  //   }
+  // }, [submittedForms, todayLog.cycleDay, todayLog.date, handleDateChange]);
 
   useEffect(() => {
-    if (user) {
-      setLastPeriodDate(user.lastPeriodDate || '');
-      setCycleLength(user.cycleLength?.toString() || '28');
+    if (!user) return;
+    
+    setLastPeriodDate(user.lastPeriodDate || '');
+    setCycleLength(user.cycleLength?.toString() || '28');
+    
+    // Actualizar el día del ciclo cuando cambia el usuario o sus datos del ciclo
+    // Solo actualizar si realmente cambió lastPeriodDate o cycleLength
+    if (user.lastPeriodDate && user.cycleLength) {
+      try {
+        const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+        if (currentCycleDay > 0) {
+          setTodayLog(prev => {
+            // Solo actualizar si el cicloDay es diferente para evitar loops
+            if (prev.cycleDay !== currentCycleDay) {
+              return {
+                ...prev,
+                cycleDay: currentCycleDay
+              };
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('Error calculating cycle day:', error);
+      }
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.lastPeriodDate, user?.cycleLength]);
 
   // Calcular duración promedio sugerida cuando se abre el modal
   useEffect(() => {
@@ -149,19 +174,49 @@ const TrackerView = ({
       cycleLength: cycleLengthNum
     };
 
+    // Calcular el nuevo día del ciclo basado en la fecha del log actual (todayLog.date)
+    // Si no hay fecha en todayLog, usar la fecha de hoy
+    const logDate = todayLog.date || new Date().toISOString().split('T')[0];
+    
+    // Calcular cuántos días han pasado desde la última regla hasta la fecha del log
+    const lastPeriod = new Date(lastPeriodDateFormatted);
+    const logDateObj = new Date(logDate);
+    lastPeriod.setHours(0, 0, 0, 0);
+    logDateObj.setHours(0, 0, 0, 0);
+    
+    const diffDays = Math.floor((logDateObj.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Si la fecha del log es antes de la última regla, usar día 1
+    if (diffDays < 0) {
+      setTodayLog(prev => ({
+        ...prev,
+        cycleDay: 1
+      }));
+    } else {
+      // Día 1 = día que viene la regla
+      let cycleDayForLogDate = diffDays + 1;
+      
+      // Si el día calculado es mayor que cycleLength, estamos en un nuevo ciclo
+      // Manejar múltiples ciclos usando módulo
+      if (cycleDayForLogDate > cycleLengthNum) {
+        // Calcular cuántos ciclos completos han pasado
+        const cyclesPassed = Math.floor((cycleDayForLogDate - 1) / cycleLengthNum);
+        cycleDayForLogDate = cycleDayForLogDate - (cyclesPassed * cycleLengthNum);
+      }
+      
+      // Actualizar todayLog con el nuevo día del ciclo calculado para la fecha del log
+      setTodayLog(prev => ({
+        ...prev,
+        cycleDay: cycleDayForLogDate > 0 ? cycleDayForLogDate : 1
+      }));
+    }
+
     onUserUpdate?.(updatedUser);
     showNotif?.('Datos del ciclo actualizados correctamente', 'success');
     setIsCycleModalOpen(false);
   };
 
-  const formatDate = (dateStr: string | undefined) => {
-    if (!dateStr) return 'No registrada';
-    return new Date(dateStr).toLocaleDateString('es-ES', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
-    });
-  };
+  // formatDate is now imported from services/utils
 
   return (
     <div className="pb-24 space-y-6">
@@ -170,7 +225,7 @@ const TrackerView = ({
           <div>
             <h2 className="text-xl font-bold text-[#4A4A4A] mb-1">Registro Diario</h2>
             <p className="text-[10px] text-[#5D7180]">
-              Hoy es: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+              Hoy es: {formatCurrentDate()}
             </p>
           </div>
           <button
@@ -187,9 +242,11 @@ const TrackerView = ({
         <div className="space-y-6">
           <div>
             <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
-            <p className="text-[10px] text-[#5D7180] mt-2">
-              Última Regla: {formatDate(user?.lastPeriodDate)}
-            </p>
+            {user?.lastPeriodDate && (
+              <p className="text-[10px] text-[#5D7180] mt-2">
+                Última Regla: {formatDate(user.lastPeriodDate)}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">

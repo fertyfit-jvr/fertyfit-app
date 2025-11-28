@@ -5,6 +5,7 @@ import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { supabase } from '../../services/supabase';
 import { calculateAverages } from '../../services/dataService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
+import { formatDate } from '../../services/utils';
 
 interface ConsultationsViewProps {
   user: UserProfile;
@@ -620,13 +621,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   );
 
   const renderSubmittedView = () => {
-    const formatDate = (dateStr: string) =>
-      new Date(dateStr).toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      });
-
+    // formatDate is now imported from services/utils
     return (
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
         <div className="flex justify-between items-start mb-4 border-b border-[#F4F0ED] pb-4">
@@ -634,7 +629,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             {definition.description && <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.description}</h3>}
             {submittedForm?.submitted_at && (
               <p className="text-xs text-[#5D7180] mt-1">
-                Primer registro: {formatDate(submittedForm.submitted_at)}
+                Primer registro: {formatDate(submittedForm.submitted_at, 'long')}
               </p>
             )}
           </div>

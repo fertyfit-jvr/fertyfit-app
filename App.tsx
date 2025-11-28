@@ -1,4 +1,4 @@
-import React, { Component, useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { Component, useState, useEffect, ErrorInfo, ReactNode, lazy, Suspense } from 'react';
 import {
   Heart, Activity, BookOpen, FileText, User, AlertCircle,
   Moon, Sun, PlayCircle, FileText as PdfIcon,
@@ -11,6 +11,7 @@ import { MedicalReport } from './components/MedicalReport';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { FORM_DEFINITIONS } from './constants/formDefinitions';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus } from './services/dataService';
+import { calculateFertyScore } from './services/fertyscoreService';
 import { supabase } from './services/supabase';
 import { evaluateRules, saveNotifications, calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from './services/RuleEngine';
 import { generarDatosInformeMedico } from './services/MedicalReportHelpers';
@@ -18,14 +19,34 @@ import { generateF0Notification, generateLogAnalysis } from './services/googleCl
 import { useAppStore } from './store/useAppStore';
 import Notification from './components/common/Notification';
 import LogHistoryItem from './components/common/LogHistoryItem';
-import TrackerView from './views/Tracker/TrackerView';
-import DashboardView from './views/Dashboard/DashboardView';
-import EducationView from './views/Education/EducationView';
-import ConsultationsView from './views/Consultations/ConsultationsView';
-import ProfileView from './views/Profile/ProfileView';
 import PhaseIntroModal from './components/common/PhaseIntroModal';
 import NavButton from './components/common/NavButton';
 import StatCard from './components/common/StatCard';
+import {
+  useFetchLogs,
+  useFetchNotifications,
+  useFetchUserForms,
+  useFetchReports,
+  useFetchEducation,
+  initializeTodayLog
+} from './hooks/useUserData';
+
+// Lazy load views for better performance
+const TrackerView = lazy(() => import('./views/Tracker/TrackerView'));
+const DashboardView = lazy(() => import('./views/Dashboard/DashboardView'));
+const EducationView = lazy(() => import('./views/Education/EducationView'));
+const ConsultationsView = lazy(() => import('./views/Consultations/ConsultationsView'));
+const ProfileView = lazy(() => import('./views/Profile/ProfileView'));
+
+// Simple loading component for Suspense fallback
+const ViewLoading = () => (
+  <div className="flex items-center justify-center min-h-[400px]">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-4 border-[#C7958E] border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-sm text-[#5D7180]">Cargando...</p>
+    </div>
+  </div>
+);
 
 // --- Error Boundary for Production Safety ---
 interface ErrorBoundaryProps {
@@ -143,155 +164,7 @@ const getEmbedUrl = (url: string) => {
   return embedUrl;
 };
 
-const calculateStandardDeviation = (values: number[]) => {
-  if (values.length < 2) return 0;
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
-  return Math.sqrt(variance);
-};
-
-const calculateFertyScore = (user: UserProfile, logs: DailyLog[]) => {
-  const recentLogs = logs.slice(0, 14);
-  const avgs = recentLogs.length > 0 ? calculateAverages(recentLogs) : { sleep: '0', veggies: '0', stress: '0' };
-
-  // ========================================
-  // PILAR 1: FUNCTION (25%) - Physical Health
-  // ========================================
-  let functionScore = 100;
-
-  // BMI Logic (optimal 20-25)
-  const bmi = calculateBMI(user.weight, user.height);
-  const bmiVal = parseFloat(bmi);
-  if (!isNaN(bmiVal)) {
-    if (bmiVal < 18.5) functionScore -= (18.5 - bmiVal) * 8; // Underweight penalty
-    else if (bmiVal >= 18.5 && bmiVal <= 25) functionScore = 100; // Optimal
-    else if (bmiVal > 25) functionScore -= (bmiVal - 25) * 3; // Overweight penalty
-  }
-
-  // Age Logic (optimal <35)
-  if (user.age > 35) {
-    functionScore -= (user.age - 35) * 2;
-  } else if (user.age < 25) {
-    functionScore -= (25 - user.age) * 1;
-  }
-
-  // Diagnoses Impact
-  const riskyDiagnoses = ['SOP', 'Endometriosis', 'Ovarios Poliquísticos', 'PCOS'];
-  if (user.diagnoses && user.diagnoses.some(d => riskyDiagnoses.some(rd => d.includes(rd)))) {
-    functionScore -= 20;
-  }
-
-  // Smoking (major impact on function)
-  if (user.smoker && user.smoker.toLowerCase() !== 'no') {
-    functionScore -= 25;
-  }
-
-  functionScore = Math.max(0, Math.min(100, functionScore));
-
-  // ========================================
-  // PILAR 2: FOOD (25%) - Nutrition & Habits
-  // ========================================
-  let foodScore = 0;
-
-  if (recentLogs.length > 0) {
-    // Vegetable intake (target 5 servings)
-    const veggieScore = Math.min(100, (parseFloat(avgs.veggies) / 5) * 100);
-
-    // Alcohol penalty (>2 days in 14 = bad)
-    const alcoholDays = recentLogs.filter(l => l.alcohol).length;
-    const alcoholScore = alcoholDays > 2 ? Math.max(0, 100 - (alcoholDays * 10)) : 100;
-
-    // Supplements bonus (if taking supplements)
-    // TODO: Add supplements tracking from F0
-    const supplementsScore = 80; // Placeholder - will be calculated from F0 data
-
-    foodScore = (veggieScore * 0.4) + (alcoholScore * 0.4) + (supplementsScore * 0.2);
-  } else {
-    foodScore = 70; // Default baseline
-  }
-
-  foodScore = Math.max(0, Math.min(100, foodScore));
-
-  // ========================================
-  // PILAR 3: FLORA (25%) - Microbiota & Rest
-  // ========================================
-  let floraScore = 0;
-
-  if (recentLogs.length > 0) {
-    // Sleep quality (target 7.5 hours)
-    const sleepVal = parseFloat(avgs.sleep);
-    let sleepScore = 0;
-    if (sleepVal >= 7 && sleepVal <= 9) {
-      sleepScore = 100; // Optimal
-    } else if (sleepVal < 7) {
-      sleepScore = Math.max(0, (sleepVal / 7) * 100);
-    } else {
-      sleepScore = Math.max(0, 100 - ((sleepVal - 9) * 10));
-    }
-
-    // Digestive health (based on symptoms)
-    // TODO: Track digestive symptoms in daily logs
-    const digestiveScore = 80; // Placeholder
-
-    // Probiotics/Gut health
-    // TODO: Add from F0 supplements
-    const gutHealthScore = 75; // Placeholder
-
-    floraScore = (sleepScore * 0.5) + (digestiveScore * 0.3) + (gutHealthScore * 0.2);
-  } else {
-    floraScore = 70; // Default baseline
-  }
-
-  floraScore = Math.max(0, Math.min(100, floraScore));
-
-  // ========================================
-  // PILAR 4: FLOW (25%) - Stress & Emotional
-  // ========================================
-  let flowScore = 0;
-
-  if (recentLogs.length > 0) {
-    // Stress levels (1=best, 5=worst)
-    const stressVal = parseFloat(avgs.stress);
-    const stressScore = Math.max(0, ((5 - stressVal) / 4) * 100);
-
-    // Cycle regularity
-    const regularityScore = user.cycleRegularity === 'Regular' ? 100 :
-      (user.cycleRegularity === 'Irregular' ? 50 : 75);
-
-    // BBT Stability (hormonal flow)
-    const bbtValues = recentLogs.map(l => l.bbt).filter(b => b !== undefined && b > 0) as number[];
-    let bbtScore = 75; // Default
-    if (bbtValues.length >= 3) {
-      const sd = calculateStandardDeviation(bbtValues);
-      if (sd <= 0.2) bbtScore = 100;
-      else if (sd >= 0.5) bbtScore = 40;
-      else bbtScore = 100 - ((sd - 0.2) * 200);
-    }
-
-    // Emotional wellbeing
-    // TODO: Add happiness/mood tracking
-    const emotionalScore = 80; // Placeholder
-
-    flowScore = (stressScore * 0.3) + (regularityScore * 0.3) + (bbtScore * 0.2) + (emotionalScore * 0.2);
-  } else {
-    flowScore = 70; // Default baseline
-  }
-
-  flowScore = Math.max(0, Math.min(100, flowScore));
-
-  // ========================================
-  // TOTAL SCORE (Equal weight: 25% each)
-  // ========================================
-  const totalScore = (functionScore * 0.25) + (foodScore * 0.25) + (floraScore * 0.25) + (flowScore * 0.25);
-
-  return {
-    total: Math.round(totalScore),
-    function: Math.round(functionScore),
-    food: Math.round(foodScore),
-    flora: Math.round(floraScore),
-    flow: Math.round(flowScore)
-  };
-};
+// calculateFertyScore and calculateStandardDeviation are now in services/fertyscoreService
 
 
 
@@ -387,9 +260,30 @@ function AppContent() {
       setLogs(mappedLogs);
       const todayStr = formatDateForDB(new Date());
       const existingToday = mappedLogs.find(l => l.date === todayStr);
-      if (existingToday) {
+      
+      // Always calculate cycleDay based on user's lastPeriodDate, not from previous logs
+      if (user?.lastPeriodDate && user?.cycleLength) {
+        const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+        
+        if (existingToday) {
+          // Update existing log with correct cycleDay
+          setTodayLog({ ...existingToday, cycleDay: currentCycleDay });
+        } else {
+          // Create new today log with correct cycleDay
+          setTodayLog({
+            date: todayStr,
+            cycleDay: currentCycleDay > 0 ? currentCycleDay : 1,
+            symptoms: [],
+            alcohol: false,
+            lhTest: 'No realizado',
+            activityMinutes: 0,
+            sunMinutes: 0
+          });
+        }
+      } else if (existingToday) {
         setTodayLog(existingToday);
       } else if (mappedLogs.length > 0) {
+        // Fallback: if no user cycle data, use last log (shouldn't happen normally)
         const last = mappedLogs[0];
         const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
         setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
@@ -884,7 +778,14 @@ function AppContent() {
     if (!todayLog.stressLevel) { showNotif("El nivel de estrés es obligatorio", 'error'); return; }
     if (todayLog.sleepHours === undefined || todayLog.sleepHours === null) { showNotif("Las horas de sueño son obligatorias", 'error'); return; }
     const validDate = formatDateForDB(new Date(todayLog.date)); // Ensure date is valid and formatted
-    const formattedLog = { ...todayLog, date: validDate };
+    
+    // Always calculate cycleDay based on user's lastPeriodDate for consistency
+    let correctCycleDay = todayLog.cycleDay || 1;
+    if (user.lastPeriodDate && user.cycleLength) {
+      correctCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+    }
+    
+    const formattedLog = { ...todayLog, date: validDate, cycleDay: correctCycleDay };
 
     const { error } = await supabase.from('daily_logs').upsert(mapLogToDB(formattedLog as DailyLog, user.id), { onConflict: 'user_id, date' });
     if (!error) {
@@ -995,33 +896,31 @@ function AppContent() {
   const handleDateChange = (newDate: string) => {
     const existingLog = logs.find(l => l.date === newDate);
     if (existingLog) {
-      setTodayLog(existingLog);
-    } else {
-      // Auto-calculate cycle day
-      // 1. Try to find the most recent log before this new date
-      const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const prevLog = sortedLogs.find(l => new Date(l.date) < new Date(newDate));
-
-      let newCycleDay = 1;
-
-      if (prevLog) {
-        const diff = Math.ceil((new Date(newDate).getTime() - new Date(prevLog.date).getTime()) / (1000 * 3600 * 24));
-        newCycleDay = (prevLog.cycleDay || 0) + diff;
+      // Always recalculate cycleDay based on user's lastPeriodDate for consistency
+      if (user?.lastPeriodDate && user?.cycleLength) {
+        const correctCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+        setTodayLog({ ...existingLog, cycleDay: correctCycleDay > 0 ? correctCycleDay : 1 });
       } else {
-        // 2. If no prev log, try to use F0 last period date
+        setTodayLog(existingLog);
+      }
+    } else {
+      // Calculate cycle day based on user's lastPeriodDate, not from previous logs
+      let newCycleDay = 1;
+      
+      if (user?.lastPeriodDate && user?.cycleLength) {
+        // Use the unified calculation function
+        newCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+      } else {
+        // Fallback: try to use F0 data if user data is not available
         const f0 = submittedForms.find(f => f.form_type === 'F0');
         if (f0 && f0.answers) {
           const lastPeriodAnswer = f0.answers.find((a: any) => a.questionId === 'q8_last_period');
           const cycleDurationAnswer = f0.answers.find((a: any) => a.questionId === 'q6_cycle');
 
           if (lastPeriodAnswer && lastPeriodAnswer.answer) {
-            const lastPeriodDate = new Date(lastPeriodAnswer.answer as string);
+            const lastPeriodDate = lastPeriodAnswer.answer as string;
             const cycleDuration = cycleDurationAnswer ? parseInt(cycleDurationAnswer.answer as string) : 28;
-
-            const diff = Math.floor((new Date(newDate).getTime() - lastPeriodDate.getTime()) / (1000 * 3600 * 24));
-            if (diff >= 0) {
-              newCycleDay = (diff % cycleDuration) + 1;
-            }
+            newCycleDay = calcularDiaDelCiclo(lastPeriodDate, cycleDuration);
           }
         }
       }
@@ -1229,7 +1128,8 @@ function AppContent() {
 
       <div className="h-full overflow-y-auto custom-scrollbar">
         {view === 'PROFILE' && user ? (
-          <ProfileView
+          <Suspense fallback={<ViewLoading />}>
+            <ProfileView
               user={user}
               logs={logs}
               submittedForms={submittedForms}
@@ -1257,10 +1157,12 @@ function AppContent() {
               onRestartMethod={handleRestartMethod}
               onLogout={handleLogout}
             />
+          </Suspense>
         ) : (
           <div className="p-5">
             {view === 'DASHBOARD' && user && (
-              <DashboardView
+              <Suspense fallback={<ViewLoading />}>
+                <DashboardView
                   user={user}
                   logs={logs}
                   todayLog={todayLog}
@@ -1276,9 +1178,11 @@ function AppContent() {
                   onDeleteNotification={deleteNotification}
                   onNotificationAction={handleNotificationAction}
                 />
+              </Suspense>
             )}
             {view === 'TRACKER' && (
-              <TrackerView
+              <Suspense fallback={<ViewLoading />}>
+                <TrackerView
                   todayLog={todayLog}
                   setTodayLog={setTodayLog}
                   submittedForms={submittedForms}
@@ -1290,21 +1194,26 @@ function AppContent() {
                   showNotif={showNotif}
                   fetchUserForms={fetchUserForms}
                 />
+              </Suspense>
             )}
             {view === 'EDUCATION' && (
-              <EducationView
+              <Suspense fallback={<ViewLoading />}>
+                <EducationView
                   courseModules={courseModules}
                   onSelectLesson={setActiveLesson}
                 />
+              </Suspense>
             )}
             {view === 'CONSULTATIONS' && user && (
-              <ConsultationsView
+              <Suspense fallback={<ViewLoading />}>
+                <ConsultationsView
                   user={user}
                   logs={logs}
                   submittedForms={submittedForms}
                   showNotif={showNotif}
                   fetchUserForms={fetchUserForms}
                 />
+              </Suspense>
             )}
           </div>
         )}

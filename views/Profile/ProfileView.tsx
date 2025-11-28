@@ -7,6 +7,7 @@ import ReportCard from '../../components/common/ReportCard';
 import { supabase } from '../../services/supabase';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo } from '../../services/RuleEngine';
+import { formatDate } from '../../services/utils';
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -504,12 +505,7 @@ const ProfileView = ({
             );
           }
 
-          const formatDate = (dateStr: string) =>
-            new Date(dateStr).toLocaleDateString('es-ES', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric'
-            });
+          // formatDate is now imported from services/utils
 
           const handleEditF0Click = () => {
             const initialAnswers: Record<string, any> = {};
@@ -568,11 +564,11 @@ const ProfileView = ({
                 <div>
                   <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
                   <p className="text-[10px] text-[#5D7180] mt-0.5">
-                    Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString())}
+                    Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
                   </p>
                   {f0Form.pdf_generated_at && (
                     <p className="text-[10px] text-[#5D7180] mt-0.5">
-                      Última actualización: {formatDate(f0Form.pdf_generated_at)}
+                      Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
                     </p>
                   )}
                 </div>
@@ -679,7 +675,7 @@ const ProfileView = ({
 
                     let displayValue = answer.answer;
                     if (question.type === 'date' && typeof displayValue === 'string') {
-                      displayValue = formatDate(displayValue);
+                      displayValue = formatDate(displayValue, 'long');
                     }
                     if (Array.isArray(displayValue)) {
                       displayValue = displayValue.join(', ');

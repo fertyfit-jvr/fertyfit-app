@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { LucideIcon } from 'lucide-react';
 
 interface StatCardProps {
@@ -9,7 +10,7 @@ interface StatCardProps {
   hideTarget?: boolean;
 }
 
-const StatCard = ({ title, value, target, unit, icon: Icon, hideTarget }: StatCardProps) => {
+const StatCard = memo(({ title, value, target, unit, icon: Icon, hideTarget }: StatCardProps) => {
   const isGood = target !== undefined && parseFloat(String(value)) >= parseFloat(String(target));
   const bgClass = hideTarget ? 'bg-white' : isGood ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-[#C7958E]';
 
@@ -32,7 +33,9 @@ const StatCard = ({ title, value, target, unit, icon: Icon, hideTarget }: StatCa
       </div>
     </div>
   );
-};
+});
+
+StatCard.displayName = 'StatCard';
 
 export default StatCard;
 
