@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { Award, Check, Edit2, FileText, LogOut } from 'lucide-react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
 import ReportCard from '../../components/common/ReportCard';
 import { supabase } from '../../services/supabase';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
+import { calcularDiaDelCiclo } from '../../services/RuleEngine';
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -201,6 +202,19 @@ const ProfileView = ({
     setIsEditingF0(false);
     fetchUserForms(user.id);
   };
+
+  // Calcular si debería haber venido la regla
+  const shouldUpdatePeriod = useMemo(() => {
+    if (!user?.lastPeriodDate || !user?.cycleLength) return false;
+    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+    return currentCycleDay >= user.cycleLength;
+  }, [user?.lastPeriodDate, user?.cycleLength]);
+
+  const daysOverdue = useMemo(() => {
+    if (!user?.lastPeriodDate || !user?.cycleLength) return 0;
+    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+    return Math.max(0, currentCycleDay - user.cycleLength);
+  }, [user?.lastPeriodDate, user?.cycleLength]);
 
   return (
     <div className="pb-24">
@@ -412,6 +426,40 @@ const ProfileView = ({
 
           return (
             <div className="space-y-4">
+              {/* Notificación discreta si debería actualizar la regla */}
+              {shouldUpdatePeriod && !isEditingF0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
+                  <AlertCircle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-amber-800 mb-1">
+                      Actualiza tu ciclo menstrual
+                    </p>
+                    <p className="text-[10px] text-amber-700">
+                      {daysOverdue === 0 
+                        ? 'Tu ciclo ha concluido. ¿Te ha venido la regla?'
+                        : `Tu ciclo concluyó hace ${daysOverdue} día${daysOverdue > 1 ? 's' : ''}. Actualiza la fecha para mantener tus predicciones precisas.`
+                      }
+                    </p>
+                    <button
+                      onClick={() => {
+                        handleEditF0Click();
+                        // Scroll al campo de fecha última regla después de un pequeño delay
+                        setTimeout(() => {
+                          const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+                          if (dateInput) {
+                            dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            dateInput.focus();
+                          }
+                        }, 100);
+                      }}
+                      className="mt-2 text-[10px] font-bold text-amber-700 hover:text-amber-900 underline"
+                    >
+                      Actualizar ahora →
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-end mb-3">
                 <div>
                   <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>

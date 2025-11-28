@@ -391,7 +391,7 @@ function AppContent() {
     const todayStr = formatDateForDB(new Date());
     if (localStorage.getItem(todayKey) === todayStr) return;
 
-    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate);
+    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
     if (!currentCycleDay) return;
 
     let cancelled = false;
@@ -1277,6 +1277,9 @@ function AppContent() {
                 logs={logs}
                 handleDateChange={handleDateChange}
                 saveDailyLog={saveDailyLog}
+                user={user}
+                onUserUpdate={(updatedUser) => setUser(updatedUser)}
+                showNotif={showNotif}
               />
             )}
             {view === 'EDUCATION' && (

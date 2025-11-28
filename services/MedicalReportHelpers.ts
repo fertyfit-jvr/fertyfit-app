@@ -65,11 +65,13 @@ export interface MedicalReportData {
 
 /**
  * Calcula el día actual del ciclo
+ * IMPORTANTE: El día que viene la regla = día 1 del nuevo ciclo
+ * Si el día calculado >= cycleLength, estamos en un nuevo ciclo
  */
 function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: number): number {
     if (!lastPeriodDate) return 0;
 
-    console.log('🧮 Calculando día ciclo con:', lastPeriodDate);
+    console.log('🧮 Calculando día ciclo con:', lastPeriodDate, 'cycleLength:', cycleLength);
 
     // Intentar parsear fecha de varias formas
     let ultimaRegla = new Date(lastPeriodDate);
@@ -77,7 +79,6 @@ function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: n
     // Si es inválida, intentar formato DD/MM/YYYY si aplica (común en inputs manuales)
     if (isNaN(ultimaRegla.getTime())) {
         console.warn('⚠️ Fecha inválida, intentando parsear manual:', lastPeriodDate);
-        // Aquí podrías agregar lógica extra si fuera necesario
         return 0;
     }
 
@@ -87,10 +88,28 @@ function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: n
     hoy.setHours(0, 0, 0, 0);
 
     const diferencia = hoy.getTime() - ultimaRegla.getTime();
-    const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+    const diasDesdeUltimaRegla = Math.floor(diferencia / (1000 * 60 * 60 * 24));
 
-    console.log('🧮 Resultado día ciclo:', dias + 1);
-    return dias + 1;
+    // Si no tenemos cycleLength, retornamos días + 1 (día 1 = día que viene la regla)
+    if (!cycleLength) {
+        const diaCalculado = diasDesdeUltimaRegla + 1;
+        console.log('🧮 Resultado día ciclo (sin cycleLength):', diaCalculado);
+        return diaCalculado;
+    }
+
+    // Si el día calculado es >= cycleLength, estamos en un nuevo ciclo
+    // Ejemplo: ciclo de 21 días, han pasado 22 días = día 2 del nuevo ciclo
+    const diaEnCiclo = diasDesdeUltimaRegla + 1;
+    
+    if (diaEnCiclo > cycleLength) {
+        // Estamos en un nuevo ciclo
+        const diaNuevoCiclo = diaEnCiclo - cycleLength;
+        console.log('🧮 Resultado día ciclo (nuevo ciclo):', diaNuevoCiclo, `(día ${diaEnCiclo} desde última regla, ciclo de ${cycleLength} días)`);
+        return diaNuevoCiclo;
+    }
+
+    console.log('🧮 Resultado día ciclo:', diaEnCiclo);
+    return diaEnCiclo;
 }
 
 /**

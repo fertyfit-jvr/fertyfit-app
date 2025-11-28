@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Minus, Plus, Droplets, Leaf } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Minus, Plus, Droplets, Leaf, Calendar, X } from 'lucide-react';
 import InputField from '../../components/forms/InputField';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
 import {
@@ -9,7 +9,9 @@ import {
   CERVIX_FIRM_OPTIONS,
   CERVIX_OPEN_OPTIONS
 } from '../../constants';
-import { ConsultationForm, DailyLog, LHResult, MucusType } from '../../types';
+import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '../../types';
+import { supabase } from '../../services/supabase';
+import { calcularDuracionPromedioCiclo } from '../../services/RuleEngine';
 
 type SetTodayLog = (
   value: Partial<DailyLog> | ((prev: Partial<DailyLog>) => Partial<DailyLog>)
@@ -22,6 +24,9 @@ interface TrackerViewProps {
   logs: DailyLog[];
   handleDateChange: (newDate: string) => void;
   saveDailyLog: () => void;
+  user: UserProfile | null;
+  onUserUpdate?: (updatedUser: UserProfile) => void;
+  showNotif?: (msg: string, type: 'success' | 'error') => void;
 }
 
 const TrackerView = ({
@@ -30,20 +35,83 @@ const TrackerView = ({
   submittedForms,
   logs,
   handleDateChange,
-  saveDailyLog
+  saveDailyLog,
+  user,
+  onUserUpdate,
+  showNotif
 }: TrackerViewProps) => {
+  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+  const [lastPeriodDate, setLastPeriodDate] = useState(user?.lastPeriodDate || '');
+  const [cycleLength, setCycleLength] = useState(user?.cycleLength?.toString() || '28');
+  const [suggestedCycleLength, setSuggestedCycleLength] = useState<number | null>(null);
+
   useEffect(() => {
     if (todayLog.date && todayLog.cycleDay === 1 && submittedForms.length > 0) {
       handleDateChange(todayLog.date);
     }
   }, [submittedForms, todayLog.cycleDay, todayLog.date, handleDateChange]);
 
+  useEffect(() => {
+    if (user) {
+      setLastPeriodDate(user.lastPeriodDate || '');
+      setCycleLength(user.cycleLength?.toString() || '28');
+    }
+  }, [user]);
+
+  // Calcular duración promedio sugerida cuando se abre el modal
+  useEffect(() => {
+    if (isCycleModalOpen && user) {
+      calcularDuracionPromedioCiclo(user.id!, user.cycleLength).then(avg => {
+        setSuggestedCycleLength(avg);
+      });
+    }
+  }, [isCycleModalOpen, user]);
+
+  const handleSaveCycleData = async () => {
+    if (!user || !user.id) return;
+
+    const cycleLengthNum = parseInt(cycleLength) || 28;
+    const lastPeriodDateFormatted = lastPeriodDate || new Date().toISOString().split('T')[0];
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        last_period_date: lastPeriodDateFormatted,
+        cycle_length: cycleLengthNum
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      showNotif?.('Error al actualizar datos del ciclo', 'error');
+      return;
+    }
+
+    const updatedUser = {
+      ...user,
+      lastPeriodDate: lastPeriodDateFormatted,
+      cycleLength: cycleLengthNum
+    };
+
+    onUserUpdate?.(updatedUser);
+    showNotif?.('Datos del ciclo actualizados correctamente', 'success');
+    setIsCycleModalOpen(false);
+  };
+
   return (
     <div className="pb-24 space-y-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-[#4A4A4A]">Registro Diario</h2>
-        <div className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#5D7180] shadow-sm font-medium">
-          {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+        <div className="flex items-center gap-2">
+          <div className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#5D7180] shadow-sm font-medium">
+            {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </div>
+          <button
+            onClick={() => setIsCycleModalOpen(true)}
+            className="w-8 h-8 rounded-full bg-[#F4F0ED] hover:bg-[#C7958E] text-[#5D7180] hover:text-white transition-all flex items-center justify-center shadow-sm"
+            title="Editar ciclo menstrual"
+          >
+            <Calendar size={14} />
+          </button>
         </div>
       </div>
 
@@ -315,6 +383,85 @@ const TrackerView = ({
           ))}
         </div>
       </div>
+
+      {/* Modal para editar ciclo menstrual */}
+      {isCycleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsCycleModalOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md mx-4 p-6 space-y-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[#4A4A4A]">Actualizar Ciclo Menstrual</h3>
+              <button
+                onClick={() => setIsCycleModalOpen(false)}
+                className="text-[#5D7180] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-2">
+                  Fecha Última Regla
+                </label>
+                <input
+                  type="date"
+                  value={lastPeriodDate}
+                  onChange={(e) => setLastPeriodDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#F9F6F4] border border-[#F4F0ED] rounded-xl text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#C7958E]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-2">
+                  Duración Ciclo Promedio (días)
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCycleLength(String(Math.max(21, parseInt(cycleLength) - 1)))}
+                    className="p-2 bg-[#F4F0ED] rounded-full text-[#95706B] hover:bg-[#C7958E] hover:text-white transition-colors"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <input
+                    type="number"
+                    min="21"
+                    max="45"
+                    value={cycleLength}
+                    onChange={(e) => setCycleLength(e.target.value)}
+                    className="w-20 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-xl px-3 py-2 text-lg font-bold text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#C7958E]"
+                  />
+                  <button
+                    onClick={() => setCycleLength(String(Math.min(45, parseInt(cycleLength) + 1)))}
+                    className="p-2 bg-[#F4F0ED] rounded-full text-[#95706B] hover:bg-[#C7958E] hover:text-white transition-colors"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+                {suggestedCycleLength && suggestedCycleLength !== parseInt(cycleLength) && (
+                  <p className="text-[10px] text-[#5D7180] mt-2">
+                    Duración promedio sugerida: <span className="font-bold">{suggestedCycleLength} días</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsCycleModalOpen(false)}
+                className="flex-1 px-4 py-3 bg-[#F4F0ED] text-[#5D7180] rounded-xl font-bold hover:bg-[#E8E0DC] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveCycleData}
+                className="flex-1 px-4 py-3 bg-[#5D7180] text-white rounded-xl font-bold hover:bg-[#4A5568] transition-colors"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

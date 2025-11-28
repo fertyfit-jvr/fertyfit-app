@@ -34,16 +34,27 @@ export interface Rule {
 
 /**
  * Calcula el día actual del ciclo basado en última regla
+ * IMPORTANTE: El día que viene la regla = día 1 del nuevo ciclo
+ * Si el día calculado >= cycleLength, estamos en un nuevo ciclo
  */
-function calcularDiaDelCiclo(lastPeriodDate: string | undefined): number {
+function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: number): number {
     if (!lastPeriodDate) return 0;
 
     const ultimaRegla = new Date(lastPeriodDate);
     const hoy = new Date();
+    ultimaRegla.setHours(0, 0, 0, 0);
+    hoy.setHours(0, 0, 0, 0);
+    
     const diferencia = hoy.getTime() - ultimaRegla.getTime();
-    const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+    const diasDesdeUltimaRegla = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+    const diaEnCiclo = diasDesdeUltimaRegla + 1; // Día 1 = día que viene la regla
 
-    return dias + 1; // Día 1 = primer día de regla
+    // Si tenemos cycleLength y el día calculado es mayor, estamos en un nuevo ciclo
+    if (cycleLength && diaEnCiclo > cycleLength) {
+        return diaEnCiclo - cycleLength; // Día del nuevo ciclo
+    }
+
+    return diaEnCiclo;
 }
 
 /**
@@ -154,16 +165,37 @@ export const RULES: Rule[] = [
                 return false;
             }
             if (!currentCycleDay) return false;
-            return currentCycleDay === user.cycleLength;
+            
+            // OPCIÓN B: Preguntar cuando currentCycleDay === cycleLength (día esperado)
+            // Y también cuando currentCycleDay > cycleLength (retraso)
+            // Esto asegura que seguimos preguntando hasta que confirme
+            return currentCycleDay >= user.cycleLength;
         },
-        getMessage: ({ user }) => ({
-            title: '¿Te ha venido la regla?',
-            message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
-        }),
-        getMetadata: () => {
+        getMessage: ({ user, currentCycleDay }) => {
+            const diasRetraso = currentCycleDay && user.cycleLength 
+                ? currentCycleDay - user.cycleLength 
+                : 0;
+            
+            if (diasRetraso === 0) {
+                return {
+                    title: '¿Te ha venido la regla?',
+                    message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
+                };
+            } else {
+                return {
+                    title: '¿Te ha venido la regla?',
+                    message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido hace ${diasRetraso} día${diasRetraso > 1 ? 's' : ''}. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
+                };
+            }
+        },
+        getMetadata: ({ currentCycleDay, user }) => {
+            const diasRetraso = currentCycleDay && user.cycleLength 
+                ? currentCycleDay - user.cycleLength 
+                : 0;
+            
             const actions: NotificationAction[] = [
                 { label: 'Sí, me vino', value: 'today', handler: 'handlePeriodConfirmed' },
-                { label: 'No, aún no', value: '2', handler: 'handlePeriodDelayed' }
+                { label: 'No, aún no', value: String(diasRetraso + 1), handler: 'handlePeriodDelayed' }
             ];
             return { actions };
         }
@@ -422,7 +454,23 @@ export const handlePeriodConfirmed = async (userId: string, newPeriodDate: strin
 };
 
 /**
+ * Calcula la duración promedio del ciclo basado en historial
+ * Si hay ciclos anteriores, calcula promedio. Si no, usa el último registro.
+ */
+export const calcularDuracionPromedioCiclo = async (userId: string, currentCycleLength?: number): Promise<number> => {
+    // Por ahora, si tenemos un cycleLength actual, lo usamos
+    // En el futuro, podríamos calcular un promedio basado en historial de last_period_date
+    if (currentCycleLength) {
+        return currentCycleLength;
+    }
+    
+    // Si no hay cycleLength, usamos 28 días por defecto (promedio estándar)
+    return 28;
+};
+
+/**
  * Ajusta la duración promedio del ciclo ante un retraso reportado
+ * Incrementa el cycleLength en los días de retraso
  */
 export const handlePeriodDelayed = async (userId: string, daysToAdd: number, fallbackLength = 28) => {
     const { data, error } = await supabase

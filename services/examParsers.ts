@@ -1,10 +1,43 @@
 /**
  * Exam Parsers
  * Parsers inteligentes para extraer datos de exámenes médicos desde texto OCR
+ * IGNORA datos personales (nombres, DNI, emails, direcciones, teléfonos)
  */
 
 export interface ParsedExamData {
   [key: string]: any;
+}
+
+/**
+ * Limpia el texto OCR eliminando datos personales
+ */
+function sanitizeText(text: string): string {
+  let cleaned = text;
+
+  // Eliminar DNI/NIE (formato español: 8 dígitos + letra o 8 dígitos)
+  cleaned = cleaned.replace(/\b\d{8,9}[A-Z]?\b/gi, '');
+
+  // Eliminar emails
+  cleaned = cleaned.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '');
+
+  // Eliminar teléfonos (formato español: 9 dígitos, con o sin prefijo)
+  cleaned = cleaned.replace(/\b(\+34|0034)?[\s-]?[6-9]\d{8}\b/g, '');
+
+  // Eliminar direcciones comunes (calles, números, códigos postales)
+  cleaned = cleaned.replace(/\b(calle|avenida|av\.|plaza|paseo|carretera)[\s\w,]+/gi, '');
+  cleaned = cleaned.replace(/\b\d{5}\b/g, ''); // Códigos postales
+
+  // Eliminar nombres comunes (patrones de nombres propios - solo si están claramente identificados)
+  // Esto es más conservador, solo eliminamos si aparece "nombre:", "paciente:", etc.
+  cleaned = cleaned.replace(/\b(nombre|paciente|nombre completo)[\s:]+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*/gi, '');
+
+  // Eliminar fechas de nacimiento (formato DD/MM/YYYY o similar)
+  cleaned = cleaned.replace(/\b(fecha de nacimiento|nacimiento|f\.n\.|f\.nac\.)[\s:]+[\d\/\-\.]+\b/gi, '');
+
+  // Limpiar espacios múltiples
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+  return cleaned;
 }
 
 /**
@@ -318,21 +351,25 @@ export function parseEspermiograma(text: string): ParsedExamData {
 
 /**
  * Parsea un examen según su tipo
+ * Limpia datos personales antes de parsear
  */
 export function parseExam(text: string, examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'): ParsedExamData {
+  // Limpiar datos personales antes de parsear
+  const cleanedText = sanitizeText(text);
+  
   switch (examType) {
     case 'hormonal':
-      return parseHormonalPanel(text);
+      return parseHormonalPanel(cleanedText);
     case 'metabolic':
-      return parseMetabolicPanel(text);
+      return parseMetabolicPanel(cleanedText);
     case 'vitamin_d':
-      return parseVitaminaD(text);
+      return parseVitaminaD(cleanedText);
     case 'ecografia':
-      return parseEcografia(text);
+      return parseEcografia(cleanedText);
     case 'hsg':
-      return parseHSG(text);
+      return parseHSG(cleanedText);
     case 'espermio':
-      return parseEspermiograma(text);
+      return parseEspermiograma(cleanedText);
     default:
       return {};
   }
