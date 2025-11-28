@@ -122,16 +122,33 @@ export interface AdminReport {
 
 
 
+export type NotificationType = 'insight' | 'alert' | 'tip' | 'celebration' | 'opportunity' | 'confirmation';
+
+export type NotificationHandler = 'handlePeriodConfirmed' | 'handlePeriodDelayed' | string;
+
+export interface NotificationAction {
+  label: string;
+  value: string;
+  handler: NotificationHandler;
+}
+
+export interface NotificationMetadata {
+  ruleId?: string;
+  actions?: NotificationAction[];
+  deleted?: boolean;
+  [key: string]: any;
+}
+
 export interface AppNotification {
   id: number;
   user_id: string;
   title: string;
   message: string;
-  type: 'insight' | 'alert' | 'tip' | 'celebration' | 'opportunity';
+  type: NotificationType;
   priority: 1 | 2 | 3;
   is_read: boolean;
   created_at: string;
-  metadata?: any;
+  metadata?: NotificationMetadata;
 }
 
 export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'SPECIALIST';

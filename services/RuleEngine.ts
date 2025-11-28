@@ -1,4 +1,4 @@
-import { UserProfile, DailyLog, AppNotification } from '../types';
+import { UserProfile, AppNotification, NotificationAction, NotificationMetadata } from '../types';
 import { supabase } from './supabase';
 import {
     calcularVentanaFertil,
@@ -10,7 +10,7 @@ import {
 // --- Types ---
 
 export type RuleTrigger = 'DAILY_CHECK' | 'WEIGHT_UPDATE' | 'AGE_CHECK';
-export type NotificationType = 'alert' | 'insight' | 'celebration' | 'tip' | 'opportunity';
+export type NotificationType = 'alert' | 'insight' | 'celebration' | 'tip' | 'opportunity' | 'confirmation';
 export type Priority = 1 | 2 | 3;
 
 export interface RuleContext {
@@ -27,6 +27,7 @@ export interface Rule {
     cooldownDays: number;
     condition: (ctx: RuleContext) => boolean;
     getMessage: (ctx: RuleContext) => { title: string; message: string };
+    getMetadata?: (ctx: RuleContext) => NotificationMetadata | undefined;
 }
 
 // --- Helper Functions ---
@@ -138,6 +139,37 @@ export const RULES: Rule[] = [
     // ============================================================================
 
     {
+        id: 'CYCLE-1',
+        trigger: ['DAILY_CHECK'],
+        type: 'confirmation',
+        priority: 1,
+        cooldownDays: 0,
+        condition: ({ user, currentCycleDay }) => {
+            if (!user.lastPeriodDate || !user.cycleLength) {
+                console.warn('[RuleEngine] CYCLE-1 skipped: missing data', {
+                    userId: user.id,
+                    hasLastPeriodDate: Boolean(user.lastPeriodDate),
+                    hasCycleLength: Boolean(user.cycleLength)
+                });
+                return false;
+            }
+            if (!currentCycleDay) return false;
+            return currentCycleDay === user.cycleLength;
+        },
+        getMessage: ({ user }) => ({
+            title: '¿Te ha venido la regla?',
+            message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
+        }),
+        getMetadata: () => {
+            const actions: NotificationAction[] = [
+                { label: 'Sí, me vino', value: 'today', handler: 'handlePeriodConfirmed' },
+                { label: 'No, aún no', value: '2', handler: 'handlePeriodDelayed' }
+            ];
+            return { actions };
+        }
+    },
+
+    {
         id: 'PM-1',
         trigger: ['DAILY_CHECK'],
         type: 'insight',
@@ -179,8 +211,8 @@ export const RULES: Rule[] = [
         condition: ({ user, currentCycleDay }) => {
             if (!user.cycleLength || !currentCycleDay) return false;
 
-            // 3 días después de fecha esperada
-            return currentCycleDay === user.cycleLength + 3;
+            // 5 días después de fecha esperada
+            return currentCycleDay === user.cycleLength + 5;
         },
         getMessage: () => ({
             title: '🤔 Actualiza tu registro',
@@ -280,6 +312,12 @@ export const evaluateRules = async (
                     console.log(`  🚀 Triggering Rule ${rule.id}`);
                     const { title, message } = rule.getMessage(context);
 
+                    const baseMetadata: NotificationMetadata = { ruleId: rule.id };
+                    const metadata = {
+                        ...baseMetadata,
+                        ...(rule.getMetadata ? (rule.getMetadata(context) || {}) : {})
+                    };
+
                     newNotifications.push({
                         id: 0,
                         user_id: context.user.id!,
@@ -289,7 +327,7 @@ export const evaluateRules = async (
                         priority: rule.priority,
                         is_read: false,
                         created_at: new Date().toISOString(),
-                        metadata: { ruleId: rule.id }
+                        metadata
                     });
                 } else {
                     console.log(`  ⏳ Rule ${rule.id} in cooldown`);
@@ -367,3 +405,47 @@ export const saveNotifications = async (userId: string, notifications: AppNotifi
  * Función helper para calcular día del ciclo (exportada para uso en App)
  */
 export { calcularDiaDelCiclo };
+
+/**
+ * Actualiza la fecha de última menstruación del perfil
+ */
+export const handlePeriodConfirmed = async (userId: string, newPeriodDate: string) => {
+    const { error } = await supabase.from('profiles')
+        .update({ last_period_date: newPeriodDate })
+        .eq('id', userId);
+
+    if (error) {
+        throw new Error(`handlePeriodConfirmed failed: ${error.message}`);
+    }
+
+    return newPeriodDate;
+};
+
+/**
+ * Ajusta la duración promedio del ciclo ante un retraso reportado
+ */
+export const handlePeriodDelayed = async (userId: string, daysToAdd: number, fallbackLength = 28) => {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('cycle_length')
+        .eq('id', userId)
+        .single();
+
+    if (error && error.code !== 'PGRST116') {
+        throw new Error(`handlePeriodDelayed fetch failed: ${error.message}`);
+    }
+
+    const baseLength = data?.cycle_length ?? fallbackLength;
+    const newCycleLength = baseLength + daysToAdd;
+
+    const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ cycle_length: newCycleLength })
+        .eq('id', userId);
+
+    if (updateError) {
+        throw new Error(`handlePeriodDelayed update failed: ${updateError.message}`);
+    }
+
+    return newCycleLength;
+};

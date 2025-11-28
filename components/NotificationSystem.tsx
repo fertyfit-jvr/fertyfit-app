@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { CheckCircle, AlertCircle, Star, Sparkles, ChevronDown, ChevronUp, Trash, Bell, X } from 'lucide-react';
-import { AppNotification } from '../types';
+import { AppNotification, NotificationAction } from '../types';
 
 // --- Single Expandable Notification Card ---
 export const NotificationList: React.FC<{
     notifications: AppNotification[];
     onMarkRead: (id: number) => void;
     deleteNotification: (id: number) => void;
-}> = ({ notifications, onMarkRead, deleteNotification }) => {
+    onAction?: (notification: AppNotification, action: NotificationAction) => void;
+}> = ({ notifications, onMarkRead, deleteNotification, onAction }) => {
     const [expanded, setExpanded] = useState(false);
 
     if (notifications.length === 0) {
@@ -83,6 +84,8 @@ export const NotificationList: React.FC<{
                 <div className="px-4 pb-4 pt-2 border-t border-[#F4F0ED] bg-[#F9F6F4] space-y-3">
                     {notifications.map((notif) => {
                         const { icon, color } = getIconForType(notif.type);
+                        const actions = Array.isArray(notif.metadata?.actions) ? notif.metadata.actions : [];
+                        const hasActions = actions.length > 0;
                         return (
                             <div
                                 key={notif.id}
@@ -117,11 +120,28 @@ export const NotificationList: React.FC<{
                                         {notif.message}
                                     </p>
 
+                                    {hasActions && (
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {actions.map(action => (
+                                                <button
+                                                    key={`${notif.id}-${action.value}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onAction?.(notif, action);
+                                                    }}
+                                                    className="px-3 py-1 text-[11px] font-bold rounded-full border border-[#C7958E] text-[#C7958E] hover:bg-[#C7958E] hover:text-white transition-colors"
+                                                >
+                                                    {action.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <div className="flex items-center gap-3 text-[10px]">
                                         <span className="text-[#95706B] font-medium">
                                             {formatTime(notif.created_at)}
                                         </span>
-                                        {!notif.is_read && (
+                                        {!notif.is_read && !hasActions && (
                                             <>
                                                 <span className="text-stone-300">•</span>
                                                 <button
