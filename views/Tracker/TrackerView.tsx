@@ -157,8 +157,8 @@ const TrackerView = ({
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return 'No registrada';
     return new Date(dateStr).toLocaleDateString('es-ES', { 
-      day: 'numeric', 
-      month: 'long', 
+      day: '2-digit', 
+      month: 'short', 
       year: 'numeric' 
     });
   };
@@ -173,15 +173,13 @@ const TrackerView = ({
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-end gap-2 mb-4">
-        <div className="text-right">
-          <p className="text-[10px] text-[#5D7180]">
-            Última Regla: {formatDate(user?.lastPeriodDate)}
-          </p>
-        </div>
+      <div className="flex items-center justify-end gap-2 mb-4 flex-wrap">
+        <p className="text-[10px] text-[#5D7180] whitespace-nowrap">
+          Última Regla: {formatDate(user?.lastPeriodDate)}
+        </p>
         <button
           onClick={() => setIsCycleModalOpen(true)}
-          className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"
+          className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0"
           title="Editar ciclo menstrual"
         >
           <Droplets size={18} />
