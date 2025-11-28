@@ -1,5 +1,5 @@
-import { useMemo, useEffect } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle } from 'lucide-react';
+import { useMemo, useEffect, useRef } from 'react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
@@ -149,11 +149,26 @@ const ProfileView = ({
   onRestartMethod,
   onLogout
 }: ProfileViewProps) => {
+  // Guardar valores originales para poder cancelar
+  const originalEditName = useRef<string>(user.name);
+  const originalF0Answers = useRef<Record<string, any>>({});
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleProfileEditClick = () => {
     if (isEditingProfile) {
       onSaveProfile();
     } else {
+      originalEditName.current = user.name;
       setIsEditingProfile(true);
+    }
+  };
+
+  const handleProfileCancel = () => {
+    setEditName(originalEditName.current);
+    setIsEditingProfile(false);
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
     }
   };
 
@@ -243,6 +258,45 @@ const ProfileView = ({
     }
   }, [user?.lastPeriodDate, user?.cycleLength, submittedForms, isEditingF0]);
 
+  // Guardado automático después de 3 segundos de inactividad para F0
+  useEffect(() => {
+    if (!isEditingF0) return;
+
+    // Limpiar timeout anterior
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Guardar automáticamente después de 3 segundos
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      const f0Form = submittedForms.find(f => f.form_type === 'F0');
+      if (f0Form && user?.id) {
+        // Llamar handleF0Save directamente sin dependencias circulares
+        handleF0Save(f0Form);
+      }
+    }, 3000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f0Answers, isEditingF0, submittedForms, user?.id]);
+
+  // Advertencia al cambiar de pestaña sin guardar
+  useEffect(() => {
+    const handleTabChange = (e: BeforeUnloadEvent) => {
+      if (isEditingProfile || isEditingF0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleTabChange);
+    return () => window.removeEventListener('beforeunload', handleTabChange);
+  }, [isEditingProfile, isEditingF0]);
+
   return (
     <div className="pb-24">
       <ProfileHeader
@@ -286,12 +340,24 @@ const ProfileView = ({
                       Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                   </div>
-                  <button
-                    onClick={handleProfileEditClick}
-                    className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                  >
-                    {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {isEditingProfile && (
+                      <button
+                        onClick={handleProfileCancel}
+                        className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                        title="Cancelar"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                    <button
+                      onClick={handleProfileEditClick}
+                      className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                      title={isEditingProfile ? "Guardar" : "Editar"}
+                    >
+                      {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
@@ -447,8 +513,18 @@ const ProfileView = ({
           const handleEditF0Click = () => {
             const initialAnswers: Record<string, any> = {};
             f0Form.answers.forEach((a: any) => { initialAnswers[a.questionId] = a.answer; });
+            originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers)); // Deep copy
             setF0Answers(initialAnswers);
             setIsEditingF0(true);
+          };
+
+          const handleF0Cancel = () => {
+            setF0Answers(JSON.parse(JSON.stringify(originalF0Answers.current))); // Restore original
+            setIsEditingF0(false);
+            if (autoSaveTimeoutRef.current) {
+              clearTimeout(autoSaveTimeoutRef.current);
+              autoSaveTimeoutRef.current = null;
+            }
           };
 
           return (
@@ -499,18 +575,30 @@ const ProfileView = ({
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => {
-                    if (isEditingF0) {
-                      handleF0Save(f0Form);
-                    } else {
-                      handleEditF0Click();
-                    }
-                  }}
-                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                >
-                  {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
-                </button>
+                <div className="flex items-center gap-2">
+                  {isEditingF0 && (
+                    <button
+                      onClick={handleF0Cancel}
+                      className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                      title="Cancelar"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (isEditingF0) {
+                        handleF0Save(f0Form);
+                      } else {
+                        handleEditF0Click();
+                      }
+                    }}
+                    className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                    title={isEditingF0 ? "Guardar" : "Editar"}
+                  >
+                    {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
+                  </button>
+                </div>
               </div>
 
               {isEditingF0 ? (

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, Lock } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, Lock, X } from 'lucide-react';
 import { ConsultationForm, DailyLog, UserProfile } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { supabase } from '../../services/supabase';
@@ -45,6 +45,8 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const [isEditMode, setIsEditMode] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [scanningSection, setScanningSection] = useState<string | null>(null);
+  const originalAnswers = useRef<Record<string, any>>({});
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Mapeo de secciones a tipos de examen
   const SECTION_TO_EXAM_TYPE: Record<string, 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'> = {
@@ -132,8 +134,57 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
     setIsEditMode(false);
   }, [definition, formType, submittedForm]);
 
+  // Guardado automático después de 3 segundos de inactividad
+  useEffect(() => {
+    if (!isEditMode || !definition) return;
+
+    // Limpiar timeout anterior
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Guardar automáticamente después de 3 segundos
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      handleSubmit();
+    }, 3000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [answers, isEditMode, definition]);
+
+  // Advertencia al cambiar de vista sin guardar
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isEditMode) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isEditMode]);
+
+  const handleCancelEdit = () => {
+    setAnswers(JSON.parse(JSON.stringify(originalAnswers.current))); // Restaurar valores originales
+    setIsEditMode(false);
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user?.id || !definition) return;
+
+    // Limpiar timeout de guardado automático
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
 
     if (isPdfGenerated) {
       showNotif('Este formulario ya ha sido enviado. No se puede editar.', 'error');
@@ -587,13 +638,31 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             )}
           </div>
           {!isPdfGenerated && (
-            <button
-              onClick={() => setIsEditMode(true)}
-              className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-              title="Editar formulario"
-            >
-              <Edit2 size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              {isEditMode && (
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                  title="Cancelar"
+                >
+                  <X size={16} />
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (isEditMode) {
+                    handleSubmit();
+                  } else {
+                    originalAnswers.current = JSON.parse(JSON.stringify(answers)); // Guardar valores originales antes de editar
+                    setIsEditMode(true);
+                  }
+                }}
+                className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                title={isEditMode ? "Guardar" : "Editar formulario"}
+              >
+                {isEditMode ? <Check size={16} /> : <Edit2 size={16} />}
+              </button>
+            </div>
           )}
         </div>
       <div className="grid grid-cols-2 gap-3">
