@@ -67,7 +67,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const submittedForm = useMemo(() => findSubmission(submittedForms, formType), [submittedForms, formType]);
   const isPdfGenerated = Boolean(submittedForm?.generated_pdf_url);
 
-  // Calculate progress
+  // Calculate progress for current form
   const progress = useMemo(() => {
     if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
     
@@ -92,6 +92,32 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       percentage: totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0
     };
   }, [definition, answers]);
+
+  // Calculate progress for each pillar based on submitted forms
+  const getPillarProgress = (pillarId: PillarFormType): number => {
+    const form = findSubmission(submittedForms, pillarId);
+    if (!form || !form.answers || !Array.isArray(form.answers)) return 0;
+    
+    const pillarDef = FORM_DEFINITIONS[pillarId as keyof typeof FORM_DEFINITIONS];
+    if (!pillarDef?.questions) return 0;
+    
+    const totalQuestions = pillarDef.questions.length;
+    const answeredQuestions = pillarDef.questions.filter(question => {
+      const answer = form.answers.find((a: any) => a.questionId === question.id);
+      if (!answer) return false;
+      const value = answer.answer;
+      if (value === undefined || value === null) return false;
+      if (typeof value === 'string' && value.trim() === '') return false;
+      // For Flora "Otra" fields, check if contains ": " (combined format)
+      if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
+        const [, otherValue] = value.split(': ', 2);
+        return Boolean(otherValue && otherValue.trim() !== '');
+      }
+      return true;
+    }).length;
+    
+    return totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
+  };
 
   useEffect(() => {
     if (!definition?.sections) {
@@ -594,44 +620,96 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
     </div>
   );
 
-  const renderFormCard = () => (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-      <div className="flex justify-between items-start mb-6 border-b border-[#F4F0ED] pb-4">
-        <div className="flex-1">
-          {definition.description && <h3 className="text-lg font-bold text-[#C7958E]">{definition.description}</h3>}
+  const renderFormCard = () => {
+    const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
+    return (
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+        {/* Header with Icon, Name, Date, and Edit buttons */}
+        <div className="flex items-center justify-between mb-6 border-b border-[#F4F0ED] pb-4">
+          <div className="flex items-center gap-3 flex-1">
+            {currentTab && (
+              <>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${currentTab.accent}1A` }}>
+                  <img src={currentTab.iconUrl} alt={`${currentTab.label} icono`} className="w-10 h-10 object-contain" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-[#4A4A4A]">{currentTab.label}</h4>
+                  {submittedForm?.submitted_at && (
+                    <p className="text-xs text-[#5D7180] mt-0.5">
+                      Última actualización: {formatDate(submittedForm.submitted_at, 'long')}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          {isEditMode && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancelEdit}
+                className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                title="Cancelar"
+              >
+                <X size={16} />
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                title="Guardar"
+              >
+                <Check size={16} />
+              </button>
+            </div>
+          )}
+          {!isEditMode && (
+            <button
+              onClick={() => {
+                originalAnswers.current = JSON.parse(JSON.stringify(answers));
+                setIsEditMode(true);
+              }}
+              className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+              title="Editar formulario"
+            >
+              <Edit2 size={18} />
+            </button>
+          )}
         </div>
-        <button
-          onClick={handleSubmit}
-          className="text-[#5D7180] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors ml-3"
-          title="Guardar formulario"
-        >
-          <Check size={18} />
+        {submittedForm && !isPdfGenerated && (
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-center gap-3 text-xs text-yellow-800">
+            <AlertCircle size={16} />
+            <span>Puedes editar tus respuestas hasta que el especialista genere el informe.</span>
+          </div>
+        )}
+        {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
+        <button onClick={handleSubmit} className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2">
+          Guardar y enviar <Download size={16} />
         </button>
       </div>
-      {submittedForm && !isPdfGenerated && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-center gap-3 text-xs text-yellow-800">
-          <AlertCircle size={16} />
-          <span>Puedes editar tus respuestas hasta que el especialista genere el informe.</span>
-        </div>
-      )}
-      {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
-      <button onClick={handleSubmit} className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2">
-        Guardar y enviar <Download size={16} />
-      </button>
-    </div>
-  );
+    );
+  };
 
   const renderSubmittedView = () => {
     // formatDate is now imported from services/utils
+    const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
     return (
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-        <div className="flex justify-between items-start mb-4 border-b border-[#F4F0ED] pb-4">
-          <div>
-            {definition.description && <h3 className="font-bold text-lg text-[#4A4A4A]">{definition.description}</h3>}
-            {submittedForm?.submitted_at && (
-              <p className="text-xs text-[#5D7180] mt-1">
-                Primer registro: {formatDate(submittedForm.submitted_at, 'long')}
-              </p>
+        {/* Header with Icon, Name, Date, and Edit buttons */}
+        <div className="flex items-center justify-between mb-4 border-b border-[#F4F0ED] pb-4">
+          <div className="flex items-center gap-3 flex-1">
+            {currentTab && (
+              <>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${currentTab.accent}1A` }}>
+                  <img src={currentTab.iconUrl} alt={`${currentTab.label} icono`} className="w-10 h-10 object-contain" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-[#4A4A4A]">{currentTab.label}</h4>
+                  {submittedForm?.submitted_at && (
+                    <p className="text-xs text-[#5D7180] mt-0.5">
+                      Última actualización: {formatDate(submittedForm.submitted_at, 'long')}
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </div>
           {!isPdfGenerated && (
@@ -737,6 +815,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
         {PILLAR_TABS.map(tab => {
           const hasData = Boolean(findSubmission(submittedForms, tab.id));
           const isActive = formType === tab.id;
+          const pillarProgress = getPillarProgress(tab.id);
           return (
             <button
               key={tab.id}
@@ -747,12 +826,11 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
               }`}
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white" style={{ backgroundColor: `${tab.accent}1A` }}>
-                  <img src={tab.iconUrl} alt={`${tab.label} icono`} className="w-8 h-8 object-contain" />
-                </div>
-                {hasData && <span className="text-[10px] font-bold text-emerald-600">Listo</span>}
+                <p className="text-sm font-bold text-[#4A4A4A]">{tab.label}</p>
+                {hasData && (
+                  <CheckCircle size={14} className="text-emerald-600" />
+                )}
               </div>
-              <p className="text-sm font-bold text-[#4A4A4A]">{tab.label}</p>
             </button>
           );
         })}
