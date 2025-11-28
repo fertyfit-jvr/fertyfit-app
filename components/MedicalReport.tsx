@@ -183,59 +183,6 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                             </div>
                         </div>
 
-                        <div className="mb-3">
-                            <span className="block text-stone-400 uppercase text-[9px] font-bold mb-2">Salud General</span>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Edad</span>
-                                    <span className="font-bold text-stone-600">{data.edad} años</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">IMC</span>
-                                    <span className="font-bold text-stone-600">{data.imc.valor} ({data.imc.categoria})</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Peso actual</span>
-                                    <span className="font-bold text-stone-600">{data.pesoActual} kg</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Peso ideal</span>
-                                    <span className="font-bold text-stone-600">{data.pesoIdeal.minimo}-{data.pesoIdeal.maximo} kg</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <span className="block text-stone-400 uppercase text-[9px] font-bold mb-2">Hábitos (últimos 7 días)</span>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Sueño</span>
-                                    <span className="font-bold text-stone-600">{data.promedios.sueno}h</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Estrés</span>
-                                    <span className="font-bold text-stone-600">{data.promedios.estres}/5</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Agua</span>
-                                    <span className="font-bold text-stone-600">{data.promedios.agua} vasos</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-lg border border-stone-100">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Vegetales</span>
-                                    <span className="font-bold text-stone-600">{data.promedios.vegetales} porcs</span>
-                                </div>
-                                <div className="p-2 bg-white rounded-lg border border-stone-100 col-span-2">
-                                    <span className="block text-stone-400 text-[9px] mb-1">Días con alcohol</span>
-                                    <span className="font-bold text-stone-600">{data.promedios.diasConAlcohol}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-3 p-3 bg-white rounded-lg border border-stone-100">
-                            <span className="block text-stone-400 uppercase text-[9px] font-bold mb-1">Análisis de Edad</span>
-                            <p className="font-bold text-stone-600">{data.analisisEdad.categoria} - {data.analisisEdad.probabilidad}</p>
-                            <p className="text-[10px] text-stone-500 mt-1">{data.analisisEdad.mensaje}</p>
-                        </div>
                     </div>
                 )}
             </div>

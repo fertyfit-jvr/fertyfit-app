@@ -5,6 +5,7 @@ import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
 import ReportCard from '../../components/common/ReportCard';
 import { supabase } from '../../services/supabase';
+import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -231,44 +232,108 @@ const ProfileView = ({
           </button>
         </div>
 
-        {profileTab === 'PROFILE' && (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex justify-between items-end mb-3">
-                <div>
-                  <h3 className="font-bold text-[#4A4A4A] text-sm">Datos Personales</h3>
-                  <p className="text-[10px] text-[#5D7180] mt-0.5">
-                    Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
+        {profileTab === 'PROFILE' && (() => {
+          const medicalData = generarDatosInformeMedico(user, logs);
+          
+          return (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-end mb-3">
+                  <div>
+                    <h3 className="font-bold text-[#4A4A4A] text-sm">Datos Personales</h3>
+                    <p className="text-[10px] text-[#5D7180] mt-0.5">
+                      Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleProfileEditClick}
+                    className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                  >
+                    {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
+                  </button>
                 </div>
-                <button
-                  onClick={handleProfileEditClick}
-                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                >
-                  {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
-                </button>
-              </div>
 
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
-                <div className="border-b border-[#F4F0ED] pb-3">
-                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
-                  {isEditingProfile ? (
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
-                      className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
-                    />
-                  ) : (
-                    <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                  <div className="border-b border-[#F4F0ED] pb-3">
+                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
+                    {isEditingProfile ? (
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
+                      />
+                    ) : (
+                      <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                    )}
+                  </div>
+                  <div className="border-b border-[#F4F0ED] pb-3">
+                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
+                    <p className="text-sm text-[#4A4A4A] opacity-70">{user.email} <span className="text-[10px] italic">(No editable)</span></p>
+                  </div>
+                  
+                  {/* Salud General */}
+                  {medicalData && (
+                    <>
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Salud General</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Edad</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.edad} años</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">IMC</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.imc.valor} ({medicalData.imc.categoria})</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Peso actual</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoActual} kg</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Peso ideal</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoIdeal.minimo}-{medicalData.pesoIdeal.maximo} kg</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hábitos (últimos 7 días) */}
+                      <div className="border-b border-[#F4F0ED] pb-3">
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Hábitos (últimos 7 días)</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Sueño</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.sueno}h</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Estrés</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.estres}/5</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Agua</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.agua} vasos</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Vegetales</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.vegetales} porcs</p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-[10px] text-[#5D7180] mb-0.5">Días con alcohol</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.diasConAlcohol}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Análisis de Edad */}
+                      <div>
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Análisis de Edad</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A] mb-1">{medicalData.analisisEdad.categoria} - {medicalData.analisisEdad.probabilidad}</p>
+                        <p className="text-[10px] text-[#5D7180]">{medicalData.analisisEdad.mensaje}</p>
+                      </div>
+                    </>
                   )}
                 </div>
-                <div className="border-b border-[#F4F0ED] pb-3">
-                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
-                  <p className="text-sm text-[#4A4A4A] opacity-70">{user.email} <span className="text-[10px] italic">(No editable)</span></p>
-                </div>
               </div>
-            </div>
 
             <div>
               <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>
@@ -311,7 +376,8 @@ const ProfileView = ({
               Cerrar Sesión
             </button>
           </div>
-        )}
+          );
+        })()}
 
         {profileTab === 'HISTORIA' && (() => {
           const f0Form = submittedForms.find(f => f.form_type === 'F0');
