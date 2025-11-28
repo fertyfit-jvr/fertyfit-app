@@ -258,23 +258,24 @@ const ProfileView = ({
     }
   }, [user?.lastPeriodDate, user?.cycleLength, submittedForms, isEditingF0]);
 
-  // Guardado automático después de 3 segundos de inactividad para F0
+  // Guardado automático después de 5 minutos de inactividad para F0
+  // El timer se resetea automáticamente cada vez que el usuario escribe (debounce)
   useEffect(() => {
     if (!isEditingF0) return;
 
-    // Limpiar timeout anterior
+    // Limpiar timeout anterior (esto crea el efecto debounce)
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
 
-    // Guardar automáticamente después de 3 segundos
+    // Guardar automáticamente después de 5 minutos de inactividad
     autoSaveTimeoutRef.current = setTimeout(() => {
       const f0Form = submittedForms.find(f => f.form_type === 'F0');
       if (f0Form && user?.id) {
         // Llamar handleF0Save directamente sin dependencias circulares
         handleF0Save(f0Form);
       }
-    }, 3000);
+    }, 300000); // 5 minutos = 300000ms
 
     return () => {
       if (autoSaveTimeoutRef.current) {

@@ -134,19 +134,20 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
     setIsEditMode(false);
   }, [definition, formType, submittedForm]);
 
-  // Guardado automático después de 3 segundos de inactividad
+  // Guardado automático después de 5 minutos de inactividad
+  // El timer se resetea automáticamente cada vez que el usuario escribe (debounce)
   useEffect(() => {
     if (!isEditMode || !definition) return;
 
-    // Limpiar timeout anterior
+    // Limpiar timeout anterior (esto crea el efecto debounce)
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
 
-    // Guardar automáticamente después de 3 segundos
+    // Guardar automáticamente después de 5 minutos de inactividad
     autoSaveTimeoutRef.current = setTimeout(() => {
       handleSubmit();
-    }, 3000);
+    }, 300000); // 5 minutos = 300000ms
 
     return () => {
       if (autoSaveTimeoutRef.current) {
