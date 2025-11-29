@@ -588,7 +588,18 @@ const ProfileView = ({
 
           const handleEditF0Click = () => {
             const initialAnswers: Record<string, any> = {};
-            f0Form.answers.forEach((a: any) => { initialAnswers[a.questionId] = a.answer; });
+            f0Form.answers.forEach((a: any) => { 
+              initialAnswers[a.questionId] = a.answer; 
+            });
+            
+            // Si es el campo de fecha última regla, usar la fecha calculada del ciclo actual
+            if (user?.lastPeriodDate && user?.cycleLength) {
+              const fechaInicioCicloActual = calcularFechaInicioCicloActual(user.lastPeriodDate, user.cycleLength);
+              if (fechaInicioCicloActual) {
+                initialAnswers['q8_last_period'] = fechaInicioCicloActual;
+              }
+            }
+            
             originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers)); // Deep copy
             setF0Answers(initialAnswers);
             setIsEditingF0(true);
