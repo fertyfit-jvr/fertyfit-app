@@ -653,12 +653,16 @@ function AppContent() {
         return;
       }
 
-      if (profile && user) {
-        setUser({
-          ...user,
-          lastPeriodDate: profile.last_period_date,
-          cycleLength: profile.cycle_length,
-          cycleRegularity: profile.cycle_regularity,
+      if (profile) {
+        // Usar función de actualización de estado para obtener el estado más reciente
+        setUser(prevUser => {
+          if (!prevUser) return prevUser;
+          return {
+            ...prevUser,
+            lastPeriodDate: profile.last_period_date,
+            cycleLength: profile.cycle_length,
+            cycleRegularity: profile.cycle_regularity,
+          };
         });
         
         // También recargar los formularios para sincronizar F0 con el perfil actualizado

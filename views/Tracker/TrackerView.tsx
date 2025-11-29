@@ -271,9 +271,9 @@ const TrackerView = ({
         <div className="space-y-6">
           <div>
           <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
-            {user?.lastPeriodDate && (
+            {(user?.lastPeriodDate || lastPeriodDate) && (
               <p className="text-[10px] text-[#5D7180] mt-2">
-                Última Regla: {formatDate(user.lastPeriodDate)}
+                Última Regla: {formatDate(user?.lastPeriodDate || lastPeriodDate)}
               </p>
             )}
           </div>
