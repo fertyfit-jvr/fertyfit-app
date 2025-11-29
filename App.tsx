@@ -640,6 +640,35 @@ function AppContent() {
     }
   };
 
+  const refreshUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        logger.error('Error refreshing user profile:', error);
+        return;
+      }
+
+      if (profile && user) {
+        setUser({
+          ...user,
+          lastPeriodDate: profile.last_period_date,
+          cycleLength: profile.cycle_length,
+          cycleRegularity: profile.cycle_regularity,
+        });
+        
+        // También recargar los formularios para sincronizar F0 con el perfil actualizado
+        await fetchUserForms(userId);
+      }
+    } catch (error) {
+      logger.error('Error in refreshUserProfile:', error);
+    }
+  };
+
   const handleNotificationAction = async (notification: AppNotification, action: NotificationAction) => {
     if (!user?.id) return;
 
@@ -647,18 +676,18 @@ function AppContent() {
       if (action.handler === 'handlePeriodConfirmed') {
         const today = formatDateForDB(new Date());
         await handlePeriodConfirmed(user.id, today);
-        if (user) {
-          setUser({ ...user, lastPeriodDate: today });
-        }
+        // Recargar el perfil completo desde la base de datos para sincronizar todas las vistas
+        await refreshUserProfile(user.id);
         showNotif('¡Gracias! Actualizamos tu ciclo.', 'success');
       } else if (action.handler === 'handlePeriodDelayed') {
         const parsedDays = Number(action.value);
         const daysToAdd = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 2;
-        const newLength = await handlePeriodDelayed(user.id, daysToAdd);
+        await handlePeriodDelayed(user.id, daysToAdd);
+        // Recargar el perfil completo desde la base de datos para sincronizar todas las vistas
+        await refreshUserProfile(user.id);
         if (user) {
-          setUser({ ...user, cycleLength: newLength });
+          showNotif(`Entendido. Ajustamos tu ciclo a ${user.cycleLength} días.`, 'success');
         }
-        showNotif(`Entendido. Ajustamos tu ciclo a ${newLength} días.`, 'success');
       } else {
         logger.warn('No handler registered for notification action', action);
         return;

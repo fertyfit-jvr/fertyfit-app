@@ -187,50 +187,60 @@ const TrackerView = ({
       }
     }
 
-    const updatedUser = {
-      ...user,
-      lastPeriodDate: lastPeriodDateFormatted,
-      cycleLength: cycleLengthNum
-    };
+    // Recargar el perfil completo desde la base de datos para sincronizar todas las vistas
+    const { data: refreshedProfile } = await supabase
+      .from('profiles')
+      .select('last_period_date, cycle_length')
+      .eq('id', user.id)
+      .single();
 
-    // Calcular el nuevo día del ciclo basado en la fecha del log actual (todayLog.date)
-    // Si no hay fecha en todayLog, usar la fecha de hoy
-    const logDate = todayLog.date || new Date().toISOString().split('T')[0];
-    
-    // Calcular cuántos días han pasado desde la última regla hasta la fecha del log
-    const lastPeriod = new Date(lastPeriodDateFormatted);
-    const logDateObj = new Date(logDate);
-    lastPeriod.setHours(0, 0, 0, 0);
-    logDateObj.setHours(0, 0, 0, 0);
-    
-    const diffDays = Math.floor((logDateObj.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Si la fecha del log es antes de la última regla, usar día 1
-    if (diffDays < 0) {
-      setTodayLog(prev => ({
-        ...prev,
-        cycleDay: 1
-      }));
-    } else {
-      // Día 1 = día que viene la regla
-      let cycleDayForLogDate = diffDays + 1;
+    if (refreshedProfile && user) {
+      const updatedUser = {
+        ...user,
+        lastPeriodDate: refreshedProfile.last_period_date,
+        cycleLength: refreshedProfile.cycle_length
+      };
+
+      // Calcular el nuevo día del ciclo basado en la fecha del log actual (todayLog.date)
+      // Si no hay fecha en todayLog, usar la fecha de hoy
+      const logDate = todayLog.date || new Date().toISOString().split('T')[0];
       
-      // Si el día calculado es mayor que cycleLength, estamos en un nuevo ciclo
-      // Manejar múltiples ciclos usando módulo
-      if (cycleDayForLogDate > cycleLengthNum) {
-        // Calcular cuántos ciclos completos han pasado
-        const cyclesPassed = Math.floor((cycleDayForLogDate - 1) / cycleLengthNum);
-        cycleDayForLogDate = cycleDayForLogDate - (cyclesPassed * cycleLengthNum);
+      // Calcular cuántos días han pasado desde la última regla hasta la fecha del log
+      const lastPeriod = new Date(refreshedProfile.last_period_date || lastPeriodDateFormatted);
+      const logDateObj = new Date(logDate);
+      lastPeriod.setHours(0, 0, 0, 0);
+      logDateObj.setHours(0, 0, 0, 0);
+      
+      const diffDays = Math.floor((logDateObj.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Si la fecha del log es antes de la última regla, usar día 1
+      if (diffDays < 0) {
+        setTodayLog(prev => ({
+          ...prev,
+          cycleDay: 1
+        }));
+      } else {
+        // Día 1 = día que viene la regla
+        let cycleDayForLogDate = diffDays + 1;
+        
+        // Si el día calculado es mayor que cycleLength, estamos en un nuevo ciclo
+        // Manejar múltiples ciclos usando módulo
+        if (cycleDayForLogDate > cycleLengthNum) {
+          // Calcular cuántos ciclos completos han pasado
+          const cyclesPassed = Math.floor((cycleDayForLogDate - 1) / cycleLengthNum);
+          cycleDayForLogDate = cycleDayForLogDate - (cyclesPassed * cycleLengthNum);
+        }
+        
+        // Actualizar todayLog con el nuevo día del ciclo calculado para la fecha del log
+        setTodayLog(prev => ({
+          ...prev,
+          cycleDay: cycleDayForLogDate > 0 ? cycleDayForLogDate : 1
+        }));
       }
-      
-      // Actualizar todayLog con el nuevo día del ciclo calculado para la fecha del log
-      setTodayLog(prev => ({
-        ...prev,
-        cycleDay: cycleDayForLogDate > 0 ? cycleDayForLogDate : 1
-      }));
+
+      onUserUpdate?.(updatedUser);
     }
 
-    onUserUpdate?.(updatedUser);
     showNotif?.('Datos del ciclo actualizados correctamente', 'success');
     setIsCycleModalOpen(false);
   };
