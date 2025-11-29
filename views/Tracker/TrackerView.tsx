@@ -12,7 +12,7 @@ import {
 import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '../../types';
 import { supabase } from '../../services/supabase';
 import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../services/RuleEngine';
-import { calcularVentanaFertil } from '../../services/CycleCalculations';
+import { calcularVentanaFertil, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate, formatCurrentDate } from '../../services/utils';
 import { logger } from '../../lib/logger';
 
@@ -271,11 +271,20 @@ const TrackerView = ({
         <div className="space-y-6">
           <div>
           <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
-            {(user?.lastPeriodDate || lastPeriodDate) && (
-              <p className="text-[10px] text-[#5D7180] mt-2">
-                Última Regla: {formatDate(user?.lastPeriodDate || lastPeriodDate)}
-              </p>
-            )}
+            {(() => {
+              // Calcular fecha de inicio del ciclo actual (igual que Dashboard)
+              const fechaInicioCicloActual = user?.lastPeriodDate && user?.cycleLength
+                ? calcularFechaInicioCicloActual(user.lastPeriodDate, user.cycleLength)
+                : null;
+              
+              const fechaAMostrar = fechaInicioCicloActual || user?.lastPeriodDate || lastPeriodDate;
+              
+              return fechaAMostrar ? (
+                <p className="text-[10px] text-[#5D7180] mt-2">
+                  Última Regla: {formatDate(fechaAMostrar)}
+                </p>
+              ) : null;
+            })()}
           </div>
 
           <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">

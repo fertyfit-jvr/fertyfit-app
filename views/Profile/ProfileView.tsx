@@ -7,6 +7,7 @@ import ReportCard from '../../components/common/ReportCard';
 import { supabase } from '../../services/supabase';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo } from '../../services/RuleEngine';
+import { calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate } from '../../services/utils';
 
 interface ProfileHeaderProps {
@@ -766,7 +767,13 @@ const ProfileView = ({
                         }
                       }
                     } else if (question.type === 'date' && typeof displayValue === 'string') {
-                      displayValue = formatDate(displayValue, 'long');
+                      // Para "Fecha última regla", mostrar la fecha de inicio del ciclo actual calculada (igual que Dashboard)
+                      if (answer.questionId === 'q8_last_period' && user?.lastPeriodDate && user?.cycleLength) {
+                        const fechaInicioCicloActual = calcularFechaInicioCicloActual(user.lastPeriodDate, user.cycleLength);
+                        displayValue = formatDate(fechaInicioCicloActual || displayValue, 'long');
+                      } else {
+                        displayValue = formatDate(displayValue, 'long');
+                      }
                     }
                     
                     if (Array.isArray(displayValue)) {
