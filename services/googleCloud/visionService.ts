@@ -12,6 +12,7 @@ export interface OCRRequest {
 
 export interface OCRResponse {
   text: string;
+  parsedData?: Record<string, any>;
   error?: string;
 }
 
@@ -42,6 +43,7 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     const data = await response.json();
     return {
       text: data.text || '',
+      parsedData: data.parsedData,
       error: data.error,
     };
   } catch (error) {
@@ -55,15 +57,23 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
 
 /**
  * Convierte un File/Blob a base64
+ * Devuelve el formato completo data:image/...;base64,xxx para compatibilidad con la API
  */
 export async function fileToBase64(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64String = (reader.result as string).split(',')[1]; // Remove data:image/...;base64,
-      resolve(base64String);
+      const result = reader.result as string;
+      if (!result) {
+        reject(new Error('Error al leer el archivo'));
+        return;
+      }
+      // Devolver el formato completo data:image/...;base64,xxx
+      resolve(result);
     };
-    reader.onerror = reject;
+    reader.onerror = (error) => {
+      reject(new Error('Error al procesar la imagen: ' + (error.target?.error?.message || 'Error desconocido')));
+    };
     reader.readAsDataURL(file);
   });
 }

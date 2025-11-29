@@ -7,6 +7,7 @@ import { useState, useRef } from 'react';
 import { Camera, Upload, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { processImageOCR, fileToBase64 } from '../../services/googleCloud/visionService';
 import { parseExam } from '../../services/examParsers';
+import { logger } from '../../lib/logger';
 
 interface ExamScannerProps {
   examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio';
@@ -48,8 +49,9 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
       setImage(base64);
       setError(null);
     } catch (err) {
-      setError('Error al procesar la imagen');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al procesar la imagen';
+      setError(errorMessage);
+      logger.error('Error processing image:', err);
     }
   };
 
@@ -62,8 +64,9 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
         setShowCamera(true);
       }
     } catch (err) {
-      setError('No se pudo acceder a la cámara');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'No se pudo acceder a la cámara';
+      setError(errorMessage);
+      logger.error('Error accessing camera:', err);
     }
   };
 
@@ -114,13 +117,14 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
         return;
       }
 
-      // Parsear el texto extraído
-      const parsed = parseExam(ocrResult.text, examType);
+      // Usar datos parseados de la API si están disponibles, sino parsear localmente
+      const parsed = ocrResult.parsedData || parseExam(ocrResult.text, examType);
 
       setExtractedData(parsed);
     } catch (err) {
-      setError('Error al procesar el examen. Intenta de nuevo.');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido al procesar el examen';
+      setError(errorMessage);
+      logger.error('Error processing exam:', err);
     } finally {
       setIsProcessing(false);
     }
@@ -220,7 +224,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
             <div className="space-y-4">
               <div className="relative rounded-2xl overflow-hidden border border-[#F4F0ED]">
                 <img
-                  src={`data:image/jpeg;base64,${image}`}
+                  src={image}
                   alt="Examen escaneado"
                   className="w-full h-auto"
                 />
