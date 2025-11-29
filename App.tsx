@@ -1241,7 +1241,7 @@ function AppContent() {
               </Suspense>
             )}
             {view === 'TRACKER' && (
-              <Suspense fallback={<ViewLoading />}>
+              <Suspense fallback={<ViewLoading />} key={`tracker-${user?.lastPeriodDate || 'no-date'}`}>
               <TrackerView
                 todayLog={todayLog}
                 setTodayLog={setTodayLog}
