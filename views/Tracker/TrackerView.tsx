@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Minus, Plus, Droplets, Leaf, X } from 'lucide-react';
+import { Minus, Plus, Droplets, Leaf, X, Heart } from 'lucide-react';
 import InputField from '../../components/forms/InputField';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
 import {
@@ -12,7 +12,9 @@ import {
 import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '../../types';
 import { supabase } from '../../services/supabase';
 import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../services/RuleEngine';
+import { calcularVentanaFertil } from '../../services/CycleCalculations';
 import { formatDate, formatCurrentDate } from '../../services/utils';
+import { logger } from '../../lib/logger';
 
 type SetTodayLog = (
   value: Partial<DailyLog> | ((prev: Partial<DailyLog>) => Partial<DailyLog>)
@@ -47,6 +49,30 @@ const TrackerView = ({
   const [lastPeriodDate, setLastPeriodDate] = useState(user?.lastPeriodDate || '');
   const [cycleLength, setCycleLength] = useState(user?.cycleLength?.toString() || '28');
   const [suggestedCycleLength, setSuggestedCycleLength] = useState<number | null>(null);
+
+  // Calcular ventana fértil
+  const ventanaFertil = user?.cycleLength 
+    ? calcularVentanaFertil(user.cycleLength)
+    : null;
+
+  // Determinar fase del ciclo
+  const getFaseCiclo = (cycleDay: number, cycleLength: number): string => {
+    if (!cycleDay || !cycleLength) return '';
+    
+    const diaOvulacion = cycleLength - 14; // Fórmula estándar: ciclo - 14 días
+    
+    if (cycleDay < diaOvulacion) {
+      return 'Fase Folicular';
+    } else if (cycleDay >= diaOvulacion && cycleDay <= diaOvulacion + 1) {
+      return 'Fase Ovulatoria';
+    } else {
+      return 'Fase Lútea';
+    }
+  };
+
+  const faseActual = user?.cycleLength && todayLog.cycleDay
+    ? getFaseCiclo(todayLog.cycleDay, user.cycleLength)
+    : null;
 
   useEffect(() => {
     if (!user) return;
@@ -157,7 +183,7 @@ const TrackerView = ({
         // Refrescar submittedForms para que ProfileView tenga los datos actualizados
         if (fetchUserForms && user.id) {
           await fetchUserForms(user.id);
-        }
+    }
       }
     }
 
@@ -234,7 +260,7 @@ const TrackerView = ({
       <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
         <div className="space-y-6">
           <div>
-            <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
+          <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
             {user?.lastPeriodDate && (
               <p className="text-[10px] text-[#5D7180] mt-2">
                 Última Regla: {formatDate(user.lastPeriodDate)}
@@ -245,10 +271,20 @@ const TrackerView = ({
           <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">
             <div>
               <span className="text-sm font-bold text-[#5D7180] block">Día del Ciclo</span>
-              <span className="text-[10px] text-[#C7958E] font-bold bg-[#C7958E]/10 px-2 py-0.5 rounded-full">Automático</span>
+              {ventanaFertil && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] text-[#C7958E] font-bold bg-[#C7958E]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Heart size={10} className="text-red-500 fill-red-500" />
+                    <span className="text-[9px]">(Días {ventanaFertil.inicio}-{ventanaFertil.fin})</span>
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col items-center gap-1">
               <span className="text-3xl font-bold text-[#4A4A4A] w-12 text-center">{todayLog.cycleDay || 1}</span>
+              {faseActual && (
+                <span className="text-[9px] text-[#5D7180] opacity-60 font-medium">{faseActual}</span>
+              )}
             </div>
           </div>
 
