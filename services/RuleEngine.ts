@@ -179,8 +179,8 @@ export const RULES: Rule[] = [
             
             if (diasRetraso === 0) {
                 return {
-                    title: '¿Te ha venido la regla?',
-                    message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
+            title: '¿Te ha venido la regla?',
+            message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
                 };
             } else {
                 return {

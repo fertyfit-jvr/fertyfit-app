@@ -174,7 +174,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
               loaded[`${answer.questionId}_otro`] = otherValue;
             }
           } else {
-            loaded[answer.questionId] = answer.answer;
+          loaded[answer.questionId] = answer.answer;
           }
         });
       }
@@ -276,20 +276,20 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
         };
       }
       return {
-        questionId: question.id,
-        question: question.text,
+      questionId: question.id,
+      question: question.text,
         answer: baseAnswer
       };
     });
 
     // Always insert a new record to keep all submissions
     const { error } = await supabase.from('consultation_forms').insert({
-      user_id: user.id,
-      form_type: formType,
-      answers: formattedAnswers,
-      status: 'pending',
-      snapshot_stats: calculateAverages(logs)
-    });
+        user_id: user.id,
+        form_type: formType,
+        answers: formattedAnswers,
+        status: 'pending',
+        snapshot_stats: calculateAverages(logs)
+      });
 
     if (!error) {
       showNotif('Formulario guardado correctamente.', 'success');
@@ -614,7 +614,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
                     <div key={field.id} className="bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider">{field.label}</p>
+                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider">{field.label}</p>
                           {(field.recommendedValue || field.averageValue) && (
                             <p className="text-[10px] text-[#5D7180] mt-0.5">
                               {field.recommendedValue ? `Valor recomendado: ${field.recommendedValue}` : `Valor promedio: ${field.averageValue}`}
@@ -652,7 +652,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const renderFormCard = () => {
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
     return (
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
         {/* Header with Icon, Name, Date, and Edit buttons */}
         <div className="flex items-center justify-between mb-6 border-b border-[#F4F0ED] pb-4">
           <div className="flex items-center gap-3 flex-1">
@@ -673,49 +673,54 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
               </>
             )}
           </div>
-          {isEditMode && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCancelEdit}
-                className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                title="Cancelar"
-              >
-                <X size={16} />
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                title="Guardar"
-              >
-                <Check size={16} />
-              </button>
-            </div>
+          {/* Solo mostrar botones de editar si ya existe un submittedForm */}
+          {submittedForm && (
+            <>
+              {isEditMode && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                    title="Cancelar"
+                  >
+                    <X size={16} />
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                    title="Guardar"
+                  >
+                    <Check size={16} />
+                  </button>
+                </div>
+              )}
+              {!isEditMode && (
+                <button
+                  onClick={() => {
+                    originalAnswers.current = JSON.parse(JSON.stringify(answers));
+                    setIsEditMode(true);
+                  }}
+                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                  title="Editar formulario"
+                >
+                  <Edit2 size={18} />
+                </button>
+              )}
+            </>
           )}
-          {!isEditMode && (
-            <button
-              onClick={() => {
-                originalAnswers.current = JSON.parse(JSON.stringify(answers));
-                setIsEditMode(true);
-              }}
-              className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-              title="Editar formulario"
-            >
-              <Edit2 size={18} />
-            </button>
-          )}
-        </div>
-        {submittedForm && !isPdfGenerated && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-center gap-3 text-xs text-yellow-800">
-            <AlertCircle size={16} />
-            <span>Puedes editar tus respuestas hasta que el especialista genere el informe.</span>
-          </div>
-        )}
-        {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
-        <button onClick={handleSubmit} className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2">
-          Guardar y enviar <Download size={16} />
-        </button>
       </div>
-    );
+      {submittedForm && !isPdfGenerated && (
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-center gap-3 text-xs text-yellow-800">
+          <AlertCircle size={16} />
+          <span>Puedes editar tus respuestas hasta que el especialista genere el informe.</span>
+        </div>
+      )}
+      {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
+        <button onClick={handleSubmit} className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2">
+        Guardar y enviar <Download size={16} />
+      </button>
+    </div>
+  );
   };
 
   const renderSubmittedView = () => {
@@ -773,7 +778,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
     };
     
     return (
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
         {/* Header with Icon, Name, Date, and Edit buttons */}
         <div className="flex items-center justify-between mb-4 border-b border-[#F4F0ED] pb-4">
           <div className="flex items-center gap-3 flex-1">
@@ -782,9 +787,9 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${currentTab.accent}1A` }}>
                   <img src={currentTab.iconUrl} alt={`${currentTab.label} icono`} className="w-10 h-10 object-contain" />
                 </div>
-                <div>
+        <div>
                   <h4 className="text-lg font-bold text-[#4A4A4A]">{currentTab.label}</h4>
-                  {submittedForm?.submitted_at && (
+          {submittedForm?.submitted_at && (
                     <div className="mt-0.5">
                       <p className="text-xs font-semibold text-[#5D7180]">Última Actualización:</p>
                       <p className="text-xs text-[#5D7180]">{formatDate(submittedForm.submitted_at, 'long')}</p>
@@ -792,9 +797,9 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
                   )}
                 </div>
               </>
-            )}
-          </div>
-          {!isPdfGenerated && (
+          )}
+        </div>
+        {!isPdfGenerated && (
             <div className="flex items-center gap-2">
               {isEditMode && (
                 <button
@@ -803,7 +808,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
                   title="Cancelar"
                 >
                   <X size={16} />
-                </button>
+          </button>
               )}
               <button
                 onClick={() => {
@@ -820,8 +825,8 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
                 {isEditMode ? <Check size={16} /> : <Edit2 size={16} />}
               </button>
             </div>
-          )}
-        </div>
+        )}
+      </div>
         
         {/* Render grouped by sections for FUNCTION, grid for others */}
         {formType === 'FUNCTION' ? (
@@ -829,14 +834,14 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {(submittedForm?.answers || []).map((answer: any) => (
-              <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
-                <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
-                <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
-                  {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
-                </p>
-              </div>
-            ))}
+          <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
+            <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
+            <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
+              {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
+            </p>
           </div>
+        ))}
+      </div>
         )}
       {submittedForm?.status === 'pending' && (
         <div className="mt-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-start gap-3">
@@ -863,7 +868,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
         </div>
       )}
     </div>
-    );
+  );
   };
 
   const renderPdfLockedView = () => (

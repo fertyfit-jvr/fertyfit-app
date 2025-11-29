@@ -926,12 +926,12 @@ function AppContent() {
         const correctCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
         setTodayLog({ ...existingLog, cycleDay: correctCycleDay > 0 ? correctCycleDay : 1 });
       } else {
-        setTodayLog(existingLog);
+      setTodayLog(existingLog);
       }
     } else {
       // Calculate cycle day based on user's lastPeriodDate, not from previous logs
       let newCycleDay = 1;
-      
+
       if (user?.lastPeriodDate && user?.cycleLength) {
         // Use the unified calculation function
         newCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
@@ -1154,92 +1154,92 @@ function AppContent() {
       <div className="h-full overflow-y-auto custom-scrollbar">
         {view === 'PROFILE' && user ? (
           <Suspense fallback={<ViewLoading />}>
-            <ProfileView
-              user={user}
-              logs={logs}
-              submittedForms={submittedForms}
-              reports={reports}
-              scores={dashboardScores}
-              visibleNotifications={visibleNotifications}
-              profileTab={profileTab}
-              setProfileTab={setProfileTab}
-              isEditingProfile={isEditingProfile}
-              setIsEditingProfile={setIsEditingProfile}
-              editName={editName}
-              setEditName={setEditName}
-              onSaveProfile={handleSaveProfile}
-              isEditingF0={isEditingF0}
-              setIsEditingF0={setIsEditingF0}
-              f0Answers={f0Answers}
-              setF0Answers={setF0Answers}
-              showNotif={showNotif}
-              setView={setView}
-              fetchUserForms={fetchUserForms}
-              setUser={setUser}
-              markNotificationRead={markNotificationRead}
-              deleteNotification={deleteNotification}
-              onNotificationAction={handleNotificationAction}
-              onRestartMethod={handleRestartMethod}
-              onLogout={handleLogout}
+          <ProfileView
+            user={user}
+            logs={logs}
+            submittedForms={submittedForms}
+            reports={reports}
+            scores={dashboardScores}
+            visibleNotifications={visibleNotifications}
+            profileTab={profileTab}
+            setProfileTab={setProfileTab}
+            isEditingProfile={isEditingProfile}
+            setIsEditingProfile={setIsEditingProfile}
+            editName={editName}
+            setEditName={setEditName}
+            onSaveProfile={handleSaveProfile}
+            isEditingF0={isEditingF0}
+            setIsEditingF0={setIsEditingF0}
+            f0Answers={f0Answers}
+            setF0Answers={setF0Answers}
+            showNotif={showNotif}
+            setView={setView}
+            fetchUserForms={fetchUserForms}
+            setUser={setUser}
+            markNotificationRead={markNotificationRead}
+            deleteNotification={deleteNotification}
+            onNotificationAction={handleNotificationAction}
+            onRestartMethod={handleRestartMethod}
+            onLogout={handleLogout}
               fetchAllLogs={fetchAllLogs}
               setLogs={setLogs}
-            />
+          />
           </Suspense>
         ) : (
           <div className="p-5">
             {view === 'DASHBOARD' && user && (
               <Suspense fallback={<ViewLoading />}>
-                <DashboardView
-                  user={user}
-                  logs={logs}
-                  todayLog={todayLog}
-                  scores={dashboardScores}
-                  progressPercent={dashboardProgress}
-                  daysActive={dashboardDaysActive}
-                  unreadNotifications={unreadNotifications}
-                  submittedForms={submittedForms}
-                  onStartMethod={startMethod}
-                  onNavigate={setView}
-                  showNotif={showNotif}
-                  onMarkNotificationRead={markNotificationRead}
-                  onDeleteNotification={deleteNotification}
-                  onNotificationAction={handleNotificationAction}
-                />
+              <DashboardView
+                user={user}
+                logs={logs}
+                todayLog={todayLog}
+                scores={dashboardScores}
+                progressPercent={dashboardProgress}
+                daysActive={dashboardDaysActive}
+                unreadNotifications={unreadNotifications}
+                submittedForms={submittedForms}
+                onStartMethod={startMethod}
+                onNavigate={setView}
+                showNotif={showNotif}
+                onMarkNotificationRead={markNotificationRead}
+                onDeleteNotification={deleteNotification}
+                onNotificationAction={handleNotificationAction}
+              />
               </Suspense>
             )}
             {view === 'TRACKER' && (
               <Suspense fallback={<ViewLoading />}>
-                <TrackerView
-                  todayLog={todayLog}
-                  setTodayLog={setTodayLog}
-                  submittedForms={submittedForms}
-                  logs={logs}
-                  handleDateChange={handleDateChange}
-                  saveDailyLog={saveDailyLog}
+              <TrackerView
+                todayLog={todayLog}
+                setTodayLog={setTodayLog}
+                submittedForms={submittedForms}
+                logs={logs}
+                handleDateChange={handleDateChange}
+                saveDailyLog={saveDailyLog}
                   user={user}
                   onUserUpdate={(updatedUser) => setUser(updatedUser)}
                   showNotif={showNotif}
                   fetchUserForms={fetchUserForms}
-                />
+              />
               </Suspense>
             )}
             {view === 'EDUCATION' && (
               <Suspense fallback={<ViewLoading />}>
-                <EducationView
-                  courseModules={courseModules}
-                  onSelectLesson={setActiveLesson}
-                />
+              <EducationView
+                courseModules={courseModules}
+                onSelectLesson={setActiveLesson}
+              />
               </Suspense>
             )}
             {view === 'CONSULTATIONS' && user && (
               <Suspense fallback={<ViewLoading />}>
-                <ConsultationsView
-                  user={user}
-                  logs={logs}
-                  submittedForms={submittedForms}
-                  showNotif={showNotif}
-                  fetchUserForms={fetchUserForms}
-                />
+              <ConsultationsView
+                user={user}
+                logs={logs}
+                submittedForms={submittedForms}
+                showNotif={showNotif}
+                fetchUserForms={fetchUserForms}
+              />
               </Suspense>
             )}
           </div>

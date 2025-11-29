@@ -379,15 +379,15 @@ const ProfileView = ({
           const medicalData = generarDatosInformeMedico(user, logs);
           
           return (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-end mb-3">
-                  <div>
-                    <h3 className="font-bold text-[#4A4A4A] text-sm">Datos Personales</h3>
-                    <p className="text-[10px] text-[#5D7180] mt-0.5">
-                      Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-end mb-3">
+                <div>
+                  <h3 className="font-bold text-[#4A4A4A] text-sm">Datos Personales</h3>
+                  <p className="text-[10px] text-[#5D7180] mt-0.5">
+                    Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
                   <div className="flex items-center gap-2">
                     {isEditingProfile && (
                       <button
@@ -398,33 +398,33 @@ const ProfileView = ({
                         <X size={16} />
                       </button>
                     )}
-                    <button
-                      onClick={handleProfileEditClick}
-                      className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                <button
+                  onClick={handleProfileEditClick}
+                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
                       title={isEditingProfile ? "Guardar" : "Editar"}
-                    >
-                      {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
-                    </button>
+                >
+                  {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
+                </button>
                   </div>
-                </div>
+              </div>
 
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
-                  <div className="border-b border-[#F4F0ED] pb-3">
-                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
-                    {isEditingProfile ? (
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
-                      />
-                    ) : (
-                      <p className="text-sm text-[#4A4A4A]">{user.name}</p>
-                    )}
-                  </div>
-                  <div className="border-b border-[#F4F0ED] pb-3">
-                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
-                    <p className="text-sm text-[#4A4A4A] opacity-70">{user.email} <span className="text-[10px] italic">(No editable)</span></p>
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                <div className="border-b border-[#F4F0ED] pb-3">
+                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
+                  {isEditingProfile ? (
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
+                    />
+                  ) : (
+                    <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                  )}
+                </div>
+                <div className="border-b border-[#F4F0ED] pb-3">
+                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
+                  <p className="text-sm text-[#4A4A4A] opacity-70">{user.email} <span className="text-[10px] italic">(No editable)</span></p>
                   </div>
                   
                   {/* Salud General */}
@@ -518,8 +518,8 @@ const ProfileView = ({
                       </>
                     )}
                   </button>
-                </div>
               </div>
+            </div>
             )}
 
             <div>
@@ -660,19 +660,19 @@ const ProfileView = ({
                       <X size={16} />
                     </button>
                   )}
-                  <button
-                    onClick={() => {
-                      if (isEditingF0) {
-                        handleF0Save(f0Form);
-                      } else {
-                        handleEditF0Click();
-                      }
-                    }}
-                    className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                <button
+                  onClick={() => {
+                    if (isEditingF0) {
+                      handleF0Save(f0Form);
+                    } else {
+                      handleEditF0Click();
+                    }
+                  }}
+                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
                     title={isEditingF0 ? "Guardar" : "Editar"}
-                  >
-                    {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
-                  </button>
+                >
+                  {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
+                </button>
                 </div>
               </div>
 
