@@ -42,10 +42,20 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
     event.stopPropagation();
     
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      // Resetear el input si no hay archivo
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     if (!file.type.startsWith('image/')) {
       setError('Por favor, selecciona una imagen válida');
+      // Resetear el input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 
@@ -63,6 +73,10 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
       const errorMessage = err instanceof Error ? err.message : 'Error al procesar la imagen';
       setError(errorMessage);
       logger.error('Error processing image:', err);
+      // Resetear el input en caso de error
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
