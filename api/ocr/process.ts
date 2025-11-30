@@ -96,13 +96,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin'); // Important for CORS caching
 
-  // Handle preflight
+  // Handle preflight - must return early
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Apply security headers
+  // Apply security headers AFTER CORS (security headers don't include CORS)
   applySecurityHeaders(res);
+  
+  // Re-assert CORS headers after security headers to ensure they're not overwritten
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
 
   // Only allow POST
   if (req.method !== 'POST') {
