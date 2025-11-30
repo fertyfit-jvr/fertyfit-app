@@ -22,7 +22,15 @@ export interface GeminiResponse {
  */
 export async function callGeminiAPI(request: GeminiRequest): Promise<GeminiResponse> {
   try {
-    const response = await fetch('/api/gemini/generate', {
+    // En desarrollo, usar URL de producción de Vercel
+    // En producción, usar ruta relativa
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    const vercelUrl = import.meta.env.VITE_VERCEL_URL || import.meta.env.NEXT_PUBLIC_VERCEL_URL || 'https://fertyfit-app.vercel.app';
+    const apiUrl = isDev 
+      ? `${vercelUrl}/api/gemini/generate`
+      : '/api/gemini/generate';
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

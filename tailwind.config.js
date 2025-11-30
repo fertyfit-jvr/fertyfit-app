@@ -5,7 +5,21 @@ export default {
     "./**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        ferty: {
+          rose: '#C7958E',
+          coral: '#95706B',
+          beige: '#F4F0ED',
+          gray: '#5D7180',
+          white: '#ffffff',
+          dark: '#4A4A4A'
+        }
+      },
+      fontFamily: {
+        sans: ['Poppins', 'sans-serif'],
+      }
+    },
   },
   plugins: [],
 }

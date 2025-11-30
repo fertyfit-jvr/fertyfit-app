@@ -18,5 +18,6 @@ export const PILLAR_ICONS = {
 // External URLs
 export const EXTERNAL_URLS = {
   FERTYFIT_HOME: import.meta.env.VITE_FERTYFIT_HOME_URL || 'https://fertyfit.com',
+  VERCEL_API: import.meta.env.VITE_VERCEL_URL || 'https://fertyfit-app.vercel.app',
 };
 
