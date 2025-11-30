@@ -13,6 +13,18 @@ import { sendErrorResponse, createError } from '../../lib/errorHandler';
 import { applySecurityHeaders, validateImageUpload } from '../../lib/security';
 import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../../lib/medicalValidation';
 
+// Logger simple para serverless functions
+const logger = {
+  log: (...args: any[]) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(...args);
+    }
+  },
+  error: (...args: any[]) => {
+    console.error(...args);
+  },
+};
+
 // Importar Google Cloud Vision (se instalará como dependencia)
 let vision: any = null;
 
@@ -50,15 +62,24 @@ async function getVisionClient() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS - Allow localhost in development
+  // Handle CORS - Allow localhost in development and production domains
   const origin = req.headers.origin || '';
-  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
-  const allowedOrigins = ['https://fertyfit.com', 'https://method.fertyfit.com'];
+  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
+  const allowedOrigins = [
+    'https://fertyfit.com',
+    'https://www.fertyfit.com',
+    'https://method.fertyfit.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+  ];
   
-  if (isLocalhost || allowedOrigins.includes(origin)) {
+  // Always set CORS headers if origin matches or is localhost
+  if (isLocalhost || allowedOrigins.includes(origin) || !origin) {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
 
   // Handle preflight
@@ -162,11 +183,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Parsear el texto según el tipo de examen
-      const { parseExam } = await import('../../services/examParsers.js');
-      const rawParsedData = parseExam(fullText, examType);
+      let rawParsedData: Record<string, any> = {};
+      try {
+        const { parseExam } = await import('../../services/examParsers.js');
+        rawParsedData = parseExam(fullText, examType);
+      } catch (parseError: any) {
+        logger.error('Error parsing exam:', parseError);
+        throw createError(
+          'Error al procesar los datos del examen. Por favor, intenta con otra foto.',
+          500,
+          'PARSE_ERROR'
+        );
+      }
 
       // Validar los datos extraídos
-      const dataValidation = validateExtractedData(rawParsedData, examType);
+      let dataValidation;
+      try {
+        dataValidation = validateExtractedData(rawParsedData, examType);
+      } catch (validationError: any) {
+        logger.error('Error validating data:', validationError);
+        // Si falla la validación, devolver los datos sin validar pero con advertencia
+        dataValidation = {
+          isValid: true,
+          warnings: ['Algunos valores no pudieron ser validados. Por favor, revísalos manualmente.'],
+          errors: [],
+          validatedData: rawParsedData,
+        };
+      }
 
       return res.status(200).json({
         text: fullText,
@@ -184,6 +227,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw ocrError;
     }
   } catch (error) {
+    // Log error details for debugging
+    logger.error('OCR API Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      body: req.body ? { examType: req.body.examType, hasImage: !!req.body.image } : undefined,
+    });
     sendErrorResponse(res, error, req);
   }
 }

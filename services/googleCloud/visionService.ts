@@ -47,10 +47,19 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+        logger.error('❌ OCR API Error:', { status: response.status, error: errorData });
+      } catch (parseError) {
+        const textError = await response.text().catch(() => '');
+        errorMessage = textError || errorMessage;
+        logger.error('❌ OCR API Error (no JSON):', { status: response.status, text: textError });
+      }
       return {
         text: '',
-        error: errorData.error || `HTTP ${response.status}`,
+        error: errorMessage,
       };
     }
 
@@ -66,9 +75,23 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     };
   } catch (error) {
     logger.error('❌ Error calling OCR API:', error);
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : typeof error === 'string' 
+        ? error 
+        : 'Error desconocido al conectar con el servidor';
+    
+    // Detectar errores de red/CORS
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+      return {
+        text: '',
+        error: 'Error de conexión. Verifica tu conexión a internet y que la API esté disponible.',
+      };
+    }
+    
     return {
       text: '',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
     };
   }
 }

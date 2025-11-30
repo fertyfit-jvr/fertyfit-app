@@ -18,5 +18,11 @@ export default defineConfig({
     },
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
+    // Ensure CSS is included in build
+    cssCodeSplit: false,
+  },
+  // Ensure CSS is processed correctly
+  css: {
+    postcss: './postcss.config.js',
   },
 });
