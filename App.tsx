@@ -207,7 +207,9 @@ function AppContent() {
   } = useAppStore();
 
   // Filter notifications based on blacklist
-  const visibleNotifications = notifications.filter(n => !deletedNotificationIds.includes(n.id));
+  // Ensure notifications is always an array
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+  const visibleNotifications = safeNotifications.filter(n => !deletedNotificationIds.includes(n.id));
   const unreadNotifications = visibleNotifications.filter(n => !n.is_read);
 
   const emptyScores = { total: 0, function: 0, food: 0, flora: 0, flow: 0 };
@@ -384,8 +386,11 @@ function AppContent() {
     if (error) logger.error('❌ Error fetching notifications:', error);
     if (data) {
       // Filter out soft-deleted notifications (metadata.deleted === true)
-      const activeNotifications = data.filter(n => !n.metadata?.deleted);
+      const activeNotifications = Array.isArray(data) ? data.filter(n => !n.metadata?.deleted) : [];
       setNotifications(activeNotifications);
+    } else {
+      // Ensure notifications is always an array
+      setNotifications([]);
     }
   };
 
@@ -504,8 +509,11 @@ function AppContent() {
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
           if (notifData) {
-            const activeNotifications = notifData.filter(n => !n.metadata?.deleted);
+            const activeNotifications = Array.isArray(notifData) ? notifData.filter(n => !n.metadata?.deleted) : [];
             setNotifications(activeNotifications);
+          } else {
+            // Ensure notifications is always an array
+            setNotifications([]);
           }
         }
       } catch (err) {
@@ -690,7 +698,10 @@ function AppContent() {
       }
       
       // Only update local state if database update was successful
-      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+      setNotifications(prev => {
+        const safePrev = Array.isArray(prev) ? prev : [];
+        return safePrev.map(n => n.id === notifId ? { ...n, is_read: true } : n);
+      });
     } catch (error) {
       logger.error('Error in markNotificationRead:', error);
       showNotif('Error inesperado al marcar la notificación. Intenta nuevamente.', 'error');
@@ -732,7 +743,10 @@ function AppContent() {
       localStorage.setItem('fertyfit_deleted_notifications', JSON.stringify(newDeletedIds));
 
       // 3. Optimistic UI Update
-      setNotifications(prev => prev.filter(n => n.id !== notifId));
+      setNotifications(prev => {
+        const safePrev = Array.isArray(prev) ? prev : [];
+        return safePrev.filter(n => n.id !== notifId);
+      });
       
       logger.log('✅ Notification soft-deleted', notifId);
     } catch (error) {
