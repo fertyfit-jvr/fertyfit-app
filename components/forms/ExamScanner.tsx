@@ -153,7 +153,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
       let errorMessage = 'No se pudo acceder a la cámara';
       
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage = 'Permisos de cámara denegados. Por favor:\n• Verifica la configuración de permisos de tu navegador\n• Asegúrate de estar en HTTPS (method.fertyfit.com)\n• Recarga la página y permite permisos cuando se solicite\n• Si usas Safari, verifica Configuración > Safari > Cámara';
+        errorMessage = 'Permisos de cámara denegados.\n\nPara solucionarlo:\n1. Haz clic en el icono de candado 🔒 en la barra de direcciones\n2. Selecciona "Permitir" para el acceso a la cámara\n3. Recarga la página e intenta de nuevo\n\nO usa la opción "Subir imagen" para seleccionar una foto desde tu dispositivo.';
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         errorMessage = 'No se encontró ninguna cámara. Por favor, conecta una cámara y vuelve a intentar.';
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
@@ -471,8 +471,24 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                   <div className="flex items-start gap-3">
                     <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-red-800">Error al procesar</p>
+                      <p className="text-sm font-bold text-red-800">
+                        {error.includes('Permisos') ? 'Permisos de cámara requeridos' : 'Error al procesar'}
+                      </p>
                       <div className="text-xs text-red-700 mt-1 whitespace-pre-line">{error}</div>
+                      {error.includes('Permisos') && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setError(null);
+                            fileInputRef.current?.click();
+                          }}
+                          className="mt-3 text-xs font-semibold text-[#5D7180] hover:text-[#4A5568] underline"
+                        >
+                          O sube una imagen desde tu dispositivo →
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
