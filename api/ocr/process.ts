@@ -49,6 +49,22 @@ async function getVisionClient() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Handle CORS - Allow localhost in development
+  const origin = req.headers.origin || '';
+  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+  const allowedOrigins = ['https://fertyfit.com', 'https://method.fertyfit.com'];
+  
+  if (isLocalhost || allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // Apply security headers
   applySecurityHeaders(res);
 
