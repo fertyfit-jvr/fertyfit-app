@@ -1085,20 +1085,47 @@ function AppContent() {
         return;
       }
       
+      // Update local state optimistically
       setCourseModules(prev => {
         const safePrev = Array.isArray(prev) ? prev : [];
-        return safePrev.map(m => {
+        if (safePrev.length === 0) {
+          logger.warn('courseModules is empty, cannot update lesson completion');
+          // If empty, try to refetch education data
+          if (user?.id && user?.methodStartDate) {
+            fetchEducation(user.id, user.methodStartDate);
+          }
+          return safePrev;
+        }
+        
+        const updated = safePrev.map(m => {
+          // Ensure all required properties exist
+          if (!m || typeof m.id === 'undefined') {
+            logger.warn('Invalid module found:', m);
+            return m;
+          }
+          
           const safeLessons = Array.isArray(m.lessons) ? m.lessons : [];
           const safeCompletedLessons = Array.isArray(m.completedLessons) ? m.completedLessons : [];
-          const hasLesson = safeLessons.some(l => l.id === lessonId);
+          const hasLesson = safeLessons.some(l => l && l.id === lessonId);
           
+          // Preserve ALL properties explicitly to avoid losing any
           return {
-            ...m,
+            id: m.id,
+            title: m.title || '',
+            description: m.description || '',
+            order_index: m.order_index ?? 0,
+            phase: m.phase ?? 0,
+            lessons: safeLessons,
             completedLessons: hasLesson && !safeCompletedLessons.includes(lessonId) 
               ? [...safeCompletedLessons, lessonId] 
-              : safeCompletedLessons
+              : safeCompletedLessons,
+            isCompleted: m.isCompleted ?? false,
+            isLocked: m.isLocked ?? false
           };
         });
+        
+        logger.log('Updated courseModules after marking lesson complete:', updated.length, 'modules');
+        return updated;
       });
       
       showNotif("Lección completada", 'success');

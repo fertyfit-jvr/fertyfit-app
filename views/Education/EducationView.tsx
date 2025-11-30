@@ -22,7 +22,11 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
     <div className="pb-24 space-y-8">
       <h2 className="text-xl font-bold text-[#4A4A4A]">Tu Programa</h2>
       {phaseMeta.map((phase) => {
-        const phaseModules = safeCourseModules.filter((module) => module.phase === phase.id);
+        const phaseModules = safeCourseModules.filter((module) => {
+          // Ensure module has required properties
+          if (!module || typeof module.phase === 'undefined') return false;
+          return module.phase === phase.id;
+        });
         if (phaseModules.length === 0 && phase.id !== 0) return null;
 
         return (
