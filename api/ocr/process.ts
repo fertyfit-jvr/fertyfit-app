@@ -74,13 +74,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'http://127.0.0.1:5173',
   ];
   
-  // Always set CORS headers if origin matches or is localhost
-  if (isLocalhost || allowedOrigins.includes(origin) || !origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // Determine which origin to allow
+  let allowedOrigin = '*';
+  if (origin && (isLocalhost || allowedOrigins.includes(origin))) {
+    allowedOrigin = origin;
   }
+  
+  // Always set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   // Handle preflight
   if (req.method === 'OPTIONS') {
