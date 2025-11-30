@@ -7,11 +7,11 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { OCRRequestSchema } from '../lib/validation';
-import { ocrRateLimiter, rateLimitMiddleware } from '../lib/rateLimiter';
-import { sendErrorResponse, createError } from '../lib/errorHandler';
-import { applySecurityHeaders, validateImageUpload } from '../lib/security';
-import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../lib/medicalValidation';
+import { OCRRequestSchema } from '../lib/validation.js';
+import { ocrRateLimiter, rateLimitMiddleware } from '../lib/rateLimiter.js';
+import { sendErrorResponse, createError } from '../lib/errorHandler.js';
+import { applySecurityHeaders, validateImageUpload } from '../lib/security.js';
+import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../lib/medicalValidation.js';
 
 // Logger simple para serverless functions
 const logger = {
