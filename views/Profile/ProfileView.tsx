@@ -587,17 +587,30 @@ const ProfileView = ({
           // formatDate is now imported from services/utils
 
           const handleEditF0Click = () => {
+            // Buscar el f0Form más reciente en el momento del clic (no en el render)
+            const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
+            if (!currentF0Form) return;
+            
             const initialAnswers: Record<string, any> = {};
-            f0Form.answers.forEach((a: any) => { 
+            currentF0Form.answers.forEach((a: any) => { 
               initialAnswers[a.questionId] = a.answer; 
             });
             
-            // Si es el campo de fecha última regla, usar la fecha calculada del ciclo actual
+            // SIEMPRE usar la fecha calculada del ciclo actual basada en user.lastPeriodDate y user.cycleLength
+            // Esto asegura que la fecha esté actualizada incluso si f0Form.answers no se ha sincronizado todavía
             if (user?.lastPeriodDate && user?.cycleLength) {
               const fechaInicioCicloActual = calcularFechaInicioCicloActual(user.lastPeriodDate, user.cycleLength);
               if (fechaInicioCicloActual) {
                 initialAnswers['q8_last_period'] = fechaInicioCicloActual;
               }
+            } else if (user?.lastPeriodDate) {
+              // Si solo tenemos lastPeriodDate sin cycleLength, usar directamente lastPeriodDate
+              initialAnswers['q8_last_period'] = user.lastPeriodDate;
+            }
+            
+            // También actualizar cycleLength si está disponible en user
+            if (user?.cycleLength) {
+              initialAnswers['q6_cycle'] = user.cycleLength;
             }
             
             originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers)); // Deep copy
