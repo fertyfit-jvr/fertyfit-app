@@ -1433,7 +1433,7 @@ function AppContent() {
             {view === 'EDUCATION' && (
               <Suspense fallback={<ViewLoading />}>
               <EducationView
-                courseModules={courseModules}
+                courseModules={Array.isArray(courseModules) ? courseModules : []}
                 onSelectLesson={setActiveLesson}
               />
               </Suspense>

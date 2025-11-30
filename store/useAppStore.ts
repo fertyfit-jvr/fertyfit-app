@@ -134,7 +134,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setIsSignUp: (value) => set({ isSignUp: value }),
   setAuthError: (message) => set({ authError: message }),
   setNotif: (toast) => set({ notif: toast }),
-  setCourseModules: (modules) => set({ courseModules: modules }),
+  setCourseModules: (modules) => set({ courseModules: Array.isArray(modules) ? modules : [] }),
   setTodayLog: (log) => set((state) => ({
     todayLog: typeof log === 'function' ? log(state.todayLog) : log
   })),
