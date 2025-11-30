@@ -124,12 +124,26 @@ export interface AdminReport {
 
 export type NotificationType = 'insight' | 'alert' | 'tip' | 'celebration' | 'opportunity' | 'confirmation';
 
-export type NotificationHandler = 'handlePeriodConfirmed' | 'handlePeriodDelayed' | string;
+/**
+ * Strict type for notification handlers
+ * Only these handlers are valid and will be processed
+ */
+export type NotificationHandler = 
+  | 'handlePeriodConfirmed'
+  | 'handlePeriodDelayed'
+  | 'handleOvulationDetected';
+
+/**
+ * Validates if a string is a valid NotificationHandler
+ */
+export const isValidNotificationHandler = (handler: string): handler is NotificationHandler => {
+  return ['handlePeriodConfirmed', 'handlePeriodDelayed', 'handleOvulationDetected'].includes(handler);
+};
 
 export interface NotificationAction {
   label: string;
-  value: string;
   handler: NotificationHandler;
+  value?: string | number; // More specific than 'any'
 }
 
 export interface NotificationMetadata {

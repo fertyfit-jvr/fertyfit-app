@@ -50,10 +50,24 @@ export const getLastLogDetails = (logs: DailyLog[]) => {
     };
 };
 
+/**
+ * Formats a date to YYYY-MM-DD format for database storage
+ * Uses local timezone to avoid day-shift issues (e.g., user in UTC+1 at 23:00)
+ * 
+ * @param date - Date object or date string
+ * @returns Formatted date string (YYYY-MM-DD) in local timezone
+ */
 export const formatDateForDB = (date: Date | string): string => {
-    if (!date) return new Date().toISOString().split('T')[0];
+    if (!date) date = new Date();
     const d = new Date(date);
-    return d.toISOString().split('T')[0];
+    
+    // Force local format without UTC conversion to avoid timezone issues
+    // This ensures a user in Madrid (UTC+1) at 23:00 saves as the same day
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
 };
 
 // --- NEW FUNCTIONS FOR DASHBOARD PRO ---

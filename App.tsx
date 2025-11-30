@@ -14,6 +14,8 @@ import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, forma
 import { calculateFertyScore } from './services/fertyscoreService';
 import { supabase } from './services/supabase';
 import { evaluateRules, saveNotifications, calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from './services/RuleEngine';
+import { getCycleDay } from './hooks/useCycleDay';
+import { isValidNotificationHandler } from './types';
 import { generarDatosInformeMedico } from './services/MedicalReportHelpers';
 import { generateF0Notification, generateLogAnalysis } from './services/googleCloud/geminiService';
 import { useAppStore } from './store/useAppStore';
@@ -247,85 +249,128 @@ function AppContent() {
     showNotif('Método reiniciado correctamente', 'success');
   };
 
+  /**
+   * Helper function for retry logic with exponential backoff
+   * @param fn - Async function to retry
+   * @param retries - Number of retry attempts (default: 3)
+   * @param baseDelay - Base delay in milliseconds (default: 1000)
+   * @returns Result of the function or throws error after all retries
+   */
+  const withRetry = async <T>(
+    fn: () => Promise<T>,
+    retries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === retries - 1) {
+          throw error; // Last attempt, throw error
+        }
+        // Exponential backoff: 1s, 2s, 3s...
+        const delay = baseDelay * (i + 1);
+        logger.warn(`Retry attempt ${i + 2}/${retries} after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error('Retry failed'); // Should never reach here
+  };
+
   // Define ALL fetch functions FIRST to avoid circular dependencies
   const fetchLogs = async (userId: string, daysLimit: number = 90) => {
-    // Calculate cutoff date (default: last 90 days)
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
-    const cutoffDateStr = formatDateForDB(cutoffDate);
+    try {
+      // Calculate cutoff date (default: last 90 days)
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
+      const cutoffDateStr = formatDateForDB(cutoffDate);
 
-    const { data, error } = await supabase
-      .from('daily_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('date', cutoffDateStr)
-      .order('date', { ascending: false })
-      .limit(daysLimit);
-
-    if (error) {
-      logger.error('❌ Error fetching logs:', error);
-      showNotif('Error cargando registros: ' + error.message, 'error');
-      return;
-    }
-
-    if (data) {
-      const mappedLogs = data.map(mapLogFromDB);
-      setLogs(mappedLogs);
-      const todayStr = formatDateForDB(new Date());
-      const existingToday = mappedLogs.find(l => l.date === todayStr);
-      
-      // Always calculate cycleDay based on user's lastPeriodDate, not from previous logs
-      if (user?.lastPeriodDate && user?.cycleLength) {
-        const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+      const { data, error } = await withRetry(async () => {
+        const result = await supabase
+          .from('daily_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .gte('date', cutoffDateStr)
+          .order('date', { ascending: false })
+          .limit(daysLimit);
         
-        if (existingToday) {
-          // Update existing log with correct cycleDay
-          setTodayLog({ ...existingToday, cycleDay: currentCycleDay });
-        } else {
-          // Create new today log with correct cycleDay
-          setTodayLog({
-            date: todayStr,
-            cycleDay: currentCycleDay > 0 ? currentCycleDay : 1,
-            symptoms: [],
-            alcohol: false,
-            lhTest: 'No realizado',
-            activityMinutes: 0,
-            sunMinutes: 0
-          });
+        if (result.error) {
+          throw result.error;
         }
-      } else if (existingToday) {
-        setTodayLog(existingToday);
-      } else if (mappedLogs.length > 0) {
-        // Fallback: if no user cycle data, use last log (shouldn't happen normally)
-        const last = mappedLogs[0];
-        const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
-        setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
+        return result;
+      });
+
+      if (data) {
+        const mappedLogs = data.map(mapLogFromDB);
+        setLogs(mappedLogs);
+        const todayStr = formatDateForDB(new Date());
+        const existingToday = mappedLogs.find(l => l.date === todayStr);
+        
+        // Always calculate cycleDay based on user's lastPeriodDate, not from previous logs
+        if (user?.lastPeriodDate && user?.cycleLength) {
+          const currentCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
+          
+          if (existingToday) {
+            // Update existing log with correct cycleDay
+            setTodayLog({ ...existingToday, cycleDay: currentCycleDay });
+          } else {
+            // Create new today log with correct cycleDay
+            setTodayLog({
+              date: todayStr,
+              cycleDay: currentCycleDay > 0 ? currentCycleDay : 1,
+              symptoms: [],
+              alcohol: false,
+              lhTest: 'No realizado',
+              activityMinutes: 0,
+              sunMinutes: 0
+            });
+          }
+        } else if (existingToday) {
+          setTodayLog(existingToday);
+        } else if (mappedLogs.length > 0) {
+          // Fallback: if no user cycle data, use last log (shouldn't happen normally)
+          const last = mappedLogs[0];
+          const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
+          setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
+        }
+        return mappedLogs;
       }
-      return mappedLogs;
+      return [];
+    } catch (error) {
+      logger.error('❌ Error fetching logs after retries:', error);
+      showNotif('Error cargando registros. Intenta recargar la página.', 'error');
+      // Return empty array as fallback to prevent app crash
+      return [];
     }
-    return [];
   };
 
   // Function to fetch all logs (for history view)
   const fetchAllLogs = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('daily_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
+    try {
+      const { data, error } = await withRetry(async () => {
+        const result = await supabase
+          .from('daily_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false });
+        
+        if (result.error) {
+          throw result.error;
+        }
+        return result;
+      });
 
-    if (error) {
-      logger.error('❌ Error fetching all logs:', error);
-      showNotif('Error cargando historial completo: ' + error.message, 'error');
+      if (data) {
+        const mappedLogs = data.map(mapLogFromDB);
+        setLogs(mappedLogs);
+        return mappedLogs;
+      }
+      return [];
+    } catch (error) {
+      logger.error('❌ Error fetching all logs after retries:', error);
+      showNotif('Error cargando historial completo. Intenta recargar la página.', 'error');
       return [];
     }
-
-    if (data) {
-      const mappedLogs = data.map(mapLogFromDB);
-      setLogs(mappedLogs);
-      return mappedLogs;
-    }
-    return [];
   };
 
   const fetchNotifications = async (userId: string) => {
@@ -353,12 +398,26 @@ function AppContent() {
   };
 
   const fetchUserForms = async (userId: string) => {
-    const { data, error } = await supabase.from('consultation_forms').select('*').eq('user_id', userId);
-    if (error) {
-      logger.error('❌ Error fetching forms:', error);
-      showNotif('Error cargando formularios: ' + error.message, 'error');
+    try {
+      const { data, error } = await withRetry(async () => {
+        const result = await supabase
+          .from('consultation_forms')
+          .select('*')
+          .eq('user_id', userId);
+        
+        if (result.error) {
+          throw result.error;
+        }
+        return result;
+      });
+
+      if (data) {
+        setSubmittedForms(data);
+      }
+    } catch (error) {
+      logger.error('❌ Error fetching forms after retries:', error);
+      showNotif('Error cargando formularios. Intenta recargar la página.', 'error');
     }
-    if (data) setSubmittedForms(data);
   };
 
   const fetchEducation = async (userId: string, methodStart?: string) => {
@@ -400,6 +459,9 @@ function AppContent() {
 
   useEffect(() => { checkUser(); }, []);
 
+  // Track last daily check date to avoid redundant executions
+  const [lastDailyCheckDate, setLastDailyCheckDate] = useState<string | null>(null);
+
   useEffect(() => {
     if (!user?.id) return;
     if (!user.lastPeriodDate || !user.cycleLength) {
@@ -413,9 +475,14 @@ function AppContent() {
 
     const todayKey = `fertyfit_daily_check_${user.id}`;
     const todayStr = formatDateForDB(new Date());
-    if (localStorage.getItem(todayKey) === todayStr) return;
+    
+    // Check both localStorage and state to avoid redundant checks
+    const storedCheckDate = localStorage.getItem(todayKey);
+    if (storedCheckDate === todayStr || lastDailyCheckDate === todayStr) {
+      return; // Already checked today
+    }
 
-    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+    const currentCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
     if (!currentCycleDay) return;
 
     let cancelled = false;
@@ -445,6 +512,7 @@ function AppContent() {
       } finally {
         if (!cancelled) {
           localStorage.setItem(todayKey, todayStr);
+          setLastDailyCheckDate(todayStr);
         }
       }
     };
@@ -452,7 +520,7 @@ function AppContent() {
     runDailyCheck();
 
     return () => { cancelled = true; };
-  }, [user?.id, user?.lastPeriodDate, user?.cycleLength]);
+  }, [user?.id, lastDailyCheckDate]); // Removed lastPeriodDate and cycleLength from deps to reduce triggers
 
   const checkUser = async () => {
     setLoading(true);
@@ -676,6 +744,13 @@ function AppContent() {
   const handleNotificationAction = async (notification: AppNotification, action: NotificationAction) => {
     if (!user?.id) return;
 
+    // Validate handler type safety
+    if (!isValidNotificationHandler(action.handler)) {
+      logger.warn('Invalid notification handler:', action.handler);
+      showNotif('Acción no válida. Por favor, intenta nuevamente.', 'error');
+      return;
+    }
+
     try {
       if (action.handler === 'handlePeriodConfirmed') {
         const today = formatDateForDB(new Date());
@@ -684,7 +759,9 @@ function AppContent() {
         await refreshUserProfile(user.id);
         showNotif('¡Gracias! Actualizamos tu ciclo.', 'success');
       } else if (action.handler === 'handlePeriodDelayed') {
-        const parsedDays = Number(action.value);
+        const parsedDays = typeof action.value === 'number' 
+          ? action.value 
+          : Number(action.value);
         const daysToAdd = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 2;
         await handlePeriodDelayed(user.id, daysToAdd);
         // Recargar el perfil completo desde la base de datos para sincronizar todas las vistas
@@ -692,8 +769,12 @@ function AppContent() {
         if (user) {
           showNotif(`Entendido. Ajustamos tu ciclo a ${user.cycleLength} días.`, 'success');
         }
+      } else if (action.handler === 'handleOvulationDetected') {
+        // Future handler for ovulation detection
+        logger.log('Ovulation detected handler called');
+        showNotif('Ovulación detectada. ¡Excelente momento para intentar!', 'success');
       } else {
-        logger.warn('No handler registered for notification action', action);
+        logger.warn('Unhandled notification action:', action.handler);
         return;
       }
 
@@ -845,7 +926,7 @@ function AppContent() {
     // Always calculate cycleDay based on user's lastPeriodDate for consistency
     let correctCycleDay = todayLog.cycleDay || 1;
     if (user.lastPeriodDate && user.cycleLength) {
-      correctCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+      correctCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
     }
     
     const formattedLog = { ...todayLog, date: validDate, cycleDay: correctCycleDay };
@@ -956,7 +1037,7 @@ function AppContent() {
     if (existingLog) {
       // Always recalculate cycleDay based on user's lastPeriodDate for consistency
       if (user?.lastPeriodDate && user?.cycleLength) {
-        const correctCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+        const correctCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
         setTodayLog({ ...existingLog, cycleDay: correctCycleDay > 0 ? correctCycleDay : 1 });
       } else {
       setTodayLog(existingLog);
@@ -967,7 +1048,7 @@ function AppContent() {
 
       if (user?.lastPeriodDate && user?.cycleLength) {
         // Use the unified calculation function
-        newCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+        newCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
       } else {
         // Fallback: try to use F0 data if user data is not available
         const f0 = submittedForms.find(f => f.form_type === 'F0');
@@ -978,7 +1059,7 @@ function AppContent() {
           if (lastPeriodAnswer && lastPeriodAnswer.answer) {
             const lastPeriodDate = lastPeriodAnswer.answer as string;
             const cycleDuration = cycleDurationAnswer ? parseInt(cycleDurationAnswer.answer as string) : 28;
-            newCycleDay = calcularDiaDelCiclo(lastPeriodDate, cycleDuration);
+            newCycleDay = getCycleDay(lastPeriodDate, cycleDuration);
           }
         }
       }
