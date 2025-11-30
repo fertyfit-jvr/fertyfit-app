@@ -11,6 +11,7 @@ import { OCRRequestSchema } from '../../lib/validation';
 import { ocrRateLimiter, rateLimitMiddleware } from '../../lib/rateLimiter';
 import { sendErrorResponse, createError } from '../../lib/errorHandler';
 import { applySecurityHeaders, validateImageUpload } from '../../lib/security';
+import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../../lib/medicalValidation';
 
 // Importar Google Cloud Vision (se instalará como dependencia)
 let vision: any = null;
@@ -96,7 +97,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Validate and sanitize image
     const imageValidation = validateImageUpload(image, 5000); // Max 5MB
     if (!imageValidation.valid) {
-      throw createError(imageValidation.error || 'Invalid image', 400, 'INVALID_IMAGE');
+      throw createError(
+        imageValidation.error || getErrorMessage('INVALID_IMAGE', examType),
+        400,
+        'INVALID_IMAGE'
+      );
     }
 
     const sanitizedImage = imageValidation.sanitized || image;
@@ -120,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Size check (max 10MB)
     if (imageBuffer.length > 10 * 1024 * 1024) {
-      throw createError('Image too large. Maximum size: 10MB', 400, 'IMAGE_TOO_LARGE');
+      throw createError(getErrorMessage('IMAGE_TOO_LARGE', examType), 400, 'IMAGE_TOO_LARGE');
     }
 
     // Perform OCR with timeout
@@ -136,28 +141,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const detections = result.textAnnotations;
       if (!detections || detections.length === 0) {
-        throw createError('No se detectó texto en la imagen', 400, 'NO_TEXT_DETECTED');
+        throw createError(getErrorMessage('NO_TEXT_DETECTED', examType), 400, 'NO_TEXT_DETECTED');
       }
 
       // El primer elemento contiene todo el texto
       const fullText = detections[0].description || '';
 
       if (!fullText || fullText.trim().length < 10) {
-        throw createError('Texto detectado insuficiente', 400, 'INSUFFICIENT_TEXT');
+        throw createError(getErrorMessage('INSUFFICIENT_TEXT', examType), 400, 'INSUFFICIENT_TEXT');
+      }
+
+      // Validar que el texto parece ser un examen médico
+      const textValidation = validateMedicalExamText(fullText, examType);
+      if (!textValidation.isMedicalExam) {
+        throw createError(
+          getErrorMessage('NO_MEDICAL_EXAM', examType),
+          400,
+          'NO_MEDICAL_EXAM'
+        );
       }
 
       // Parsear el texto según el tipo de examen
       const { parseExam } = await import('../../services/examParsers.js');
-      const parsedData = parseExam(fullText, examType);
+      const rawParsedData = parseExam(fullText, examType);
+
+      // Validar los datos extraídos
+      const dataValidation = validateExtractedData(rawParsedData, examType);
 
       return res.status(200).json({
         text: fullText,
-        parsedData,
+        parsedData: dataValidation.validatedData,
+        warnings: dataValidation.warnings,
+        errors: dataValidation.errors,
+        confidence: textValidation.confidence,
+        isMedicalExam: textValidation.isMedicalExam,
       });
     } catch (ocrError: any) {
       clearTimeout(timeoutId);
       if (ocrError.name === 'AbortError') {
-        throw createError('Timeout al procesar la imagen', 504, 'TIMEOUT_ERROR');
+        throw createError(getErrorMessage('TIMEOUT_ERROR', examType), 504, 'TIMEOUT_ERROR');
       }
       throw ocrError;
     }

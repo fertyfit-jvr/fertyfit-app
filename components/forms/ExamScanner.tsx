@@ -30,6 +30,8 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<Record<string, any> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showCamera, setShowCamera] = useState(false);
@@ -103,6 +105,8 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
     setIsProcessing(true);
     setError(null);
     setExtractedData(null);
+    setWarnings([]);
+    setValidationErrors([]);
 
     try {
       // Llamar a la API de OCR
@@ -119,6 +123,14 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
 
       // Usar datos parseados de la API si están disponibles, sino parsear localmente
       const parsed = ocrResult.parsedData || parseExam(ocrResult.text, examType);
+
+      // Mostrar advertencias y errores de validación si vienen de la API
+      if (ocrResult.warnings && ocrResult.warnings.length > 0) {
+        setWarnings(ocrResult.warnings);
+      }
+      if (ocrResult.errors && ocrResult.errors.length > 0) {
+        setValidationErrors(ocrResult.errors);
+      }
 
       setExtractedData(parsed);
     } catch (err) {
@@ -141,6 +153,8 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
     setImage(null);
     setExtractedData(null);
     setError(null);
+    setWarnings([]);
+    setValidationErrors([]);
   };
 
   return (
@@ -230,11 +244,13 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                 />
               </div>
               {error && (
-                <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-start gap-3">
-                  <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-bold text-red-800">Error</p>
-                    <p className="text-xs text-red-700 mt-1">{error}</p>
+                <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-800">Error al procesar</p>
+                      <div className="text-xs text-red-700 mt-1 whitespace-pre-line">{error}</div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -281,10 +297,39 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                 </div>
               </div>
 
+              {/* Mostrar advertencias de validación */}
+              {warnings.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs font-bold text-amber-800">Advertencias:</p>
+                  </div>
+                  {warnings.map((warning, idx) => (
+                    <p key={idx} className="text-xs text-amber-700 ml-6">{warning}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Mostrar errores de validación */}
+              {validationErrors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs font-bold text-red-800">Valores fuera de rango:</p>
+                  </div>
+                  {validationErrors.map((err, idx) => (
+                    <p key={idx} className="text-xs text-red-700 ml-6">{err}</p>
+                  ))}
+                  <p className="text-xs text-red-600 mt-2 ml-6 italic">
+                    Estos valores no se incluirán. Por favor, verifica el examen original.
+                  </p>
+                </div>
+              )}
+
               <div className="bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl p-4 space-y-3 max-h-64 overflow-y-auto">
                 {Object.keys(extractedData).length === 0 ? (
                   <p className="text-sm text-[#5D7180] text-center py-4">
-                    No se encontraron datos en el examen. Intenta con otra foto.
+                    No se encontraron datos válidos en el examen. Intenta con otra foto.
                   </p>
                 ) : (
                   Object.entries(extractedData).map(([key, value]) => (

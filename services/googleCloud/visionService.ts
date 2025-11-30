@@ -13,6 +13,10 @@ export interface OCRRequest {
 export interface OCRResponse {
   text: string;
   parsedData?: Record<string, any>;
+  warnings?: string[];
+  errors?: string[];
+  confidence?: number;
+  isMedicalExam?: boolean;
   error?: string;
 }
 
@@ -54,6 +58,10 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     return {
       text: data.text || '',
       parsedData: data.parsedData,
+      warnings: data.warnings,
+      errors: data.errors,
+      confidence: data.confidence,
+      isMedicalExam: data.isMedicalExam,
       error: data.error,
     };
   } catch (error) {
