@@ -120,7 +120,7 @@ export const GeminiRequestSchema = z.object({
   maxTokens: z.number().int().min(1).max(2000).optional(),
   temperature: z.number().min(0).max(2).optional(),
   userId: z.string().uuid('ID de usuario inválido').optional(),
-  profile: z.record(z.any()).optional(),
+  profile: z.record(z.string(), z.any()).optional(),
   recentLogs: z.array(z.any()).optional(),
 });
 
