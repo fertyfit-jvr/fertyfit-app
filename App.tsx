@@ -1250,7 +1250,14 @@ function AppContent() {
                 handleDateChange={handleDateChange}
                 saveDailyLog={saveDailyLog}
                   user={user}
-                  onUserUpdate={(updatedUser) => setUser(updatedUser)}
+                  onUserUpdate={async (updatedUser) => {
+                    setUser(updatedUser);
+                    // Refrescar perfil completo y formularios para sincronizar todas las vistas
+                    if (updatedUser?.id) {
+                      await refreshUserProfile(updatedUser.id);
+                      await fetchUserForms(updatedUser.id);
+                    }
+                  }}
                   showNotif={showNotif}
                   fetchUserForms={fetchUserForms}
               />
