@@ -80,9 +80,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     allowedOrigin = origin; // Use the exact origin from the request
   } else if (isLocalhost) {
     allowedOrigin = origin; // Even if not in list, allow localhost
+  } else if (allowedOrigins.includes(origin)) {
+    allowedOrigin = origin;
   } else {
     allowedOrigin = '*'; // Fallback
   }
+  
+  // Log for debugging
+  logger.log('CORS Debug:', { origin, isLocalhost, allowedOrigin, method: req.method });
   
   // Always set CORS headers - this must be done before any other response
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
