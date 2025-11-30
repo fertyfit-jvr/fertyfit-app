@@ -1,3 +1,4 @@
+import { HealthData } from './types/health';
 
 export interface UserProfile {
   id?: string; // Supabase Auth ID
@@ -62,6 +63,28 @@ export interface DailyLog {
   veggieServings: number;
   alcohol: boolean;
   alcoholUnits?: number;
+
+  // NEW: Wearable/Health Data Integration
+  healthData?: HealthData; // Full health data from wearable
+  dataSource?: 'manual' | 'wearable' | 'hybrid'; // Tracking of data origin
+  
+  // Enhanced fields (retrocompatible)
+  sleepPhases?: { // Sleep phase breakdown
+    deep: number; // minutes
+    rem: number; // minutes
+    light: number; // minutes
+  };
+  
+  // Cardiovascular metrics (FUNCTION pillar)
+  heartRateVariability?: number; // HRV in ms - stress indicator
+  restingHeartRate?: number; // bpm
+  
+  // Activity metrics (FOOD pillar)
+  steps?: number;
+  activeCalories?: number;
+  
+  // Respiratory metrics (FUNCTION pillar)
+  oxygenSaturation?: number; // SpO2 percentage
 }
 
 export interface Lesson {

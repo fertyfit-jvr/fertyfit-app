@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Minus, Plus, Droplets, Leaf, X, Heart } from 'lucide-react';
 import InputField from '../../components/forms/InputField';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
+import WearableConnect from '../../components/WearableConnect';
 import {
   MUCUS_OPTIONS,
   LH_OPTIONS,
@@ -15,6 +16,8 @@ import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../servic
 import { calcularVentanaFertil, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate, formatCurrentDate } from '../../services/utils';
 import { logger } from '../../lib/logger';
+import { useAutoSync } from '../../hooks/useAutoSync';
+import { syncManager } from '../../services/syncManager';
 
 type SetTodayLog = (
   value: Partial<DailyLog> | ((prev: Partial<DailyLog>) => Partial<DailyLog>)
@@ -48,6 +51,53 @@ const TrackerView = ({
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [lastPeriodDate, setLastPeriodDate] = useState(user?.lastPeriodDate || '');
   const [cycleLength, setCycleLength] = useState(user?.cycleLength?.toString() || '28');
+  
+  // Auto-sync health data if wearable is connected
+  const isWearableConnected = localStorage.getItem('fertyfit_wearable_connected') === 'true';
+  const { syncStatus, triggerSync } = useAutoSync(user?.id, isWearableConnected, 30);
+  
+  // Auto-sync on mount if connected
+  useEffect(() => {
+    if (isWearableConnected && user?.id) {
+      const performAutoSync = async () => {
+        try {
+          const result = await syncManager.syncWithFallback(user.id!);
+          if (result.success && result.data) {
+            // Pre-fill todayLog with synced data
+            const healthData = result.data;
+            
+            setTodayLog(prev => ({
+              ...prev,
+              // Map health data to todayLog fields
+              bbt: healthData.basalBodyTemperature || prev.bbt,
+              sleepHours: healthData.sleepDurationMinutes ? healthData.sleepDurationMinutes / 60 : prev.sleepHours,
+              sleepQuality: healthData.sleepQuality || prev.sleepQuality,
+              activityMinutes: healthData.activityMinutes || prev.activityMinutes,
+              steps: healthData.steps || prev.steps,
+              activeCalories: healthData.activeCalories || prev.activeCalories,
+              heartRateVariability: healthData.heartRateVariability || prev.heartRateVariability,
+              restingHeartRate: healthData.restingHeartRate || prev.restingHeartRate,
+              sleepPhases: healthData.sleepDeepMinutes || healthData.sleepRemMinutes || healthData.sleepLightMinutes ? {
+                deep: healthData.sleepDeepMinutes || 0,
+                rem: healthData.sleepRemMinutes || 0,
+                light: healthData.sleepLightMinutes || 0
+              } : prev.sleepPhases,
+              healthData: healthData,
+              dataSource: prev.dataSource === 'manual' ? 'hybrid' : 'wearable'
+            }));
+            
+            showNotif?.('Datos sincronizados desde tu wearable', 'success');
+          }
+        } catch (error) {
+          logger.error('Error in auto-sync:', error);
+          // Silent fail - don't show error to user
+        }
+      };
+      
+      // Small delay to avoid blocking initial render
+      setTimeout(performAutoSync, 500);
+    }
+  }, [isWearableConnected, user?.id]); // Only run once on mount
   const [suggestedCycleLength, setSuggestedCycleLength] = useState<number | null>(null);
 
   // Calcular ventana fértil
@@ -247,6 +297,32 @@ const TrackerView = ({
 
   // formatDate is now imported from services/utils
 
+  // Handle sync from WearableConnect component
+  const handleHealthDataSync = (healthData: any) => {
+    if (!healthData) return;
+    
+    setTodayLog(prev => ({
+      ...prev,
+      bbt: healthData.basalBodyTemperature || prev.bbt,
+      sleepHours: healthData.sleepDurationMinutes ? healthData.sleepDurationMinutes / 60 : prev.sleepHours,
+      sleepQuality: healthData.sleepQuality || prev.sleepQuality,
+      activityMinutes: healthData.activityMinutes || prev.activityMinutes,
+      steps: healthData.steps || prev.steps,
+      activeCalories: healthData.activeCalories || prev.activeCalories,
+      heartRateVariability: healthData.heartRateVariability || prev.heartRateVariability,
+      restingHeartRate: healthData.restingHeartRate || prev.restingHeartRate,
+      sleepPhases: healthData.sleepDeepMinutes || healthData.sleepRemMinutes || healthData.sleepLightMinutes ? {
+        deep: healthData.sleepDeepMinutes || 0,
+        rem: healthData.sleepRemMinutes || 0,
+        light: healthData.sleepLightMinutes || 0
+      } : prev.sleepPhases,
+      healthData: healthData,
+      dataSource: prev.dataSource === 'manual' ? 'hybrid' : 'wearable'
+    }));
+    
+    showNotif?.('Datos sincronizados desde tu wearable', 'success');
+  };
+
   return (
     <div className="pb-24 space-y-6">
       <div className="mb-4">
@@ -266,6 +342,17 @@ const TrackerView = ({
           </button>
         </div>
       </div>
+
+      {/* Wearable Connect Component */}
+      <WearableConnect
+        userId={user?.id}
+        onConnect={(success) => {
+          if (success) {
+            showNotif?.('Wearable conectado correctamente', 'success');
+          }
+        }}
+        onSync={handleHealthDataSync}
+      />
 
       <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
         <div className="space-y-6">
