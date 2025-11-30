@@ -24,6 +24,26 @@ interface WearableConnectProps {
   className?: string;
 }
 
+// Dispositivos compatibles por plataforma
+const COMPATIBLE_DEVICES = {
+  ios: [
+    'Apple Watch',
+    'Oura Ring',
+    'Fitbit',
+    'Garmin',
+    'Whoop',
+    'Withings'
+  ],
+  android: [
+    'Fitbit',
+    'Garmin',
+    'Samsung Health',
+    'Xiaomi Mi Band',
+    'Polar',
+    'Withings'
+  ]
+};
+
 export const WearableConnect: React.FC<WearableConnectProps> = ({
   userId,
   onConnect,
@@ -85,16 +105,19 @@ export const WearableConnect: React.FC<WearableConnectProps> = ({
     }
   };
 
-  const getStateConfig = (state: ConnectionState) => {
+  const getStateConfig = (state: ConnectionState, platform: string) => {
     switch (state) {
       case 'unavailable':
         return {
-          title: 'Dispositivo no compatible',
-          description: 'Las APIs de salud no están disponibles en este dispositivo. Puedes seguir registrando datos manualmente.',
+          title: 'Conexión de Wearables',
+          description: platform === 'web' 
+            ? 'La conexión de wearables está disponible en la app móvil (iOS/Android). Descarga la app para sincronizar tus dispositivos automáticamente.'
+            : 'Las APIs de salud no están disponibles en este dispositivo. Puedes seguir registrando datos manualmente.',
           showConnect: false,
           showDisconnect: false,
           showSync: false,
-          showReconnect: false
+          showReconnect: false,
+          showCompatibleDevices: true
         };
       case 'disconnected':
         return {
@@ -164,8 +187,8 @@ export const WearableConnect: React.FC<WearableConnectProps> = ({
     }
   };
 
-  const config = getStateConfig(connectionState);
   const platform = connectionStatus?.platform || 'web';
+  const config = getStateConfig(connectionState, platform);
 
   return (
     <div className={`bg-white rounded-2xl p-6 border border-[#F4F0ED] shadow-sm ${className}`}>
@@ -284,6 +307,26 @@ export const WearableConnect: React.FC<WearableConnectProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {config.showCompatibleDevices && (
+          <div className="bg-[#F4F0ED]/50 rounded-xl p-4 border border-[#F4F0ED] mt-4">
+            <p className="text-xs font-semibold text-[#5D7180] mb-3">
+              Dispositivos compatibles:
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(platform === 'ios' || platform === 'web' ? COMPATIBLE_DEVICES.ios : COMPATIBLE_DEVICES.android).map((device) => (
+                <div key={device} className="text-xs text-[#4A4A4A]">
+                  {device}
+                </div>
+              ))}
+            </div>
+            {platform === 'web' && (
+              <p className="text-[10px] text-[#5D7180] mt-3 italic">
+                * Requiere app móvil iOS o Android
+              </p>
+            )}
           </div>
         )}
       </div>
