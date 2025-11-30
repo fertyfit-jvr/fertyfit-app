@@ -38,6 +38,9 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   const streamRef = useRef<MediaStream | null>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -50,6 +53,12 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
       const base64 = await fileToBase64(file);
       setImage(base64);
       setError(null);
+      setWarnings([]);
+      setValidationErrors([]);
+      // Resetear el input para permitir seleccionar el mismo archivo de nuevo
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al procesar la imagen';
       setError(errorMessage);

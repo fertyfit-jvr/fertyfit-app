@@ -7,11 +7,11 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { OCRRequestSchema } from '../../lib/validation';
-import { ocrRateLimiter, rateLimitMiddleware } from '../../lib/rateLimiter';
-import { sendErrorResponse, createError } from '../../lib/errorHandler';
-import { applySecurityHeaders, validateImageUpload } from '../../lib/security';
-import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../../lib/medicalValidation';
+import { OCRRequestSchema } from '../lib/validation';
+import { ocrRateLimiter, rateLimitMiddleware } from '../lib/rateLimiter';
+import { sendErrorResponse, createError } from '../lib/errorHandler';
+import { applySecurityHeaders, validateImageUpload } from '../lib/security';
+import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../lib/medicalValidation';
 
 // Logger simple para serverless functions
 const logger = {
@@ -185,16 +185,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Parsear el texto según el tipo de examen
       let rawParsedData: Record<string, any> = {};
       try {
-        // Intentar importar con diferentes rutas para compatibilidad con Vercel
-        let parseExam;
-        try {
-          const examParsersModule = await import('../../services/examParsers.js');
-          parseExam = examParsersModule.parseExam;
-        } catch (importError) {
-          // Fallback: importar sin extensión
-          const examParsersModule = await import('../../services/examParsers');
-          parseExam = examParsersModule.parseExam;
-        }
+        // Importar parseExam - en Vercel necesitamos usar la ruta relativa desde api/
+        const examParsersModule = await import('../services/examParsers.js');
+        const parseExam = examParsersModule.parseExam;
         
         if (!parseExam || typeof parseExam !== 'function') {
           throw new Error('parseExam function not found');
