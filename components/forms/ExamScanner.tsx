@@ -400,14 +400,24 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
 
               <div className="flex gap-3">
                 <button
-                  onClick={handleConfirm}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleConfirm();
+                  }}
                   disabled={Object.keys(extractedData).length === 0}
                   className="flex-1 bg-[#5D7180] text-white py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Confirmar y rellenar
                 </button>
                 <button
-                  onClick={handleRetry}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRetry();
+                  }}
                   className="px-6 py-3 border border-[#E1D7D3] rounded-xl font-bold text-[#5D7180] hover:bg-[#F4F0ED]"
                 >
                   Escanear de nuevo
