@@ -680,32 +680,64 @@ function AppContent() {
   };
 
   const markNotificationRead = async (notifId: number) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
-    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+    try {
+      const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+      
+      if (error) {
+        logger.error('Error marking notification as read:', error);
+        showNotif('No pudimos marcar la notificación como leída. Intenta nuevamente.', 'error');
+        return;
+      }
+      
+      // Only update local state if database update was successful
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+    } catch (error) {
+      logger.error('Error in markNotificationRead:', error);
+      showNotif('Error inesperado al marcar la notificación. Intenta nuevamente.', 'error');
+    }
   };
 
   // Delete a notification completely
   // Delete a notification (Soft Delete)
   const deleteNotification = async (notifId: number) => {
-    // 1. Update Local State (Blacklist)
-    const newDeletedIds = [...deletedNotificationIds, notifId];
-    setDeletedNotificationIds(newDeletedIds);
-    localStorage.setItem('fertyfit_deleted_notifications', JSON.stringify(newDeletedIds));
+    try {
+      // 1. Server Soft Delete (Update metadata) - Do this first
+      const { data: current, error: fetchError } = await supabase
+        .from('notifications')
+        .select('metadata')
+        .eq('id', notifId)
+        .single();
 
-    // 2. Optimistic UI Update
-    setNotifications(prev => prev.filter(n => n.id !== notifId));
+      if (fetchError) {
+        logger.error('Error fetching notification metadata:', fetchError);
+        showNotif('No pudimos eliminar la notificación. Intenta nuevamente.', 'error');
+        return;
+      }
 
-    // 3. Server Soft Delete (Update metadata)
-    // We fetch the current metadata first to preserve other fields if any
-    const { data: current } = await supabase.from('notifications').select('metadata').eq('id', notifId).single();
-    const newMeta = { ...(current?.metadata || {}), deleted: true };
+      const newMeta = { ...(current?.metadata || {}), deleted: true };
+      const { error: updateError } = await supabase
+        .from('notifications')
+        .update({ metadata: newMeta })
+        .eq('id', notifId);
 
-    const { error } = await supabase.from('notifications').update({ metadata: newMeta }).eq('id', notifId);
+      if (updateError) {
+        logger.error('Error deleting notification:', updateError);
+        showNotif('No pudimos eliminar la notificación. Intenta nuevamente.', 'error');
+        return;
+      }
 
-    if (error) {
-      logger.error('Error deleting notification:', error);
-    } else {
+      // 2. Only update local state if database update was successful
+      const newDeletedIds = [...deletedNotificationIds, notifId];
+      setDeletedNotificationIds(newDeletedIds);
+      localStorage.setItem('fertyfit_deleted_notifications', JSON.stringify(newDeletedIds));
+
+      // 3. Optimistic UI Update
+      setNotifications(prev => prev.filter(n => n.id !== notifId));
+      
       logger.log('✅ Notification soft-deleted', notifId);
+    } catch (error) {
+      logger.error('Error in deleteNotification:', error);
+      showNotif('Error inesperado al eliminar la notificación. Intenta nuevamente.', 'error');
     }
   };
 
