@@ -85,17 +85,50 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
       e.preventDefault();
       e.stopPropagation();
     }
+    
+    // Limpiar errores previos
+    setError(null);
+    setWarnings([]);
+    setValidationErrors([]);
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      // Verificar si getUserMedia está disponible
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Tu navegador no soporta el acceso a la cámara. Por favor, usa un navegador moderno o la app móvil.');
+      }
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
+      });
+      
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setShowCamera(true);
+        setError(null); // Asegurar que no hay error
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'No se pudo acceder a la cámara';
+    } catch (err: any) {
+      let errorMessage = 'No se pudo acceder a la cámara';
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Permisos de cámara denegados. Por favor, permite el acceso a la cámara en la configuración de tu navegador.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = 'No se encontró ninguna cámara. Por favor, conecta una cámara y vuelve a intentar.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMessage = 'La cámara está siendo usada por otra aplicación. Por favor, cierra otras aplicaciones que usen la cámara.';
+      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+        errorMessage = 'La cámara no soporta las características requeridas. Intenta con otra cámara.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
-      logger.error('Error accessing camera:', err);
+      logger.error('Error accessing camera:', { error: err, name: err.name, message: err.message });
+      setShowCamera(false);
     }
   };
 
@@ -207,6 +240,17 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
         <div className="p-6 space-y-4">
           {!image && !showCamera && (
             <div className="space-y-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-800">Error</p>
+                      <div className="text-xs text-red-700 mt-1 whitespace-pre-line">{error}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
@@ -215,7 +259,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                     e.stopPropagation();
                     startCamera(e);
                   }}
-                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors"
+                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors active:scale-95"
                 >
                   <Camera size={32} className="text-[#C7958E] mb-2" />
                   <span className="text-sm font-bold text-[#4A4A4A]">Tomar foto</span>
@@ -225,9 +269,10 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    setError(null); // Limpiar errores previos
                     fileInputRef.current?.click();
                   }}
-                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors"
+                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors active:scale-95"
                 >
                   <Upload size={32} className="text-[#C7958E] mb-2" />
                   <span className="text-sm font-bold text-[#4A4A4A]">Subir imagen</span>

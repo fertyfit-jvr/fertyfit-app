@@ -26,6 +26,13 @@ export class HealthService {
   }
 
   /**
+   * Get current platform (public getter)
+   */
+  get currentPlatform(): Platform {
+    return this.platform;
+  }
+
+  /**
    * Detect current platform
    */
   private detectPlatform(): Platform {

@@ -18,7 +18,8 @@ import { logger } from '../lib/logger';
  * @param userId - User ID
  */
 export const useHealthData = (userId: string | undefined) => {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('unavailable');
+  // Inicializar con 'disconnected' en lugar de 'unavailable' para que siempre se muestre el componente
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [connectionStatus, setConnectionStatus] = useState<WearableConnectionStatus | null>(null);
   const [healthData, setHealthData] = useState<HealthData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,8 +29,17 @@ export const useHealthData = (userId: string | undefined) => {
    */
   const checkAvailability = useCallback(async () => {
     const available = await healthService.isAvailable();
+    // Solo establecer 'unavailable' si realmente no hay soporte (web sin Capacitor)
+    // En móvil navegador, mostrar 'disconnected' para que el usuario vea el componente
     if (!available) {
-      setConnectionState('unavailable');
+      const platform = healthService.currentPlatform || 'web';
+      // Si es web, mantener 'unavailable', pero si es móvil navegador, usar 'disconnected'
+      if (platform === 'web') {
+        setConnectionState('unavailable');
+      } else {
+        // Es móvil pero sin Capacitor, mostrar como desconectado
+        setConnectionState('disconnected');
+      }
       return false;
     }
     return true;
@@ -39,17 +49,29 @@ export const useHealthData = (userId: string | undefined) => {
    * Check connection status from database
    */
   const loadConnectionStatus = useCallback(async () => {
-    if (!userId) return;
+    const platform = healthService.currentPlatform || 'web';
+    
+    if (!userId) {
+      // Si no hay userId, establecer plataforma basada en detección
+      setConnectionStatus({
+        isConnected: false,
+        lastSync: null,
+        permissionsGranted: false,
+        platform: platform as 'ios' | 'android' | 'web'
+      });
+      return;
+    }
 
     try {
       const status = await syncManager.getWearableConnectionStatus(userId);
+      
       if (status) {
         setConnectionStatus({
           isConnected: status.isConnected,
           lastSync: status.lastSync,
           deviceType: status.deviceType as any,
           permissionsGranted: status.permissionsGranted,
-          platform: healthService['platform'] as 'ios' | 'android' | 'web'
+          platform: platform as 'ios' | 'android' | 'web'
         });
 
         if (status.isConnected) {
@@ -58,10 +80,22 @@ export const useHealthData = (userId: string | undefined) => {
           setConnectionState('disconnected');
         }
       } else {
+        setConnectionStatus({
+          isConnected: false,
+          lastSync: null,
+          permissionsGranted: false,
+          platform: platform as 'ios' | 'android' | 'web'
+        });
         setConnectionState('disconnected');
       }
     } catch (error) {
       logger.error('Error loading connection status:', error);
+      setConnectionStatus({
+        isConnected: false,
+        lastSync: null,
+        permissionsGranted: false,
+        platform: platform as 'ios' | 'android' | 'web'
+      });
       setConnectionState('disconnected');
     }
   }, [userId]);
