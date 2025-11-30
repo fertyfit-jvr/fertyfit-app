@@ -182,6 +182,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <button
+                  type="button"
                   onClick={startCamera}
                   className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors"
                 >
@@ -189,7 +190,12 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                   <span className="text-sm font-bold text-[#4A4A4A]">Tomar foto</span>
                 </button>
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
                   className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors"
                 >
                   <Upload size={32} className="text-[#C7958E] mb-2" />
