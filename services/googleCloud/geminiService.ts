@@ -25,7 +25,7 @@ export async function callGeminiAPI(request: GeminiRequest): Promise<GeminiRespo
     // En desarrollo, usar URL de producción de Vercel
     // En producción, usar ruta relativa
     const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
-    const vercelUrl = import.meta.env.VITE_VERCEL_URL || import.meta.env.NEXT_PUBLIC_VERCEL_URL || 'https://fertyfit-app.vercel.app';
+    const vercelUrl = import.meta.env.VITE_VERCEL_URL || import.meta.env.NEXT_PUBLIC_VERCEL_URL || 'https://method.fertyfit.com';
     const apiUrl = isDev 
       ? `${vercelUrl}/api/gemini/generate`
       : '/api/gemini/generate';
