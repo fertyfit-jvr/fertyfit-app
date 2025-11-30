@@ -441,18 +441,32 @@ function AppContent() {
       currentWeek = Math.ceil(days / 7) || 1;
     }
 
-    if (modulesData) {
-      setCourseModules(modulesData.map(m => ({
-        id: m.id, title: m.title, description: m.description, order_index: m.order_index, phase: m.phase as any,
-        lessons: m.content_lessons?.sort((a: any, b: any) => {
-          if (a.type === 'video' && b.type !== 'video') return -1;
-          if (a.type !== 'video' && b.type === 'video') return 1;
-          return 0;
-        }) || [],
-        completedLessons: Array.from(completedSet).filter(id => m.content_lessons?.some((l: any) => l.id === id)) as number[],
-        isCompleted: false,
-        isLocked: m.phase > 0 && (!methodStart || m.order_index > currentWeek)
-      })));
+    if (modulesData && Array.isArray(modulesData)) {
+      setCourseModules(modulesData.map(m => {
+        const safeContentLessons = Array.isArray(m.content_lessons) ? m.content_lessons : [];
+        const safeCompletedSet = Array.isArray(Array.from(completedSet)) ? completedSet : new Set();
+        
+        return {
+          id: m.id, 
+          title: m.title, 
+          description: m.description, 
+          order_index: m.order_index, 
+          phase: m.phase as any,
+          lessons: safeContentLessons.sort((a: any, b: any) => {
+            if (a.type === 'video' && b.type !== 'video') return -1;
+            if (a.type !== 'video' && b.type === 'video') return 1;
+            return 0;
+          }),
+          completedLessons: Array.from(safeCompletedSet).filter(id => 
+            safeContentLessons.some((l: any) => l.id === id)
+          ) as number[],
+          isCompleted: false,
+          isLocked: m.phase > 0 && (!methodStart || m.order_index > currentWeek)
+        };
+      }));
+    } else {
+      // Ensure courseModules is always an array
+      setCourseModules([]);
     }
   };
 
@@ -1059,14 +1073,39 @@ function AppContent() {
 
   const markLessonComplete = async (lessonId: number) => {
     if (!user?.id) return;
-    const { error } = await supabase.from('user_progress').upsert({ user_id: user.id, lesson_id: lessonId }, { onConflict: 'user_id, lesson_id' });
-    if (!error) {
-      setCourseModules(prev => prev.map(m => ({
-        ...m,
-        completedLessons: m.lessons.some(l => l.id === lessonId) ? [...m.completedLessons, lessonId] : m.completedLessons
-      })));
+    
+    try {
+      const { error } = await supabase
+        .from('user_progress')
+        .upsert({ user_id: user.id, lesson_id: lessonId }, { onConflict: 'user_id, lesson_id' });
+      
+      if (error) {
+        logger.error('Error marking lesson as complete:', error);
+        showNotif('No pudimos marcar la lección como completada. Intenta nuevamente.', 'error');
+        return;
+      }
+      
+      setCourseModules(prev => {
+        const safePrev = Array.isArray(prev) ? prev : [];
+        return safePrev.map(m => {
+          const safeLessons = Array.isArray(m.lessons) ? m.lessons : [];
+          const safeCompletedLessons = Array.isArray(m.completedLessons) ? m.completedLessons : [];
+          const hasLesson = safeLessons.some(l => l.id === lessonId);
+          
+          return {
+            ...m,
+            completedLessons: hasLesson && !safeCompletedLessons.includes(lessonId) 
+              ? [...safeCompletedLessons, lessonId] 
+              : safeCompletedLessons
+          };
+        });
+      });
+      
       showNotif("Lección completada", 'success');
       setActiveLesson(null);
+    } catch (error) {
+      logger.error('Error in markLessonComplete:', error);
+      showNotif('Error inesperado al marcar la lección. Intenta nuevamente.', 'error');
     }
   };
 
