@@ -44,11 +44,12 @@ export function handleError(error: unknown, req?: any): {
   // Handle known error types
   if (error && typeof error === 'object' && 'statusCode' in error) {
     const appError = error as AppError;
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return {
       statusCode: appError.statusCode || 500,
       message: appError.message || 'Ha ocurrido un error',
       code: appError.code,
-      details: isProduction ? undefined : { stack: error instanceof Error ? error.stack : undefined },
+      details: isProduction ? undefined : { stack: errorStack },
     };
   }
 
