@@ -1087,46 +1087,54 @@ function AppContent() {
       
       // Update local state optimistically
       setCourseModules(prev => {
-        const safePrev = Array.isArray(prev) ? prev : [];
-        if (safePrev.length === 0) {
-          logger.warn('courseModules is empty, cannot update lesson completion');
-          // If empty, try to refetch education data
-          if (user?.id && user?.methodStartDate) {
-            fetchEducation(user.id, user.methodStartDate);
+        try {
+          const safePrev = Array.isArray(prev) ? prev : [];
+          if (safePrev.length === 0) {
+            logger.warn('courseModules is empty, cannot update lesson completion');
+            return safePrev;
           }
-          return safePrev;
+          
+          const updated = safePrev.map(m => {
+            try {
+              // Ensure all required properties exist
+              if (!m || typeof m.id === 'undefined') {
+                logger.warn('Invalid module found:', m);
+                return m;
+              }
+              
+              const safeLessons = Array.isArray(m.lessons) ? m.lessons : [];
+              const safeCompletedLessons = Array.isArray(m.completedLessons) ? m.completedLessons : [];
+              const hasLesson = safeLessons.some(l => l && l.id === lessonId);
+              
+              // Use spread operator to preserve all existing properties, then override only what we need
+              return {
+                ...m,
+                lessons: safeLessons,
+                completedLessons: hasLesson && !safeCompletedLessons.includes(lessonId) 
+                  ? [...safeCompletedLessons, lessonId] 
+                  : safeCompletedLessons
+              };
+            } catch (err) {
+              logger.error('Error updating module:', err, m);
+              return m; // Return original module if update fails
+            }
+          });
+          
+          logger.log('Updated courseModules after marking lesson complete:', updated.length, 'modules');
+          return updated;
+        } catch (err) {
+          logger.error('Error in setCourseModules:', err);
+          return prev; // Return previous state if update fails
         }
-        
-        const updated = safePrev.map(m => {
-          // Ensure all required properties exist
-          if (!m || typeof m.id === 'undefined') {
-            logger.warn('Invalid module found:', m);
-            return m;
-          }
-          
-          const safeLessons = Array.isArray(m.lessons) ? m.lessons : [];
-          const safeCompletedLessons = Array.isArray(m.completedLessons) ? m.completedLessons : [];
-          const hasLesson = safeLessons.some(l => l && l.id === lessonId);
-          
-          // Preserve ALL properties explicitly to avoid losing any
-          return {
-            id: m.id,
-            title: m.title || '',
-            description: m.description || '',
-            order_index: m.order_index ?? 0,
-            phase: m.phase ?? 0,
-            lessons: safeLessons,
-            completedLessons: hasLesson && !safeCompletedLessons.includes(lessonId) 
-              ? [...safeCompletedLessons, lessonId] 
-              : safeCompletedLessons,
-            isCompleted: m.isCompleted ?? false,
-            isLocked: m.isLocked ?? false
-          };
-        });
-        
-        logger.log('Updated courseModules after marking lesson complete:', updated.length, 'modules');
-        return updated;
       });
+      
+      // Refetch education data to ensure consistency
+      if (user?.id && user?.methodStartDate) {
+        // Use setTimeout to avoid calling async function during state update
+        setTimeout(() => {
+          fetchEducation(user.id, user.methodStartDate);
+        }, 100);
+      }
       
       showNotif("Lección completada", 'success');
       setActiveLesson(null);
