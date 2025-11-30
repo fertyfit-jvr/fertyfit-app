@@ -97,37 +97,74 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
         throw new Error('Tu navegador no soporta el acceso a la cámara. Por favor, usa un navegador moderno o la app móvil.');
       }
       
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        } 
-      });
+      // Verificar si estamos en HTTPS (requerido para getUserMedia)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        throw new Error('El acceso a la cámara requiere HTTPS. Por favor, accede a la app desde https://method.fertyfit.com');
+      }
+      
+      logger.log('📷 Requesting camera access...');
+      
+      // Intentar primero con restricciones específicas (cámara trasera en móvil)
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          } 
+        });
+        logger.log('✅ Camera access granted with constraints');
+      } catch (constraintError: any) {
+        // Si falla con restricciones, intentar sin restricciones específicas
+        logger.warn('⚠️ Camera failed with constraints, trying without:', constraintError);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true 
+          });
+          logger.log('✅ Camera access granted without constraints');
+        } catch (fallbackError: any) {
+          // Si también falla sin restricciones, lanzar el error original
+          throw constraintError;
+        }
+      }
+      
+      if (!stream) {
+        throw new Error('No se pudo obtener el stream de la cámara');
+      }
       
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setShowCamera(true);
-        setError(null); // Asegurar que no hay error
+        setError(null);
+        logger.log('✅ Camera stream set successfully');
       }
     } catch (err: any) {
+      logger.error('❌ Error accessing camera:', { 
+        error: err, 
+        name: err.name, 
+        message: err.message,
+        stack: err.stack,
+        protocol: location.protocol,
+        hostname: location.hostname
+      });
+      
       let errorMessage = 'No se pudo acceder a la cámara';
       
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage = 'Permisos de cámara denegados. Por favor, permite el acceso a la cámara en la configuración de tu navegador.';
+        errorMessage = 'Permisos de cámara denegados. Por favor:\n• Verifica la configuración de permisos de tu navegador\n• Asegúrate de estar en HTTPS (method.fertyfit.com)\n• Recarga la página y permite permisos cuando se solicite\n• Si usas Safari, verifica Configuración > Safari > Cámara';
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         errorMessage = 'No se encontró ninguna cámara. Por favor, conecta una cámara y vuelve a intentar.';
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         errorMessage = 'La cámara está siendo usada por otra aplicación. Por favor, cierra otras aplicaciones que usen la cámara.';
       } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
-        errorMessage = 'La cámara no soporta las características requeridas. Intenta con otra cámara.';
+        errorMessage = 'La cámara no soporta las características requeridas. Intenta recargar la página.';
       } else if (err.message) {
         errorMessage = err.message;
       }
       
       setError(errorMessage);
-      logger.error('Error accessing camera:', { error: err, name: err.name, message: err.message });
       setShowCamera(false);
     }
   };
@@ -190,7 +227,10 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   };
 
   const processImage = async () => {
-    if (!image) return;
+    if (!image) {
+      setError('No hay imagen para procesar');
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
@@ -199,34 +239,95 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
     setValidationErrors([]);
 
     try {
+      // Validar que la imagen tenga el formato correcto
+      if (!image.startsWith('data:image/')) {
+        throw new Error('Formato de imagen inválido. Por favor, selecciona una imagen válida.');
+      }
+
+      logger.log('🖼️ Processing image with OCR...', { 
+        examType, 
+        imageLength: image.length,
+        imagePreview: image.substring(0, 50) + '...'
+      });
+
       // Llamar a la API de OCR
       const ocrResult = await processImageOCR({
         image,
         examType,
       });
 
+      logger.log('📄 OCR Result:', { 
+        hasError: !!ocrResult.error,
+        hasText: !!ocrResult.text,
+        hasParsedData: !!ocrResult.parsedData,
+        textLength: ocrResult.text?.length || 0
+      });
+
       if (ocrResult.error) {
+        logger.error('❌ OCR returned error:', ocrResult.error);
         setError(ocrResult.error);
         setIsProcessing(false);
         return;
       }
 
+      // Verificar que tenemos texto o datos parseados
+      if (!ocrResult.text && !ocrResult.parsedData) {
+        throw new Error('No se pudo extraer texto de la imagen. Por favor, asegúrate de que la imagen sea clara y contenga texto legible.');
+      }
+
       // Usar datos parseados de la API si están disponibles, sino parsear localmente
-      const parsed = ocrResult.parsedData || parseExam(ocrResult.text, examType);
+      let parsed: Record<string, any> = {};
+      
+      if (ocrResult.parsedData && Object.keys(ocrResult.parsedData).length > 0) {
+        parsed = ocrResult.parsedData;
+        logger.log('✅ Using parsed data from API');
+      } else if (ocrResult.text) {
+        logger.log('📝 Parsing text locally...');
+        parsed = parseExam(ocrResult.text, examType);
+      }
 
       // Mostrar advertencias y errores de validación si vienen de la API
       if (ocrResult.warnings && ocrResult.warnings.length > 0) {
         setWarnings(ocrResult.warnings);
+        logger.warn('⚠️ OCR warnings:', ocrResult.warnings);
       }
       if (ocrResult.errors && ocrResult.errors.length > 0) {
         setValidationErrors(ocrResult.errors);
+        logger.warn('⚠️ OCR validation errors:', ocrResult.errors);
+      }
+
+      if (Object.keys(parsed).length === 0) {
+        throw new Error('No se pudieron extraer datos del examen. Por favor, verifica que la imagen sea clara y contenga todos los valores del examen médico.');
       }
 
       setExtractedData(parsed);
+      logger.log('✅ Image processed successfully', { extractedFields: Object.keys(parsed) });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido al procesar el examen';
+      logger.error('❌ Error processing exam:', { 
+        error: err, 
+        examType,
+        hasImage: !!image,
+        imageLength: image?.length,
+        errorName: err instanceof Error ? err.name : 'Unknown',
+        errorMessage: err instanceof Error ? err.message : String(err)
+      });
+      
+      let errorMessage = 'Error desconocido al procesar el examen';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = String(err.message);
+      }
+      
+      // Si el error es muy genérico, dar más contexto
+      if (errorMessage.toLowerCase().includes('unknown') || errorMessage === 'Error desconocido al procesar el examen') {
+        errorMessage = 'Error al procesar el examen. Por favor:\n• Verifica que la imagen sea clara y completa\n• Asegúrate de tener conexión a internet\n• Intenta con otra imagen más nítida';
+      }
+      
       setError(errorMessage);
-      logger.error('Error processing exam:', err);
     } finally {
       setIsProcessing(false);
     }

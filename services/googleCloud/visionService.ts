@@ -74,19 +74,44 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
       error: data.error,
     };
   } catch (error) {
-    logger.error('❌ Error calling OCR API:', error);
-    const errorMessage = error instanceof Error 
-      ? error.message 
-      : typeof error === 'string' 
-        ? error 
-        : 'Error desconocido al conectar con el servidor';
+    logger.error('❌ Error calling OCR API:', { 
+      error,
+      errorName: error instanceof Error ? error.name : 'Unknown',
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      examType: request.examType,
+      imageLength: request.image?.length || 0
+    });
+    
+    let errorMessage = 'Error desconocido al conectar con el servidor';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String(error.message);
+    }
     
     // Detectar errores de red/CORS
-    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('Network request failed')) {
       return {
         text: '',
-        error: 'Error de conexión. Verifica tu conexión a internet y que la API esté disponible.',
+        error: 'Error de conexión. Verifica tu conexión a internet y que la API esté disponible. Si el problema persiste, intenta recargar la página.',
       };
+    }
+    
+    // Detectar errores CORS específicos
+    if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
+      return {
+        text: '',
+        error: 'Error de configuración del servidor. Por favor, contacta al soporte.',
+      };
+    }
+    
+    // Si el error es muy genérico, dar más contexto
+    if (errorMessage.toLowerCase().includes('unknown') || errorMessage === 'Error desconocido al conectar con el servidor') {
+      errorMessage = 'Error al procesar la imagen. Por favor:\n• Verifica tu conexión a internet\n• Asegúrate de que la imagen sea válida\n• Intenta recargar la página';
     }
     
     return {
