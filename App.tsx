@@ -251,6 +251,7 @@ function AppContent() {
 
   /**
    * Helper function for retry logic with exponential backoff
+   * Uses function declaration syntax for esbuild compatibility
    * @param fn - Async function to retry
    * @param retries - Number of retry attempts (default: 3)
    * @param baseDelay - Base delay in milliseconds (default: 1000)
