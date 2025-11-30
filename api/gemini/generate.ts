@@ -17,18 +17,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const origin = req.headers.origin || '';
   const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
   const allowedOrigins = [
-    'https://fertyfit.com',
-    'https://www.fertyfit.com',
-    'https://method.fertyfit.com',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5173',
+    'https://method.fertyfit.com', // Solo la app en producción
+    'http://localhost:5173',        // Desarrollo local
+    'http://localhost:5174',        // Desarrollo local (puerto alternativo)
+    'http://127.0.0.1:5173',        // Desarrollo local (IP)
   ];
   
-  // Determine which origin to allow
-  let allowedOrigin = '*';
-  if (origin && (isLocalhost || allowedOrigins.includes(origin))) {
-    allowedOrigin = origin;
+  // Determine which origin to allow - prioritize exact match
+  let allowedOrigin: string;
+  if (origin && allowedOrigins.includes(origin)) {
+    allowedOrigin = origin; // Use the exact origin from the request
+  } else if (isLocalhost) {
+    allowedOrigin = origin; // Even if not in list, allow localhost
+  } else {
+    allowedOrigin = 'https://method.fertyfit.com'; // Fallback to production origin
   }
   
   // Always set CORS headers
@@ -44,6 +46,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Apply security headers
   applySecurityHeaders(res);
+  
+  // Re-assert CORS headers after security headers to ensure they're not overwritten
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
 
   // Only allow POST
   if (req.method !== 'POST') {

@@ -66,24 +66,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const origin = req.headers.origin || '';
   const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
   const allowedOrigins = [
-    'https://fertyfit.com',
-    'https://www.fertyfit.com',
-    'https://method.fertyfit.com',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5173',
+    'https://method.fertyfit.com', // Solo la app en producción
+    'http://localhost:5173',        // Desarrollo local
+    'http://localhost:5174',        // Desarrollo local (puerto alternativo)
+    'http://127.0.0.1:5173',        // Desarrollo local (IP)
   ];
   
   // Determine which origin to allow - prioritize exact match
   let allowedOrigin: string;
-  if (origin && (isLocalhost || allowedOrigins.includes(origin))) {
+  if (origin && allowedOrigins.includes(origin)) {
     allowedOrigin = origin; // Use the exact origin from the request
   } else if (isLocalhost) {
     allowedOrigin = origin; // Even if not in list, allow localhost
-  } else if (allowedOrigins.includes(origin)) {
-    allowedOrigin = origin;
   } else {
-    allowedOrigin = '*'; // Fallback
+    allowedOrigin = 'https://method.fertyfit.com'; // Fallback to production origin
   }
   
   // Log for debugging

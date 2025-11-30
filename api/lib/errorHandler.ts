@@ -48,7 +48,7 @@ export function handleError(error: unknown, req?: any): {
       statusCode: appError.statusCode || 500,
       message: appError.message || 'Ha ocurrido un error',
       code: appError.code,
-      details: isProduction ? undefined : { stack: (error as Error).stack },
+      details: isProduction ? undefined : { stack: error instanceof Error ? error.stack : undefined },
     };
   }
 
