@@ -43,7 +43,7 @@
       "headers": [
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "POST, OPTIONS"
+          "value": "POST, OPTIONS, GET"
         },
         {
           "key": "Access-Control-Allow-Headers",
