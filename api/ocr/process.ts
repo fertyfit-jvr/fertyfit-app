@@ -185,10 +185,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Parsear el texto según el tipo de examen
       let rawParsedData: Record<string, any> = {};
       try {
-        const { parseExam } = await import('../../services/examParsers.js');
+        // Intentar importar con diferentes rutas para compatibilidad con Vercel
+        let parseExam;
+        try {
+          const examParsersModule = await import('../../services/examParsers.js');
+          parseExam = examParsersModule.parseExam;
+        } catch (importError) {
+          // Fallback: importar sin extensión
+          const examParsersModule = await import('../../services/examParsers');
+          parseExam = examParsersModule.parseExam;
+        }
+        
+        if (!parseExam || typeof parseExam !== 'function') {
+          throw new Error('parseExam function not found');
+        }
+        
         rawParsedData = parseExam(fullText, examType);
       } catch (parseError: any) {
-        logger.error('Error parsing exam:', parseError);
+        logger.error('Error parsing exam:', {
+          error: parseError.message,
+          stack: parseError.stack,
+          examType,
+          textLength: fullText.length,
+        });
         throw createError(
           'Error al procesar los datos del examen. Por favor, intenta con otra foto.',
           500,
