@@ -51,8 +51,10 @@ function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: n
     const diaEnCiclo = diasDesdeUltimaRegla + 1; // Día 1 = día que viene la regla
 
     // Si tenemos cycleLength y el día calculado es mayor, estamos en un nuevo ciclo
+    // Calcular cuántos ciclos completos han pasado para manejar múltiples ciclos
     if (cycleLength && diaEnCiclo > cycleLength) {
-        return diaEnCiclo - cycleLength; // Día del nuevo ciclo
+        const ciclosCompletos = Math.floor((diaEnCiclo - 1) / cycleLength);
+        return diaEnCiclo - (ciclosCompletos * cycleLength);
     }
 
     return diaEnCiclo;

@@ -29,6 +29,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   const [image, setImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<Record<string, any> | null>(null);
+  const [extractedText, setExtractedText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -270,6 +271,11 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
         return;
       }
 
+      // Guardar el texto completo extraído
+      if (ocrResult.text) {
+        setExtractedText(ocrResult.text);
+      }
+
       // Verificar que tenemos texto o datos parseados
       if (!ocrResult.text && !ocrResult.parsedData) {
         throw new Error('No se pudo extraer texto de la imagen. Por favor, asegúrate de que la imagen sea clara y contenga texto legible.');
@@ -296,12 +302,13 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
         logger.warn('⚠️ OCR validation errors:', ocrResult.errors);
       }
 
-      if (Object.keys(parsed).length === 0) {
-        throw new Error('No se pudieron extraer datos del examen. Por favor, verifica que la imagen sea clara y contenga todos los valores del examen médico.');
-      }
-
+      // Siempre establecer los datos, aunque estén vacíos (para mostrar el texto completo)
       setExtractedData(parsed);
-      logger.log('✅ Image processed successfully', { extractedFields: Object.keys(parsed) });
+      logger.log('✅ Image processed successfully', { 
+        extractedFields: Object.keys(parsed),
+        hasText: !!ocrResult.text,
+        textLength: ocrResult.text?.length || 0
+      });
     } catch (err) {
       logger.error('❌ Error processing exam:', { 
         error: err, 
@@ -334,8 +341,9 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   };
 
   const handleConfirm = () => {
-    if (extractedData) {
-      onDataExtracted(extractedData);
+    // Confirmar aunque solo tengamos texto, o datos parseados
+    if (extractedData || extractedText) {
+      onDataExtracted(extractedData || {});
       onClose();
     }
   };
@@ -343,6 +351,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   const handleRetry = () => {
     setImage(null);
     setExtractedData(null);
+    setExtractedText(null);
     setError(null);
     setWarnings([]);
     setValidationErrors([]);
@@ -575,18 +584,40 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                 </div>
               )}
 
+              {/* Mostrar texto completo extraído */}
+              {extractedText && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-xs font-bold text-blue-800 mb-2">Texto extraído de la imagen:</p>
+                  <div className="bg-white rounded-lg p-3 max-h-48 overflow-y-auto">
+                    <pre className="text-xs text-[#4A4A4A] whitespace-pre-wrap font-mono">
+                      {extractedText}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl p-4 space-y-3 max-h-64 overflow-y-auto">
                 {Object.keys(extractedData).length === 0 ? (
-                  <p className="text-sm text-[#5D7180] text-center py-4">
-                    No se encontraron datos válidos en el examen. Intenta con otra foto.
-                  </p>
+                  <div className="text-center py-4">
+                    <p className="text-sm text-[#5D7180] mb-2">
+                      No se encontraron datos estructurados en el examen.
+                    </p>
+                    {extractedText && (
+                      <p className="text-xs text-[#5D7180] italic">
+                        Revisa el texto extraído arriba para verificar que la imagen sea correcta.
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                  Object.entries(extractedData).map(([key, value]) => (
-                    <div key={key} className="flex justify-between items-center py-2 border-b border-[#F4F0ED] last:border-0">
-                      <span className="text-xs font-bold text-[#95706B] uppercase">{key.replace('function_', '')}</span>
-                      <span className="text-sm font-semibold text-[#4A4A4A]">{value}</span>
-                    </div>
-                  ))
+                  <>
+                    <p className="text-xs font-semibold text-[#5D7180] mb-2">Valores extraídos:</p>
+                    {Object.entries(extractedData).map(([key, value]) => (
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-[#F4F0ED] last:border-0">
+                        <span className="text-xs font-bold text-[#95706B] uppercase">{key.replace('function_', '')}</span>
+                        <span className="text-sm font-semibold text-[#4A4A4A]">{value}</span>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
 
@@ -598,10 +629,10 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                     e.stopPropagation();
                     handleConfirm();
                   }}
-                  disabled={Object.keys(extractedData).length === 0}
+                  disabled={!extractedText && Object.keys(extractedData).length === 0}
                   className="flex-1 bg-[#5D7180] text-white py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirmar y rellenar
+                  {Object.keys(extractedData).length > 0 ? 'Confirmar y rellenar' : 'Confirmar (solo texto)'}
                 </button>
                 <button
                   type="button"

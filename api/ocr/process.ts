@@ -191,15 +191,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Validar que el texto parece ser un examen médico
       const textValidation = validateMedicalExamText(fullText, examType);
-      if (!textValidation.isMedicalExam) {
-        throw createError(
-          getErrorMessage('NO_MEDICAL_EXAM', examType),
-          400,
-          'NO_MEDICAL_EXAM'
-        );
-      }
-
-      // Parsear el texto según el tipo de examen
+      
+      // Parsear el texto según el tipo de examen (siempre, aunque no sea válido)
+      // Esto permite mostrar lo que se encontró aunque no sea un examen médico válido
       let rawParsedData: Record<string, any> = {};
       try {
         // Importar parseExam - en Vercel necesitamos usar la ruta relativa desde api/
@@ -240,10 +234,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
       }
 
+      // Combinar advertencias de validación de texto y datos
+      const allWarnings = [
+        ...(textValidation.warnings || []),
+        ...(dataValidation.warnings || [])
+      ];
+      
+      // Si no es un examen médico válido, agregar advertencia pero no rechazar
+      if (!textValidation.isMedicalExam) {
+        allWarnings.push(
+          `No se detectaron suficientes términos médicos para un ${examType === 'hormonal' ? 'panel hormonal' : 
+            examType === 'metabolic' ? 'panel metabólico' : 
+            examType === 'vitamin_d' ? 'análisis de Vitamina D' :
+            examType === 'ecografia' ? 'ecografía' :
+            examType === 'hsg' ? 'histerosalpingografía' : 'espermiograma'}. ` +
+          `Se procesará la imagen de todas formas, pero por favor verifica que los datos sean correctos.`
+        );
+      }
+
       return res.status(200).json({
         text: fullText,
         parsedData: dataValidation.validatedData,
-        warnings: dataValidation.warnings,
+        warnings: allWarnings,
         errors: dataValidation.errors,
         confidence: textValidation.confidence,
         isMedicalExam: textValidation.isMedicalExam,
