@@ -256,11 +256,11 @@ function AppContent() {
    * @param baseDelay - Base delay in milliseconds (default: 1000)
    * @returns Result of the function or throws error after all retries
    */
-  const withRetry = async <T>(
+  async function withRetry<T>(
     fn: () => Promise<T>,
     retries: number = 3,
     baseDelay: number = 1000
-  ): Promise<T> => {
+  ): Promise<T> {
     for (let i = 0; i < retries; i++) {
       try {
         return await fn();
@@ -275,7 +275,7 @@ function AppContent() {
       }
     }
     throw new Error('Retry failed'); // Should never reach here
-  };
+  }
 
   // Define ALL fetch functions FIRST to avoid circular dependencies
   const fetchLogs = async (userId: string, daysLimit: number = 90) => {
