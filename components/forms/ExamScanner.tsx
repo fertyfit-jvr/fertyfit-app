@@ -80,7 +80,11 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       streamRef.current = stream;
@@ -206,7 +210,11 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={startCamera}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startCamera(e);
+                  }}
                   className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors"
                 >
                   <Camera size={32} className="text-[#C7958E] mb-2" />
@@ -247,14 +255,24 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={capturePhoto}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    capturePhoto();
+                  }}
                   className="flex-1 bg-[#5D7180] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
                 >
                   <Camera size={20} />
                   Capturar
                 </button>
                 <button
-                  onClick={stopCamera}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    stopCamera();
+                  }}
                   className="px-6 py-3 border border-[#E1D7D3] rounded-xl font-bold text-[#5D7180] hover:bg-[#F4F0ED]"
                 >
                   Cancelar
@@ -285,7 +303,12 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
               )}
               <div className="flex gap-3">
                 <button
-                  onClick={processImage}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    processImage();
+                  }}
                   disabled={isProcessing}
                   className="flex-1 bg-[#5D7180] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                 >
@@ -302,7 +325,12 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                   )}
                 </button>
                 <button
-                  onClick={handleRetry}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRetry();
+                  }}
                   disabled={isProcessing}
                   className="px-6 py-3 border border-[#E1D7D3] rounded-xl font-bold text-[#5D7180] hover:bg-[#F4F0ED] disabled:opacity-50"
                 >
