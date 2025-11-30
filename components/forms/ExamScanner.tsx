@@ -141,21 +141,51 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      setError('No se puede capturar la foto. La cámara no está lista.');
+      return;
+    }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0);
+    try {
+      const canvas = document.createElement('canvas');
+      const video = videoRef.current;
+      
+      // Verificar que el video tenga dimensiones válidas
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        setError('La cámara aún no está lista. Espera un momento e intenta de nuevo.');
+        return;
+      }
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        setError('No se pudo crear el contexto de la imagen.');
+        return;
+      }
+      
+      ctx.drawImage(video, 0, 0);
       canvas.toBlob(async (blob) => {
         if (blob) {
-          const base64 = await fileToBase64(blob);
-          setImage(base64);
-          stopCamera();
+          try {
+            const base64 = await fileToBase64(blob);
+            setImage(base64);
+            setError(null); // Limpiar errores previos
+            stopCamera();
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Error al procesar la imagen capturada';
+            setError(errorMessage);
+            logger.error('Error converting blob to base64:', err);
+          }
+        } else {
+          setError('No se pudo capturar la imagen. Intenta de nuevo.');
         }
       }, 'image/jpeg', 0.9);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al capturar la foto';
+      setError(errorMessage);
+      logger.error('Error capturing photo:', err);
     }
   };
 
