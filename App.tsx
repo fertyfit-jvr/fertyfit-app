@@ -1073,7 +1073,9 @@ function AppContent() {
                 saveDailyLog={saveDailyLog}
                   user={user}
                   onUserUpdate={async (updatedUser) => {
-                    setUser(updatedUser);
+                    // Preservar todos los campos del usuario actual al actualizar
+                    // Esto asegura que methodStartDate y otros campos estáticos no se pierdan
+                    setUser(prevUser => prevUser ? { ...prevUser, ...updatedUser } : updatedUser);
                     // Refrescar perfil completo y formularios para sincronizar todas las vistas
                     if (updatedUser?.id) {
                       await refreshUserProfile(updatedUser.id);

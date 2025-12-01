@@ -479,31 +479,15 @@ export { calcularDiaDelCiclo };
  * Actualiza la fecha de última menstruación del perfil
  */
 export const handlePeriodConfirmed = async (userId: string, newPeriodDate: string) => {
-    // 1. Obtener perfil actual con historial
-    // Intentar obtener period_history, pero si no existe la columna, usar array vacío
+    // 1. Obtener perfil actual con historial (incluir period_history en la misma query)
     const { data: profileData, error: fetchError } = await supabase
         .from('profiles')
-        .select('last_period_date, cycle_length')
+        .select('last_period_date, cycle_length, period_history')
         .eq('id', userId)
         .single();
 
     if (fetchError && fetchError.code !== 'PGRST116') {
         throw new Error(`handlePeriodConfirmed fetch failed: ${fetchError.message}`);
-    }
-
-    // Intentar obtener period_history por separado (puede fallar si la columna no existe)
-    let periodHistory: string[] = [];
-    try {
-        const { data: historyData } = await supabase
-            .from('profiles')
-            .select('period_history')
-            .eq('id', userId)
-            .single();
-        periodHistory = (historyData?.period_history as string[]) || [];
-    } catch (e) {
-        // Si la columna no existe, usar array vacío (la migración se aplicará después)
-        logger.warn('period_history column may not exist yet. Using empty array.');
-        periodHistory = [];
     }
 
     // 2. Actualizar historial de períodos
@@ -518,14 +502,22 @@ export const handlePeriodConfirmed = async (userId: string, newPeriodDate: strin
         updatedHistory = [newPeriodDate, ...currentHistory].slice(0, 12);
     }
 
-    // 3. Calcular nuevo ciclo promedio si hay al menos 2 períodos
-    let newCycleLength = profileData?.cycle_length || 28;
+    // 3. Calcular nuevo ciclo promedio solo si hay suficientes períodos (2+)
+    // Si hay pocos datos, preservar el cycleLength existente (probablemente de F0)
+    // La BD es la fuente de verdad única para cycleLength
+    let newCycleLength = profileData?.cycle_length || 28; // Preservar valor existente (puede venir de F0)
     if (updatedHistory.length >= 2) {
         // Ordenar fechas de más antigua a más reciente para el cálculo
         const sortedHistory = [...updatedHistory].sort((a, b) => 
             new Date(a).getTime() - new Date(b).getTime()
         );
-        newCycleLength = calcularCicloPromedio(sortedHistory);
+        const cicloCalculado = calcularCicloPromedio(sortedHistory);
+        // Solo actualizar si el cálculo es válido (rango 21-45 días)
+        // Esto permite que el auto-cálculo actualice el ciclo cuando hay suficientes datos
+        if (cicloCalculado >= 21 && cicloCalculado <= 45) {
+            newCycleLength = cicloCalculado;
+        }
+        // Si el cálculo no es válido, mantener el cycleLength existente (de F0 o valor previo)
     }
 
     // 4. Actualizar perfil con nueva fecha, historial y ciclo promedio

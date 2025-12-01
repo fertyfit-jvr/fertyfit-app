@@ -80,12 +80,12 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                     <div>
                         <p className="text-xs font-bold text-amber-800 mb-1">Usando duración estimada</p>
                         <p className="text-xs text-amber-700">
-                            No has especificado tu duración de ciclo. Estamos usando 28 días por defecto.
+                            No tenemos tu duración de ciclo registrada en el perfil. Estamos usando 28 días por defecto.
                             <button
                                 onClick={onCompleteProfile}
                                 className="underline font-bold ml-1"
                             >
-                                Actualiza tu perfil
+                                Completa el formulario F0
                             </button> para cálculos más precisos.
                         </p>
                     </div>

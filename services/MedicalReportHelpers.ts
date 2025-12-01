@@ -147,8 +147,14 @@ export function generarDatosInformeMedico(
         effectiveLastPeriod = estimatedLastPeriod.toISOString().split('T')[0];
     }
 
-    const usandoDefault = !user.cycleLength && cycleDayOverride ? true : false;
-    let effectiveCycleLength = user.cycleLength ? Number(user.cycleLength) : (cycleDayOverride ? 28 : 0);
+    // Verificar si hay un cycleLength válido en el perfil
+    // Un cycleLength válido debe ser un número positivo
+    // Nota: No restringimos a 21-45 días porque algunos ciclos pueden estar fuera de rango pero ser válidos
+    const tieneCycleLengthValido = typeof user.cycleLength === 'number' && user.cycleLength > 0 && user.cycleLength <= 100;
+    const usandoDefault = !tieneCycleLengthValido;
+    let effectiveCycleLength = tieneCycleLengthValido 
+      ? Number(user.cycleLength) 
+      : 28; // Siempre usar 28 como fallback, la BD es la fuente de verdad
 
     if (effectiveLastPeriod && effectiveCycleLength) {
 

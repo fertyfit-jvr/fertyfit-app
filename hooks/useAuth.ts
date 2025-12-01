@@ -178,6 +178,8 @@ export function useAuth() {
 
   /**
    * Refreshes user profile from database
+   * Solo actualiza campos dinámicos del ciclo menstrual
+   * PRESERVA todos los demás campos estáticos (methodStartDate, name, email, etc.)
    */
   const refreshUserProfile = async (userId: string) => {
     try {
@@ -185,11 +187,14 @@ export function useAuth() {
       if (profile) {
         setUser(prevUser => {
           if (!prevUser) return prevUser;
+          // Solo actualizar campos dinámicos del ciclo menstrual
+          // methodStartDate y otros campos estáticos se preservan automáticamente del prevUser
           return {
             ...prevUser,
             lastPeriodDate: profile.last_period_date,
             cycleLength: profile.cycle_length,
             cycleRegularity: profile.cycle_regularity,
+            periodHistory: profile.period_history || [],
           };
         });
       }
