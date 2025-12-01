@@ -254,9 +254,9 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                 className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors active:scale-95 w-full"
               >
                 <Camera size={48} className="text-[#C7958E] mb-3" />
-                <span className="text-base font-bold text-[#4A4A4A]">Tomar foto o subir imagen</span>
+                <span className="text-base font-bold text-[#4A4A4A]">Escanear examen</span>
                 <span className="text-xs text-[#5D7180] mt-1 text-center">
-                  Elige desde cámara o galería
+                  Toca para tomar foto con la cámara o elegir de galería
                 </span>
               </button>
               {/* INPUT MEJORADO con capture para móvil */}

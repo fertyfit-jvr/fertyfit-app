@@ -82,7 +82,6 @@ class RateLimiter {
 }
 
 // Create rate limiters for different endpoints
-export const geminiRateLimiter = new RateLimiter(60000, 20); // 20 requests per minute
 export const ocrRateLimiter = new RateLimiter(60000, 10); // 10 requests per minute (more expensive)
 export const apiRateLimiter = new RateLimiter(60000, 100); // 100 requests per minute for general API
 

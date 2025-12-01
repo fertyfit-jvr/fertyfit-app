@@ -17,7 +17,6 @@ import { calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from 
 import { getCycleDay } from './hooks/useCycleDay';
 import { isValidNotificationHandler } from './types';
 import { generarDatosInformeMedico } from './services/MedicalReportHelpers';
-import { generateF0Notification, generateLogAnalysis } from './services/googleCloud/geminiService';
 import { useAppStore } from './store/useAppStore';
 import Notification from './components/common/Notification';
 import LogHistoryItem from './components/common/LogHistoryItem';
@@ -507,133 +506,6 @@ function AppContent() {
     }
   };
 
-  const analyzeLogsWithAI = async (userId: string, recentLogs: DailyLog[], context: 'f0' | 'f0_update' | 'daily' = 'daily') => {
-    try {
-      logger.log('🤖 AI Analysis triggered:', { context, userId });
-
-      if (context === 'f0' || context === 'f0_update') {
-        // Fetch fresh profile data to ensure we have the latest F0 answers
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
-
-        if (!profile) return;
-
-        // Usar nuevo servicio de Gemini
-        const aiMessage = await generateF0Notification({
-          name: profile.name,
-          age: profile.age,
-          main_objective: profile.main_objective,
-          time_trying: profile.time_trying,
-          diagnoses: profile.diagnoses,
-          partner_status: profile.partner_status,
-        });
-
-        let title = context === 'f0' ? '🌸 Bienvenida a FertyFit' : '✨ Perfil Actualizado';
-        let message = aiMessage || (context === 'f0'
-          ? '¡Bienvenida! Estamos aquí para acompañarte en tu camino hacia la fertilidad.'
-          : 'Hemos actualizado tu perfil. Tus nuevos datos nos ayudarán a darte mejores recomendaciones.');
-
-        // CHECK FOR DUPLICATES BEFORE INSERTING
-        const localSentKey = `fertyfit_welcome_sent_${userId}`;
-        const alreadySentLocal = localStorage.getItem(localSentKey);
-
-        const { data: existingNotifs } = await supabase.from('notifications').select('id').eq('user_id', userId).eq('title', title);
-
-        if ((!existingNotifs || existingNotifs.length === 0) && !alreadySentLocal) {
-          const { error } = await supabase.from('notifications').insert({
-            user_id: userId,
-            title,
-            message,
-            type: 'celebration',
-            priority: 3
-          });
-          if (!error) {
-            localStorage.setItem(localSentKey, 'true');
-          }
-          logger.log('✅ F0 AI notification created:', { title, success: !error });
-        } else {
-          logger.log('⚠️ Notification already exists or sent previously, skipping:', title);
-        }
-      } else {
-        // Daily logs: Generate TWO notifications using Gemini API
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
-
-        if (!profile) {
-          logger.error('❌ No profile found for AI notification');
-          return;
-        }
-
-        const logSummary = recentLogs.slice(0, 14).map(log => ({
-          date: log.date,
-          cycleDay: log.cycleDay,
-          bbt: log.bbt,
-          mucus: log.mucus,
-          stressLevel: log.stressLevel,
-          sleepHours: log.sleepHours,
-          symptoms: log.symptoms,
-          lhTest: log.lhTest,
-          alcohol: log.alcohol,
-          veggieServings: log.veggieServings
-        }));
-
-        // 1. POSITIVE NOTIFICATION
-        const positiveMessage = await generateLogAnalysis(
-          {
-            name: profile.name,
-            age: profile.age,
-            main_objective: profile.main_objective,
-            diagnoses: profile.diagnoses,
-            time_trying: profile.time_trying,
-            cycle_length: profile.cycle_length,
-            cycle_regularity: profile.cycle_regularity,
-          },
-          logSummary,
-          'positive'
-        );
-
-        if (positiveMessage) {
-          const { error } = await supabase.from('notifications').insert({
-            user_id: userId,
-            title: '💚 Aspecto Positivo Detectado',
-            message: positiveMessage,
-            type: 'celebration',
-            priority: 2
-          });
-          logger.log('✅ Positive AI notification created:', { success: !error });
-        }
-
-        // 2. ALERT NOTIFICATION
-        const alertMessage = await generateLogAnalysis(
-          {
-            name: profile.name,
-            age: profile.age,
-            main_objective: profile.main_objective,
-            diagnoses: profile.diagnoses,
-            time_trying: profile.time_trying,
-            cycle_length: profile.cycle_length,
-            cycle_regularity: profile.cycle_regularity,
-          },
-          logSummary,
-          'alert'
-        );
-
-        if (alertMessage) {
-          const { error } = await supabase.from('notifications').insert({
-            user_id: userId,
-            title: '⚠️ Área de Atención',
-            message: alertMessage,
-            type: 'alert',
-            priority: 2
-          });
-          logger.log('✅ Alert AI notification created:', { success: !error });
-        }
-      }
-
-      fetchNotifications(userId);
-
-    } catch (error) {
-      logger.error('Error analyzing with AI:', error);
-    }
-  };
 
   const saveDailyLog = async () => {
     if (!user?.id) return;
@@ -657,39 +529,10 @@ function AppContent() {
       showNotif("Registro guardado con éxito", 'success');
       await fetchLogs(user.id);
 
-      // AI Notification Logic:
-      // 1. First daily log ever -> Generate AI
-      // 2. Every 7 days after first -> Generate AI
-      const updatedLogs = await supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: false });
-
       // Note: Rule engine evaluation happens in useEffect (DAILY_CHECK trigger)
       // This ensures rules are evaluated once per day, not on every log save
       // to avoid notification spam
       await fetchNotifications(user.id);
-
-      if (updatedLogs.data && updatedLogs.data.length > 0) {
-        const totalLogs = updatedLogs.data.length;
-        const { data: profileData } = await supabase.from('profiles').select('last_ai_notification_date').eq('id', user.id).single();
-        const lastAiDate = profileData?.last_ai_notification_date;
-
-        let shouldGenerateAI = false;
-
-        if (totalLogs === 1) {
-          // First daily log ever
-          shouldGenerateAI = true;
-        } else if (lastAiDate) {
-          // Check if 7 days have passed since last AI notification
-          const daysSinceLastAI = Math.floor((new Date().getTime() - new Date(lastAiDate).getTime()) / (1000 * 3600 * 24));
-          if (daysSinceLastAI >= 7) {
-            shouldGenerateAI = true;
-          }
-        }
-
-        if (shouldGenerateAI) {
-          analyzeLogsWithAI(user.id, updatedLogs.data.map(mapLogFromDB), 'daily');
-          await supabase.from('profiles').update({ last_ai_notification_date: new Date().toISOString() }).eq('id', user.id);
-        }
-      }
 
       setView('DASHBOARD');
     } else {

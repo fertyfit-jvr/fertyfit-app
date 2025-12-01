@@ -150,17 +150,6 @@ export const DailyLogSchema = z.object({
 // API REQUEST SCHEMAS
 // ============================================================================
 
-export const GeminiRequestSchema = z.object({
-  prompt: z.string()
-    .min(1, 'Prompt requerido')
-    .max(10000, 'Prompt demasiado largo'),
-  context: z.string().max(100).optional(),
-  maxTokens: z.number().int().min(1).max(2000).optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  userId: z.string().uuid('ID de usuario inválido').optional(),
-  profile: z.record(z.string(), z.any()).optional(),
-  recentLogs: z.array(z.any()).optional(),
-});
 
 export const OCRRequestSchema = z.object({
   image: z.string()
@@ -169,19 +158,6 @@ export const OCRRequestSchema = z.object({
   examType: z.enum(['hormonal', 'metabolic', 'vitamin_d', 'ecografia', 'hsg', 'espermio']),
 });
 
-// Schema para Gemini Vision - acepta imagen sin examType (la IA lo detecta)
-export const GeminiVisionRequestSchema = z.object({
-  image: z.string()
-    .min(100, 'Imagen inválida o demasiado pequeña')
-    .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, 'Formato de imagen inválido'),
-});
-
-// Schema para Gemini Vision - acepta imagen sin examType (la IA lo detecta)
-export const GeminiVisionRequestSchema = z.object({
-  image: z.string()
-    .min(100, 'Imagen inválida o demasiado pequeña')
-    .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, 'Formato de imagen inválido'),
-});
 
 // ============================================================================
 // HELPER FUNCTIONS
