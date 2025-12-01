@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef } from 'react';
-import { Camera, Upload, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Camera, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { processImageOCR, fileToBase64 } from '../../services/googleCloud/visionService';
 import { parseExam } from '../../services/examParsers';
 import { logger } from '../../lib/logger';
@@ -34,9 +34,6 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   const [warnings, setWarnings] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [showCamera, setShowCamera] = useState(false);
-  const streamRef = useRef<MediaStream | null>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
@@ -78,152 +75,6 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    }
-  };
-
-  const startCamera = async (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    
-    // Limpiar errores previos
-    setError(null);
-    setWarnings([]);
-    setValidationErrors([]);
-    
-    try {
-      // Verificar si getUserMedia está disponible
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Tu navegador no soporta el acceso a la cámara. Por favor, usa un navegador moderno o la app móvil.');
-      }
-      
-      // Verificar si estamos en HTTPS (requerido para getUserMedia)
-      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        throw new Error('El acceso a la cámara requiere HTTPS. Por favor, accede a la app desde https://method.fertyfit.com');
-      }
-      
-      logger.log('📷 Requesting camera access...');
-      
-      // Intentar primero con restricciones específicas (cámara trasera en móvil)
-      let stream: MediaStream | null = null;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          } 
-        });
-        logger.log('✅ Camera access granted with constraints');
-      } catch (constraintError: any) {
-        // Si falla con restricciones, intentar sin restricciones específicas
-        logger.warn('⚠️ Camera failed with constraints, trying without:', constraintError);
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true 
-          });
-          logger.log('✅ Camera access granted without constraints');
-        } catch (fallbackError: any) {
-          // Si también falla sin restricciones, lanzar el error original
-          throw constraintError;
-        }
-      }
-      
-      if (!stream) {
-        throw new Error('No se pudo obtener el stream de la cámara');
-      }
-      
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setShowCamera(true);
-        setError(null);
-        logger.log('✅ Camera stream set successfully');
-      }
-    } catch (err: any) {
-      logger.error('❌ Error accessing camera:', { 
-        error: err, 
-        name: err.name, 
-        message: err.message,
-        stack: err.stack,
-        protocol: location.protocol,
-        hostname: location.hostname
-      });
-      
-      let errorMessage = 'No se pudo acceder a la cámara';
-      
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage = 'Permisos de cámara denegados.\n\nPara solucionarlo:\n1. Haz clic en el icono de candado 🔒 en la barra de direcciones\n2. Selecciona "Permitir" para el acceso a la cámara\n3. Recarga la página e intenta de nuevo\n\nO usa la opción "Subir imagen" para seleccionar una foto desde tu dispositivo.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errorMessage = 'No se encontró ninguna cámara. Por favor, conecta una cámara y vuelve a intentar.';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        errorMessage = 'La cámara está siendo usada por otra aplicación. Por favor, cierra otras aplicaciones que usen la cámara.';
-      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
-        errorMessage = 'La cámara no soporta las características requeridas. Intenta recargar la página.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
-      setShowCamera(false);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setShowCamera(false);
-  };
-
-  const capturePhoto = () => {
-    if (!videoRef.current) {
-      setError('No se puede capturar la foto. La cámara no está lista.');
-      return;
-    }
-
-    try {
-      const canvas = document.createElement('canvas');
-      const video = videoRef.current;
-      
-      // Verificar que el video tenga dimensiones válidas
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        setError('La cámara aún no está lista. Espera un momento e intenta de nuevo.');
-        return;
-      }
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        setError('No se pudo crear el contexto de la imagen.');
-        return;
-      }
-      
-      ctx.drawImage(video, 0, 0);
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          try {
-            const base64 = await fileToBase64(blob);
-            setImage(base64);
-            setError(null); // Limpiar errores previos
-            stopCamera();
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Error al procesar la imagen capturada';
-            setError(errorMessage);
-            logger.error('Error converting blob to base64:', err);
-          }
-        } else {
-          setError('No se pudo capturar la imagen. Intenta de nuevo.');
-        }
-      }, 'image/jpeg', 0.9);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al capturar la foto';
-      setError(errorMessage);
-      logger.error('Error capturing photo:', err);
     }
   };
 
@@ -378,7 +229,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {!image && !showCamera && (
+          {!image && (
             <div className="space-y-4">
               {error && (
                 <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
@@ -391,78 +242,32 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    startCamera(e);
-                  }}
-                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors active:scale-95"
-                >
-                  <Camera size={32} className="text-[#C7958E] mb-2" />
-                  <span className="text-sm font-bold text-[#4A4A4A]">Tomar foto</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setError(null); // Limpiar errores previos
-                    fileInputRef.current?.click();
-                  }}
-                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors active:scale-95"
-                >
-                  <Upload size={32} className="text-[#C7958E] mb-2" />
-                  <span className="text-sm font-bold text-[#4A4A4A]">Subir imagen</span>
-                </button>
-              </div>
+              {/* UN SOLO BOTÓN UNIFICADO - Funciona mejor en móvil */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setError(null);
+                  fileInputRef.current?.click();
+                }}
+                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors active:scale-95 w-full"
+              >
+                <Camera size={48} className="text-[#C7958E] mb-3" />
+                <span className="text-base font-bold text-[#4A4A4A]">Tomar foto o subir imagen</span>
+                <span className="text-xs text-[#5D7180] mt-1 text-center">
+                  Elige desde cámara o galería
+                </span>
+              </button>
+              {/* INPUT MEJORADO con capture para móvil */}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={handleFileSelect}
                 className="hidden"
               />
-            </div>
-          )}
-
-          {showCamera && (
-            <div className="space-y-4">
-              <div className="relative bg-black rounded-2xl overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-auto"
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    capturePhoto();
-                  }}
-                  className="flex-1 bg-[#5D7180] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
-                >
-                  <Camera size={20} />
-                  Capturar
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    stopCamera();
-                  }}
-                  className="px-6 py-3 border border-[#E1D7D3] rounded-xl font-bold text-[#5D7180] hover:bg-[#F4F0ED]"
-                >
-                  Cancelar
-                </button>
-              </div>
             </div>
           )}
 
@@ -480,24 +285,8 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                   <div className="flex items-start gap-3">
                     <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-red-800">
-                        {error.includes('Permisos') ? 'Permisos de cámara requeridos' : 'Error al procesar'}
-                      </p>
+                      <p className="text-sm font-bold text-red-800">Error al procesar</p>
                       <div className="text-xs text-red-700 mt-1 whitespace-pre-line">{error}</div>
-                      {error.includes('Permisos') && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setError(null);
-                            fileInputRef.current?.click();
-                          }}
-                          className="mt-3 text-xs font-semibold text-[#5D7180] hover:text-[#4A5568] underline"
-                        >
-                          O sube una imagen desde tu dispositivo →
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
