@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, TestTube } from 'lucide-react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2 } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
@@ -11,7 +11,6 @@ import { calcularFechaInicioCicloActual } from '../../services/CycleCalculations
 import { formatDate } from '../../services/utils';
 import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
-import { ExamComparisonTester } from '../../components/forms/ExamComparisonTester';
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -140,7 +139,6 @@ const ProfileView = ({
   
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedAllHistory, setHasLoadedAllHistory] = useState(false);
-  const [showComparisonTester, setShowComparisonTester] = useState(false);
   
   // Guardar valores originales para poder cancelar
   const originalEditName = useRef<string>(user.name);
@@ -618,23 +616,6 @@ const ProfileView = ({
 
           return (
             <div className="space-y-4">
-              {/* Botón de prueba comparativa - TEMPORAL */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-[#4A4A4A] mb-1">🧪 Prueba Comparativa OCR vs Gemini Vision</p>
-                    <p className="text-xs text-[#5D7180]">Prueba ambas opciones y compara resultados, tiempos y costos</p>
-                  </div>
-                  <button
-                    onClick={() => setShowComparisonTester(true)}
-                    className="bg-[#5D7180] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#4A5568] transition-colors flex items-center gap-2"
-                  >
-                    <TestTube size={16} />
-                    Abrir Prueba
-                  </button>
-                </div>
-              </div>
-
               {/* Notificación discreta si debería actualizar la regla */}
               {shouldUpdatePeriod && !isEditingF0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
@@ -966,11 +947,6 @@ const ProfileView = ({
           );
         })()}
       </div>
-
-      {/* Modal de comparación */}
-      {showComparisonTester && (
-        <ExamComparisonTester onClose={() => setShowComparisonTester(false)} />
-      )}
     </div>
   );
 };

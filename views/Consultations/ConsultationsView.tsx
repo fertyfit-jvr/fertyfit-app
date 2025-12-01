@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, Lock, X, TestTube } from 'lucide-react';
+import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, Lock, X } from 'lucide-react';
 import { ConsultationForm, DailyLog, UserProfile } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { supabase } from '../../services/supabase';
 import { calculateAverages } from '../../services/dataService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
-import { ExamComparisonTester } from '../../components/forms/ExamComparisonTester';
 import { formatDate } from '../../services/utils';
 import { PILLAR_ICONS } from '../../constants/api';
 import { savePillarForm } from '../../services/pillarService';
@@ -49,7 +48,6 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const [isEditMode, setIsEditMode] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [scanningSection, setScanningSection] = useState<string | null>(null);
-  const [showComparisonTester, setShowComparisonTester] = useState(false);
   const originalAnswers = useRef<Record<string, any>>({});
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -896,19 +894,9 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
 
   return (
     <div className="pb-24 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
-          <p className="text-sm text-[#5D7180]">Puedes actualizarlos durante todo el método.</p>
-        </div>
-        {/* Botón de prueba comparativa - TEMPORAL */}
-        <button
-          onClick={() => setShowComparisonTester(true)}
-          className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:from-blue-600 hover:to-purple-600 transition-colors flex items-center gap-2 shadow-lg"
-        >
-          <TestTube size={16} />
-          Prueba OCR vs Gemini
-        </button>
+      <div>
+        <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
+        <p className="text-sm text-[#5D7180]">Puedes actualizarlos durante todo el método.</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -976,11 +964,6 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
           onClose={() => setScanningSection(null)}
           sectionTitle={definition.sections?.find(s => s.id === scanningSection)?.title}
         />
-      )}
-
-      {/* Modal de comparación */}
-      {showComparisonTester && (
-        <ExamComparisonTester onClose={() => setShowComparisonTester(false)} />
       )}
     </div>
   );
