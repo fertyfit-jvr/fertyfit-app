@@ -544,3 +544,55 @@ export const IMPACTO_HABITOS = {
     estres: "Estrés severo crónico puede inhibir ovulación",
     ejercicioExtremo: "Más de 7h/semana de ejercicio intenso puede afectar ovulación"
 };
+
+// ============================================================================
+// 11. AUTO-CÁLCULO DE CICLO PROMEDIO
+// ============================================================================
+
+/**
+ * Calcula el promedio del ciclo basado en historial de períodos
+ * Usa promedio móvil de últimos 6 períodos para mayor precisión
+ * 
+ * @param periodDates - Array de fechas de períodos en formato YYYY-MM-DD (ordenadas de más antiguo a más reciente)
+ * @returns Promedio del ciclo en días, o 28 si no hay suficientes datos
+ */
+export function calcularCicloPromedio(periodDates: string[]): number {
+    if (!periodDates || periodDates.length < 2) {
+        return 28; // Default si no hay suficientes datos
+    }
+
+    const ciclos: number[] = [];
+    
+    // Calcular duración entre períodos consecutivos
+    for (let i = 1; i < periodDates.length; i++) {
+        const fechaAnterior = new Date(periodDates[i - 1]);
+        const fechaActual = new Date(periodDates[i]);
+        
+        // Normalizar horas a medianoche para cálculo preciso
+        fechaAnterior.setHours(0, 0, 0, 0);
+        fechaActual.setHours(0, 0, 0, 0);
+        
+        const diferenciaMs = fechaActual.getTime() - fechaAnterior.getTime();
+        const diferenciaDias = Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
+        
+        // Validar que esté en rango razonable (21-45 días)
+        if (diferenciaDias >= 21 && diferenciaDias <= 45) {
+            ciclos.push(diferenciaDias);
+        }
+    }
+    
+    if (ciclos.length === 0) {
+        return 28; // No hay ciclos válidos
+    }
+    
+    // Usar promedio móvil de últimos 6 ciclos para mayor precisión
+    const ciclosRecientes = ciclos.slice(-6);
+    const suma = ciclosRecientes.reduce((a, b) => a + b, 0);
+    const promedio = Math.round(suma / ciclosRecientes.length);
+    
+    // Validar que el promedio esté en rango razonable
+    if (promedio < 21) return 21;
+    if (promedio > 45) return 45;
+    
+    return promedio;
+}

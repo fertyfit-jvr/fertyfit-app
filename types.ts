@@ -22,6 +22,7 @@ export interface UserProfile {
   cycleLength?: number;
   cycleRegularity?: 'Regular' | 'Irregular';
   lastPeriodDate?: string;
+  periodHistory?: string[]; // Historial de fechas de períodos para auto-cálculo del ciclo promedio
   surgicalHistory?: string;
   obstetricHistory?: string;
   fertilityTreatments?: string;

@@ -813,20 +813,8 @@ function AppContent() {
       if (user?.lastPeriodDate && user?.cycleLength) {
         // Use the unified calculation function
         newCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
-      } else {
-        // Fallback: try to use F0 data if user data is not available
-        const f0 = submittedForms.find(f => f.form_type === 'F0');
-        if (f0 && f0.answers) {
-          const lastPeriodAnswer = f0.answers.find((a: any) => a.questionId === 'q8_last_period');
-          const cycleDurationAnswer = f0.answers.find((a: any) => a.questionId === 'q6_cycle');
-
-          if (lastPeriodAnswer && lastPeriodAnswer.answer) {
-            const lastPeriodDate = lastPeriodAnswer.answer as string;
-            const cycleDuration = cycleDurationAnswer ? parseInt(cycleDurationAnswer.answer as string) : 28;
-            newCycleDay = getCycleDay(lastPeriodDate, cycleDuration);
-          }
-        }
       }
+      // Nota: Ya no se usa F0 para obtener lastPeriodDate, solo se maneja desde el perfil/TrackerView
 
       setTodayLog({
         date: newDate,

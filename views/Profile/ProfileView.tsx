@@ -253,7 +253,7 @@ const ProfileView = ({
     if (f0Answers['q2_weight']) updates.weight = parseFloat(f0Answers['q2_weight']);
     if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
     if (f0Answers['q4_objective']) updates.mainObjective = f0Answers['q4_objective'];
-    if (f0Answers['q8_last_period']) updates.lastPeriodDate = f0Answers['q8_last_period'];
+    // Nota: lastPeriodDate ya no se guarda en F0, se maneja desde TrackerView
     if (f0Answers['q6_cycle']) updates.cycleLength = parseFloat(f0Answers['q6_cycle']) || parseInt(f0Answers['q6_cycle']);
 
     if (Object.keys(updates).length > 0) {
@@ -261,7 +261,7 @@ const ProfileView = ({
         weight: updates.weight,
         height: updates.height,
         main_objective: updates.mainObjective,
-        last_period_date: updates.lastPeriodDate,
+        // Nota: last_period_date ya no se actualiza desde F0, se maneja desde TrackerView
         cycle_length: updates.cycleLength
       }).eq('id', user.id);
       setUser({ ...user, ...updates });
@@ -296,12 +296,8 @@ const ProfileView = ({
         syncedAnswers[a.questionId] = a.answer; 
       });
       
-      // Si user.lastPeriodDate cambió, actualizar también en f0Answers
-      if (user?.lastPeriodDate && syncedAnswers['q8_last_period'] !== user.lastPeriodDate) {
-        syncedAnswers['q8_last_period'] = user.lastPeriodDate;
-      }
-      
       // Si user.cycleLength cambió, actualizar también en f0Answers
+      // Nota: lastPeriodDate ya no se sincroniza con F0, se maneja desde TrackerView
       if (user?.cycleLength && syncedAnswers['q6_cycle'] !== user.cycleLength) {
         syncedAnswers['q6_cycle'] = user.cycleLength;
       }
@@ -600,19 +596,8 @@ const ProfileView = ({
               initialAnswers[a.questionId] = a.answer; 
             });
             
-            // SIEMPRE usar la fecha calculada del ciclo actual basada en user.lastPeriodDate y user.cycleLength
-            // Esto asegura que la fecha esté actualizada incluso si f0Form.answers no se ha sincronizado todavía
-            if (user?.lastPeriodDate && user?.cycleLength) {
-              const fechaInicioCicloActual = calcularFechaInicioCicloActual(user.lastPeriodDate, user.cycleLength);
-              if (fechaInicioCicloActual) {
-                initialAnswers['q8_last_period'] = fechaInicioCicloActual;
-              }
-            } else if (user?.lastPeriodDate) {
-              // Si solo tenemos lastPeriodDate sin cycleLength, usar directamente lastPeriodDate
-              initialAnswers['q8_last_period'] = user.lastPeriodDate;
-            }
-            
-            // También actualizar cycleLength si está disponible en user
+            // Actualizar cycleLength si está disponible en user
+            // Nota: lastPeriodDate ya no se edita desde F0, se maneja desde TrackerView
             if (user?.cycleLength) {
               initialAnswers['q6_cycle'] = user.cycleLength;
             }
@@ -949,13 +934,7 @@ const ProfileView = ({
                             }
                           }
                         } else if (question.type === 'date' && typeof displayValue === 'string') {
-                          // Para "Fecha última regla", mostrar la fecha de inicio del ciclo actual calculada
-                          if (answer.questionId === 'q8_last_period' && user?.lastPeriodDate && user?.cycleLength) {
-                            const fechaInicioCicloActual = calcularFechaInicioCicloActual(user.lastPeriodDate, user.cycleLength);
-                            displayValue = formatDate(fechaInicioCicloActual || displayValue, 'long');
-                          } else {
-                            displayValue = formatDate(displayValue, 'long');
-                          }
+                          displayValue = formatDate(displayValue, 'long');
                         }
                         
                         if (Array.isArray(displayValue)) {

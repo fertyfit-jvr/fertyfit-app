@@ -2,22 +2,20 @@ import { useEffect, useState } from 'react';
 import { Minus, Plus, Droplets, Leaf, X, Heart } from 'lucide-react';
 import InputField from '../../components/forms/InputField';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
-import WearableConnect from '../../components/WearableConnect';
 import {
   MUCUS_OPTIONS,
   LH_OPTIONS,
   CERVIX_HEIGHT_OPTIONS,
   CERVIX_FIRM_OPTIONS,
-  CERVIX_OPEN_OPTIONS
+  CERVIX_OPEN_OPTIONS,
+  PERIOD_SYMPTOM_OPTIONS
 } from '../../constants';
 import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '../../types';
 import { supabase } from '../../services/supabase';
-import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../services/RuleEngine';
+import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo, handlePeriodConfirmed } from '../../services/RuleEngine';
 import { calcularVentanaFertil, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate, formatCurrentDate } from '../../services/utils';
 import { logger } from '../../lib/logger';
-import { useAutoSync } from '../../hooks/useAutoSync';
-import { syncManager } from '../../services/syncManager';
 
 type SetTodayLog = (
   value: Partial<DailyLog> | ((prev: Partial<DailyLog>) => Partial<DailyLog>)
@@ -50,56 +48,15 @@ const TrackerView = ({
 }: TrackerViewProps) => {
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [lastPeriodDate, setLastPeriodDate] = useState(user?.lastPeriodDate || '');
-  const [cycleLength, setCycleLength] = useState(user?.cycleLength?.toString() || '28');
+  const [selectedPeriodSymptoms, setSelectedPeriodSymptoms] = useState<string[]>([]);
+  const [isSavingPeriod, setIsSavingPeriod] = useState(false);
   
-  // Auto-sync health data if wearable is connected
-  const isWearableConnected = localStorage.getItem('fertyfit_wearable_connected') === 'true';
-  const { syncStatus, triggerSync } = useAutoSync(user?.id, isWearableConnected, 30);
+  // Estado para popup obligatorio de primera vez (sin lastPeriodDate)
+  const [isFirstPeriodModalOpen, setIsFirstPeriodModalOpen] = useState(false);
+  const [firstPeriodDate, setFirstPeriodDate] = useState('');
+  const [selectedFirstPeriodSymptoms, setSelectedFirstPeriodSymptoms] = useState<string[]>([]);
+  const [isSavingFirstPeriod, setIsSavingFirstPeriod] = useState(false);
   
-  // Auto-sync on mount if connected
-  useEffect(() => {
-    if (isWearableConnected && user?.id) {
-      const performAutoSync = async () => {
-        try {
-          const result = await syncManager.syncWithFallback(user.id!);
-          if (result.success && result.data) {
-            // Pre-fill todayLog with synced data
-            const healthData = result.data;
-            
-            setTodayLog(prev => ({
-              ...prev,
-              // Map health data to todayLog fields
-              bbt: healthData.basalBodyTemperature || prev.bbt,
-              sleepHours: healthData.sleepDurationMinutes ? healthData.sleepDurationMinutes / 60 : prev.sleepHours,
-              sleepQuality: healthData.sleepQuality || prev.sleepQuality,
-              activityMinutes: healthData.activityMinutes || prev.activityMinutes,
-              steps: healthData.steps || prev.steps,
-              activeCalories: healthData.activeCalories || prev.activeCalories,
-              heartRateVariability: healthData.heartRateVariability || prev.heartRateVariability,
-              restingHeartRate: healthData.restingHeartRate || prev.restingHeartRate,
-              sleepPhases: healthData.sleepDeepMinutes || healthData.sleepRemMinutes || healthData.sleepLightMinutes ? {
-                deep: healthData.sleepDeepMinutes || 0,
-                rem: healthData.sleepRemMinutes || 0,
-                light: healthData.sleepLightMinutes || 0
-              } : prev.sleepPhases,
-              healthData: healthData,
-              dataSource: prev.dataSource === 'manual' ? 'hybrid' : 'wearable'
-            }));
-            
-            showNotif?.('Datos sincronizados desde tu wearable', 'success');
-          }
-        } catch (error) {
-          logger.error('Error in auto-sync:', error);
-          // Silent fail - don't show error to user
-        }
-      };
-      
-      // Small delay to avoid blocking initial render
-      setTimeout(performAutoSync, 500);
-    }
-  }, [isWearableConnected, user?.id]); // Only run once on mount
-  const [suggestedCycleLength, setSuggestedCycleLength] = useState<number | null>(null);
-
   // Calcular ventana fértil
   const ventanaFertil = user?.cycleLength 
     ? calcularVentanaFertil(user.cycleLength)
@@ -128,7 +85,6 @@ const TrackerView = ({
     if (!user) return;
     
     setLastPeriodDate(user.lastPeriodDate || '');
-    setCycleLength(user.cycleLength?.toString() || '28');
     
     // Actualizar el día del ciclo cuando cambia el usuario o sus datos del ciclo
     // Solo actualizar si realmente cambió lastPeriodDate o cycleLength
@@ -154,173 +110,212 @@ const TrackerView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.lastPeriodDate, user?.cycleLength]);
 
-  // Calcular duración promedio sugerida cuando se abre el modal
+  // Mostrar popup obligatorio si no hay lastPeriodDate (primera vez)
+  // La BD es la fuente de verdad: si tiene lastPeriodDate, no mostrar el popup
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    // Si el usuario YA tiene lastPeriodDate, NO mostrar el popup
+    if (user.lastPeriodDate) {
+      setIsFirstPeriodModalOpen(false);
+      return;
+    }
+    
+    // Solo mostrar si realmente no tiene lastPeriodDate Y no está abierto ya
+    if (!user.lastPeriodDate && !isFirstPeriodModalOpen) {
+      setIsFirstPeriodModalOpen(true);
+    }
+  }, [user?.id, user?.lastPeriodDate, isFirstPeriodModalOpen]);
+
+  // Inicializar datos cuando se abre el modal de ciclo
   useEffect(() => {
     if (isCycleModalOpen && user) {
-      calcularDuracionPromedioCiclo(user.id!, user.cycleLength).then(avg => {
-        setSuggestedCycleLength(avg);
-      });
+      // Sincronizar fecha de última regla
+      setLastPeriodDate(user.lastPeriodDate || '');
+      
+      // Buscar log del día de la última regla para cargar síntomas existentes
+      if (user.lastPeriodDate) {
+        const lastPeriodLog = logs.find(log => log.date === user.lastPeriodDate);
+        if (lastPeriodLog?.symptoms) {
+          setSelectedPeriodSymptoms(lastPeriodLog.symptoms);
+        } else {
+          setSelectedPeriodSymptoms([]);
+        }
+      } else {
+        setSelectedPeriodSymptoms([]);
+      }
     }
-  }, [isCycleModalOpen, user]);
+  }, [isCycleModalOpen, user, logs]);
 
+  // Guardar período actualizado (desde el modal de edición)
   const handleSaveCycleData = async () => {
-    if (!user || !user.id) return;
-
-    const cycleLengthNum = parseInt(cycleLength) || 28;
-    const lastPeriodDateFormatted = lastPeriodDate || new Date().toISOString().split('T')[0];
-
-    // Actualizar perfil en Supabase
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        last_period_date: lastPeriodDateFormatted,
-        cycle_length: cycleLengthNum
-      })
-      .eq('id', user.id);
-
-    if (profileError) {
-      showNotif?.('Error al actualizar datos del ciclo', 'error');
+    if (!user || !user.id || !lastPeriodDate) {
+      showNotif?.('Por favor, indica la fecha de tu última regla', 'error');
       return;
     }
 
-    // Sincronizar también el F0 form si existe (para que ProfileView tenga los datos actualizados)
-    const f0Form = submittedForms.find(f => f.form_type === 'F0');
-    if (f0Form) {
-      // Obtener las respuestas actuales del F0
-      const { data: currentF0Data } = await supabase
-        .from('consultation_forms')
-        .select('answers')
-        .eq('id', f0Form.id)
-        .single();
+    setIsSavingPeriod(true);
 
-      if (currentF0Data?.answers) {
-        // Actualizar q8_last_period y q6_cycle en las respuestas del F0
-        const updatedAnswers = (currentF0Data.answers as any[]).map((answer: any) => {
-          if (answer.questionId === 'q8_last_period') {
-            return { ...answer, answer: lastPeriodDateFormatted };
-          }
-          if (answer.questionId === 'q6_cycle') {
-            return { ...answer, answer: cycleLengthNum };
-          }
-          return answer;
+    try {
+      // 1. Usar handlePeriodConfirmed para actualizar fecha y auto-calcular ciclo promedio
+      const result = await handlePeriodConfirmed(user.id, lastPeriodDate);
+      
+      // 2. Crear/actualizar log del día con los síntomas seleccionados
+      const { error: logError } = await supabase
+        .from('daily_logs')
+        .upsert({
+          user_id: user.id,
+          date: lastPeriodDate,
+          cycle_day: 1, // Día 1 es cuando viene la regla
+          symptoms: selectedPeriodSymptoms.length > 0 ? selectedPeriodSymptoms : []
+        }, {
+          onConflict: 'user_id,date'
         });
 
-        // Si no existe el campo q8_last_period, agregarlo
-        const hasLastPeriodField = updatedAnswers.some((a: any) => a.questionId === 'q8_last_period');
-        if (!hasLastPeriodField) {
-          updatedAnswers.push({
-            questionId: 'q8_last_period',
-            question: 'Fecha última regla:',
-            answer: lastPeriodDateFormatted
-          });
-        }
-
-        // Si no existe el campo q6_cycle, agregarlo
-        const hasCycleField = updatedAnswers.some((a: any) => a.questionId === 'q6_cycle');
-        if (!hasCycleField) {
-          updatedAnswers.push({
-            questionId: 'q6_cycle',
-            question: 'Duración ciclo promedio:',
-            answer: cycleLengthNum
-          });
-        }
-
-        await supabase
-          .from('consultation_forms')
-          .update({ answers: updatedAnswers })
-          .eq('id', f0Form.id);
-        
-        // Refrescar submittedForms para que ProfileView tenga los datos actualizados
-        if (fetchUserForms && user.id) {
-          await fetchUserForms(user.id);
-    }
-      }
-    }
-
-    // Recargar el perfil completo desde la base de datos para sincronizar todas las vistas
-    const { data: refreshedProfile } = await supabase
-      .from('profiles')
-      .select('last_period_date, cycle_length')
-      .eq('id', user.id)
-      .single();
-
-    if (refreshedProfile && user) {
-      const updatedUser = {
-        ...user,
-        lastPeriodDate: refreshedProfile.last_period_date,
-        cycleLength: refreshedProfile.cycle_length
-      };
-
-      // Calcular el nuevo día del ciclo basado en la fecha del log actual (todayLog.date)
-      // Si no hay fecha en todayLog, usar la fecha de hoy
-      const logDate = todayLog.date || new Date().toISOString().split('T')[0];
-      
-      // Calcular cuántos días han pasado desde la última regla hasta la fecha del log
-      const lastPeriod = new Date(refreshedProfile.last_period_date || lastPeriodDateFormatted);
-      const logDateObj = new Date(logDate);
-      lastPeriod.setHours(0, 0, 0, 0);
-      logDateObj.setHours(0, 0, 0, 0);
-      
-      const diffDays = Math.floor((logDateObj.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Si la fecha del log es antes de la última regla, usar día 1
-      if (diffDays < 0) {
-        setTodayLog(prev => ({
-          ...prev,
-          cycleDay: 1
-        }));
-      } else {
-        // Día 1 = día que viene la regla
-        let cycleDayForLogDate = diffDays + 1;
-        
-        // Si el día calculado es mayor que cycleLength, estamos en un nuevo ciclo
-        // Manejar múltiples ciclos usando módulo
-        if (cycleDayForLogDate > cycleLengthNum) {
-          // Calcular cuántos ciclos completos han pasado
-          const cyclesPassed = Math.floor((cycleDayForLogDate - 1) / cycleLengthNum);
-          cycleDayForLogDate = cycleDayForLogDate - (cyclesPassed * cycleLengthNum);
-        }
-        
-        // Actualizar todayLog con el nuevo día del ciclo calculado para la fecha del log
-        setTodayLog(prev => ({
-          ...prev,
-          cycleDay: cycleDayForLogDate > 0 ? cycleDayForLogDate : 1
-        }));
+      if (logError) {
+        logger.error('Error al crear log del período:', logError);
+        // No fallar si el log no se puede crear
       }
 
-      onUserUpdate?.(updatedUser);
-    }
+      // 3. Recargar perfil completo para obtener el nuevo ciclo promedio calculado
+      const { data: refreshedProfile } = await supabase
+        .from('profiles')
+        .select('last_period_date, cycle_length, period_history')
+        .eq('id', user.id)
+        .single();
 
-    showNotif?.('Datos del ciclo actualizados correctamente', 'success');
-    setIsCycleModalOpen(false);
+      if (refreshedProfile && user) {
+        const updatedUser = {
+          ...user,
+          lastPeriodDate: refreshedProfile.last_period_date,
+          cycleLength: refreshedProfile.cycle_length,
+          periodHistory: refreshedProfile.period_history || []
+        };
+
+        // Recalcular día del ciclo para el log actual
+        const logDate = todayLog.date || new Date().toISOString().split('T')[0];
+        const lastPeriod = new Date(refreshedProfile.last_period_date || lastPeriodDate);
+        const logDateObj = new Date(logDate);
+        lastPeriod.setHours(0, 0, 0, 0);
+        logDateObj.setHours(0, 0, 0, 0);
+        
+        const diffDays = Math.floor((logDateObj.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays >= 0 && refreshedProfile.cycle_length) {
+          let cycleDayForLogDate = diffDays + 1;
+          
+          if (cycleDayForLogDate > refreshedProfile.cycle_length) {
+            const cyclesPassed = Math.floor((cycleDayForLogDate - 1) / refreshedProfile.cycle_length);
+            cycleDayForLogDate = cycleDayForLogDate - (cyclesPassed * refreshedProfile.cycle_length);
+          }
+          
+          setTodayLog(prev => ({
+            ...prev,
+            cycleDay: cycleDayForLogDate > 0 ? cycleDayForLogDate : 1
+          }));
+        }
+
+        onUserUpdate?.(updatedUser);
+      }
+
+      showNotif?.('Fecha de última regla actualizada correctamente. El ciclo promedio se ha ajustado automáticamente.', 'success');
+      setIsCycleModalOpen(false);
+    } catch (error: any) {
+      logger.error('Error guardando período:', error);
+      showNotif?.('Error al guardar. Por favor, intenta nuevamente.', 'error');
+    } finally {
+      setIsSavingPeriod(false);
+    }
   };
 
-  // formatDate is now imported from services/utils
+  // Guardar primer período (obligatorio)
+  const handleSaveFirstPeriod = async () => {
+    if (!user || !user.id || !firstPeriodDate) {
+      showNotif?.('Por favor, indica la fecha de tu última regla', 'error');
+      return;
+    }
 
-  // Handle sync from WearableConnect component
-  const handleHealthDataSync = (healthData: any) => {
-    if (!healthData) return;
-    
-    setTodayLog(prev => ({
-      ...prev,
-      bbt: healthData.basalBodyTemperature || prev.bbt,
-      sleepHours: healthData.sleepDurationMinutes ? healthData.sleepDurationMinutes / 60 : prev.sleepHours,
-      sleepQuality: healthData.sleepQuality || prev.sleepQuality,
-      activityMinutes: healthData.activityMinutes || prev.activityMinutes,
-      steps: healthData.steps || prev.steps,
-      activeCalories: healthData.activeCalories || prev.activeCalories,
-      heartRateVariability: healthData.heartRateVariability || prev.heartRateVariability,
-      restingHeartRate: healthData.restingHeartRate || prev.restingHeartRate,
-      sleepPhases: healthData.sleepDeepMinutes || healthData.sleepRemMinutes || healthData.sleepLightMinutes ? {
-        deep: healthData.sleepDeepMinutes || 0,
-        rem: healthData.sleepRemMinutes || 0,
-        light: healthData.sleepLightMinutes || 0
-      } : prev.sleepPhases,
-      healthData: healthData,
-      dataSource: prev.dataSource === 'manual' ? 'hybrid' : 'wearable'
-    }));
-    
-    showNotif?.('Datos sincronizados desde tu wearable', 'success');
+    setIsSavingFirstPeriod(true);
+
+    try {
+      // 1. Actualizar perfil con lastPeriodDate y crear historial inicial
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          last_period_date: firstPeriodDate,
+          period_history: [firstPeriodDate] // Inicializar historial con primera fecha
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        throw new Error(`Error al actualizar perfil: ${profileError.message}`);
+      }
+
+      // 2. Crear log del día con los síntomas seleccionados
+      const logDate = firstPeriodDate;
+      const { error: logError } = await supabase
+        .from('daily_logs')
+        .upsert({
+          user_id: user.id,
+          date: logDate,
+          cycle_day: 1, // Día 1 es cuando viene la regla
+          symptoms: selectedFirstPeriodSymptoms.length > 0 ? selectedFirstPeriodSymptoms : []
+        }, {
+          onConflict: 'user_id,date'
+        });
+
+      if (logError) {
+        logger.error('Error al crear log del período:', logError);
+        // No fallar si el log no se puede crear, pero loguear el error
+      }
+
+      // 3. Actualizar user en el estado
+      const updatedUser = {
+        ...user,
+        lastPeriodDate: firstPeriodDate,
+        periodHistory: [firstPeriodDate]
+      };
+
+      onUserUpdate?.(updatedUser);
+      setIsFirstPeriodModalOpen(false);
+      showNotif?.('¡Perfecto! Ya puedes comenzar a registrar tus datos diarios', 'success');
+    } catch (error: any) {
+      logger.error('Error guardando primer período:', error);
+      showNotif?.('Error al guardar. Por favor, intenta nuevamente.', 'error');
+    } finally {
+      setIsSavingFirstPeriod(false);
+    }
+  };
+
+  // Toggle síntomas del período (para ambos modales)
+  const togglePeriodSymptom = (symptom: string, isFirstModal: boolean = false) => {
+    if (isFirstModal) {
+      // Para el popup inicial
+      if (symptom === 'Sin síntomas') {
+        setSelectedFirstPeriodSymptoms(['Sin síntomas']);
+      } else {
+        setSelectedFirstPeriodSymptoms(prev => {
+          const filtered = prev.filter(s => s !== 'Sin síntomas');
+          if (filtered.includes(symptom)) {
+            return filtered.filter(s => s !== symptom);
+          }
+          return [...filtered, symptom];
+        });
+      }
+    } else {
+      // Para el modal de edición
+      if (symptom === 'Sin síntomas') {
+        setSelectedPeriodSymptoms(['Sin síntomas']);
+      } else {
+        setSelectedPeriodSymptoms(prev => {
+          const filtered = prev.filter(s => s !== 'Sin síntomas');
+          if (filtered.includes(symptom)) {
+            return filtered.filter(s => s !== symptom);
+          }
+          return [...filtered, symptom];
+        });
+      }
+    }
   };
 
   return (
@@ -342,17 +337,6 @@ const TrackerView = ({
           </button>
         </div>
       </div>
-
-      {/* Wearable Connect Component */}
-      <WearableConnect
-        userId={user?.id}
-        onConnect={(success) => {
-          if (success) {
-            showNotif?.('Wearable conectado correctamente', 'success');
-          }
-        }}
-        onSync={handleHealthDataSync}
-      />
 
       <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
         <div className="space-y-6">
@@ -649,12 +633,79 @@ const TrackerView = ({
         </div>
       </div>
 
-      {/* Modal para editar ciclo menstrual */}
+      {/* Modal obligatorio para primera vez (sin lastPeriodDate) */}
+      {isFirstPeriodModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md mx-4 p-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-[#4A4A4A] mb-2">¡Bienvenida! 👋</h3>
+              <p className="text-sm text-[#5D7180]">
+                Para comenzar a registrar tus datos diarios, necesitamos saber cuándo fue tu última regla y qué síntomas tuviste.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-2">
+                  Fecha de tu última regla *
+                </label>
+                <input
+                  type="date"
+                  value={firstPeriodDate}
+                  onChange={(e) => setFirstPeriodDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]} // No permitir fechas futuras
+                  className="w-full px-4 py-3 bg-[#F9F6F4] border border-[#F4F0ED] rounded-xl text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#C7958E]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-3">
+                  ¿Qué síntomas tuviste?
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {PERIOD_SYMPTOM_OPTIONS.map((symptom) => {
+                    const isSelected = selectedFirstPeriodSymptoms.includes(symptom);
+                    return (
+                      <button
+                        key={symptom}
+                        type="button"
+                        onClick={() => togglePeriodSymptom(symptom, true)}
+                        className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                          isSelected
+                            ? 'bg-[#C7958E] text-white shadow-md'
+                            : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-[#E8E0DC]'
+                        }`}
+                      >
+                        {symptom}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSaveFirstPeriod}
+              disabled={!firstPeriodDate || isSavingFirstPeriod}
+              className={`w-full px-4 py-3 rounded-xl font-bold transition-colors ${
+                !firstPeriodDate || isSavingFirstPeriod
+                  ? 'bg-[#E8E0DC] text-[#A0A0A0] cursor-not-allowed'
+                  : 'bg-[#C7958E] text-white hover:bg-[#B8857E] shadow-md'
+              }`}
+            >
+              {isSavingFirstPeriod ? 'Guardando...' : 'Continuar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para actualizar última regla */}
       {isCycleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsCycleModalOpen(false)}>
           <div className="bg-white rounded-3xl shadow-xl w-full max-w-md mx-4 p-6 space-y-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#4A4A4A]">Actualizar Ciclo Menstrual</h3>
+              <h3 className="text-lg font-bold text-[#4A4A4A]">Actualizar Última Regla</h3>
               <button
                 onClick={() => setIsCycleModalOpen(false)}
                 className="text-[#5D7180] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
@@ -666,47 +717,44 @@ const TrackerView = ({
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-2">
-                  Fecha Última Regla
+                  Fecha de tu última regla *
                 </label>
                 <input
                   type="date"
                   value={lastPeriodDate}
                   onChange={(e) => setLastPeriodDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]} // No permitir fechas futuras
                   className="w-full px-4 py-3 bg-[#F9F6F4] border border-[#F4F0ED] rounded-xl text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#C7958E]"
+                  required
                 />
+                <p className="text-[10px] text-[#5D7180] mt-1">
+                  El ciclo promedio se calculará automáticamente basado en tu historial
+                </p>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-2">
-                  Duración Ciclo Promedio (días)
+                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-3">
+                  ¿Qué síntomas tuviste?
                 </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setCycleLength(String(Math.max(21, parseInt(cycleLength) - 1)))}
-                    className="p-2 bg-[#F4F0ED] rounded-full text-[#95706B] hover:bg-[#C7958E] hover:text-white transition-colors"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <input
-                    type="number"
-                    min="21"
-                    max="45"
-                    value={cycleLength}
-                    onChange={(e) => setCycleLength(e.target.value)}
-                    className="w-20 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-xl px-3 py-2 text-lg font-bold text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#C7958E]"
-                  />
-                  <button
-                    onClick={() => setCycleLength(String(Math.min(45, parseInt(cycleLength) + 1)))}
-                    className="p-2 bg-[#F4F0ED] rounded-full text-[#95706B] hover:bg-[#C7958E] hover:text-white transition-colors"
-                  >
-                    <Plus size={16} />
-                  </button>
+                <div className="grid grid-cols-2 gap-2">
+                  {PERIOD_SYMPTOM_OPTIONS.map((symptom) => {
+                    const isSelected = selectedPeriodSymptoms.includes(symptom);
+                    return (
+                      <button
+                        key={symptom}
+                        type="button"
+                        onClick={() => togglePeriodSymptom(symptom, false)}
+                        className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                          isSelected
+                            ? 'bg-[#C7958E] text-white shadow-md'
+                            : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-[#E8E0DC]'
+                        }`}
+                      >
+                        {symptom}
+                      </button>
+                    );
+                  })}
                 </div>
-                {suggestedCycleLength && suggestedCycleLength !== parseInt(cycleLength) && (
-                  <p className="text-[10px] text-[#5D7180] mt-2">
-                    Duración promedio sugerida: <span className="font-bold">{suggestedCycleLength} días</span>
-                  </p>
-                )}
               </div>
             </div>
 
@@ -719,9 +767,14 @@ const TrackerView = ({
               </button>
               <button
                 onClick={handleSaveCycleData}
-                className="flex-1 px-4 py-3 bg-[#5D7180] text-white rounded-xl font-bold hover:bg-[#4A5568] transition-colors"
+                disabled={!lastPeriodDate || isSavingPeriod}
+                className={`flex-1 px-4 py-3 rounded-xl font-bold transition-colors ${
+                  !lastPeriodDate || isSavingPeriod
+                    ? 'bg-[#E8E0DC] text-[#A0A0A0] cursor-not-allowed'
+                    : 'bg-[#C7958E] text-white hover:bg-[#B8857E] shadow-md'
+                }`}
               >
-                Guardar
+                {isSavingPeriod ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>

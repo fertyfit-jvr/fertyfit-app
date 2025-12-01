@@ -79,6 +79,7 @@ export function useAuth() {
             cycleRegularity: profile.cycle_regularity,
             cycleLength: profile.cycle_length,
             lastPeriodDate: profile.last_period_date,
+            periodHistory: profile.period_history || [],
             fertilityTreatments: profile.fertility_treatments,
             supplements: profile.supplements,
             alcoholConsumption: profile.alcohol_consumption

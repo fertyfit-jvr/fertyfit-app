@@ -283,6 +283,7 @@ interface SupabaseProfile {
   cycle_regularity?: string | null;
   cycle_length?: number | null;
   last_period_date?: string | null;
+  period_history?: string[] | null;
   fertility_treatments?: string | null;
   supplements?: string | null;
   alcohol_consumption?: string | null;

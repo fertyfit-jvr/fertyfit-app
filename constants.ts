@@ -27,6 +27,15 @@ export const SYMPTOM_OPTIONS = [
   "Libido baja"
 ];
 
+// Síntomas específicos para el período menstrual (usado en popup inicial)
+export const PERIOD_SYMPTOM_OPTIONS = [
+  "Hinchazón",
+  "Dolor",
+  "Apatía",
+  "Enfado",
+  "Sin síntomas"
+];
+
 export const MUCUS_OPTIONS = ['Seco', 'Pegajoso', 'Cremoso', 'Clara de huevo', 'Acuoso'];
 export const CERVIX_HEIGHT_OPTIONS = ['Bajo', 'Alto'];
 export const CERVIX_FIRM_OPTIONS = ['Duro', 'Blando'];

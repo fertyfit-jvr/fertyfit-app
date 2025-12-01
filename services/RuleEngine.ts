@@ -5,7 +5,8 @@ import {
     calcularVentanaFertil,
     calcularIMC,
     debeEnviarNotificacionFertilidad,
-    DISCLAIMERS
+    DISCLAIMERS,
+    calcularCicloPromedio
 } from './CycleCalculations';
 
 // --- Types ---
@@ -248,10 +249,44 @@ export const RULES: Rule[] = [
             // 5 días después de fecha esperada
             return currentCycleDay === user.cycleLength + 5;
         },
-        getMessage: () => ({
-            title: '🤔 Actualiza tu registro',
-            message: 'No has registrado tu menstruación. ¿Ya llegó? Mantén tu calendario actualizado para mejores predicciones.\n\nPor favor, actualiza la fecha de tu última regla en tu perfil.'
-        })
+        getMessage: ({ user, currentCycleDay }) => {
+            const fechaEsperada = user.lastPeriodDate && user.cycleLength
+                ? calcularProximaMenstruacion(user.lastPeriodDate, user.cycleLength)
+                : null;
+            
+            const diasRetraso = currentCycleDay && user.cycleLength 
+                ? currentCycleDay - user.cycleLength 
+                : 5; // Por defecto 5 si no se puede calcular
+            
+            const mensajeBase = '¿Te ha venido la regla? Por favor, actualiza la fecha de tu última regla para mantener tus predicciones precisas.';
+            
+            if (fechaEsperada) {
+                const fechaFormateada = fechaEsperada.toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long'
+                });
+                return {
+                    title: '📅 ¿Ya te vino la regla?',
+                    message: `${mensajeBase}\n\nSe esperaba alrededor del ${fechaFormateada}.`
+                };
+            }
+            
+            return {
+                title: '📅 ¿Ya te vino la regla?',
+                message: mensajeBase
+            };
+        },
+        getMetadata: ({ currentCycleDay, user }) => {
+            const diasRetraso = currentCycleDay && user.cycleLength 
+                ? currentCycleDay - user.cycleLength 
+                : 5;
+            
+            const actions: NotificationAction[] = [
+                { label: 'Sí, me vino', value: 'today', handler: 'handlePeriodConfirmed' },
+                { label: 'No, aún no', value: String(diasRetraso + 1), handler: 'handlePeriodDelayed' }
+            ];
+            return { actions };
+        }
     },
 
     // ============================================================================
@@ -444,30 +479,103 @@ export { calcularDiaDelCiclo };
  * Actualiza la fecha de última menstruación del perfil
  */
 export const handlePeriodConfirmed = async (userId: string, newPeriodDate: string) => {
-    const { error } = await supabase.from('profiles')
-        .update({ last_period_date: newPeriodDate })
-        .eq('id', userId);
+    // 1. Obtener perfil actual con historial
+    // Intentar obtener period_history, pero si no existe la columna, usar array vacío
+    const { data: profileData, error: fetchError } = await supabase
+        .from('profiles')
+        .select('last_period_date, cycle_length')
+        .eq('id', userId)
+        .single();
 
-    if (error) {
-        throw new Error(`handlePeriodConfirmed failed: ${error.message}`);
+    if (fetchError && fetchError.code !== 'PGRST116') {
+        throw new Error(`handlePeriodConfirmed fetch failed: ${fetchError.message}`);
     }
 
-    return newPeriodDate;
+    // Intentar obtener period_history por separado (puede fallar si la columna no existe)
+    let periodHistory: string[] = [];
+    try {
+        const { data: historyData } = await supabase
+            .from('profiles')
+            .select('period_history')
+            .eq('id', userId)
+            .single();
+        periodHistory = (historyData?.period_history as string[]) || [];
+    } catch (e) {
+        // Si la columna no existe, usar array vacío (la migración se aplicará después)
+        logger.warn('period_history column may not exist yet. Using empty array.');
+        periodHistory = [];
+    }
+
+    // 2. Actualizar historial de períodos
+    const currentHistory = (profileData?.period_history as string[]) || [];
+    let updatedHistory: string[];
+    
+    // Si ya existe la fecha, no duplicarla; si no, agregarla al inicio (más reciente primero)
+    if (currentHistory.includes(newPeriodDate)) {
+        updatedHistory = currentHistory;
+    } else {
+        // Agregar nueva fecha al inicio y mantener solo últimas 12 (para calcular promedio)
+        updatedHistory = [newPeriodDate, ...currentHistory].slice(0, 12);
+    }
+
+    // 3. Calcular nuevo ciclo promedio si hay al menos 2 períodos
+    let newCycleLength = profileData?.cycle_length || 28;
+    if (updatedHistory.length >= 2) {
+        // Ordenar fechas de más antigua a más reciente para el cálculo
+        const sortedHistory = [...updatedHistory].sort((a, b) => 
+            new Date(a).getTime() - new Date(b).getTime()
+        );
+        newCycleLength = calcularCicloPromedio(sortedHistory);
+    }
+
+    // 4. Actualizar perfil con nueva fecha, historial y ciclo promedio
+    const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+            last_period_date: newPeriodDate,
+            period_history: updatedHistory,
+            cycle_length: newCycleLength
+        })
+        .eq('id', userId);
+
+    if (updateError) {
+        throw new Error(`handlePeriodConfirmed update failed: ${updateError.message}`);
+    }
+
+    logger.log(`✅ Período confirmado: ${newPeriodDate}. Ciclo promedio actualizado: ${newCycleLength} días`);
+    
+    return { newPeriodDate, newCycleLength, periodHistory: updatedHistory };
 };
 
 /**
  * Calcula la duración promedio del ciclo basado en historial
- * Si hay ciclos anteriores, calcula promedio. Si no, usa el último registro.
+ * Usa el historial de períodos si está disponible, sino usa el cycleLength actual
  */
 export const calcularDuracionPromedioCiclo = async (userId: string, currentCycleLength?: number): Promise<number> => {
-    // Por ahora, si tenemos un cycleLength actual, lo usamos
-    // En el futuro, podríamos calcular un promedio basado en historial de last_period_date
-    if (currentCycleLength) {
-        return currentCycleLength;
+    try {
+        // Intentar obtener historial de períodos
+        const { data } = await supabase
+            .from('profiles')
+            .select('period_history')
+            .eq('id', userId)
+            .single();
+
+        const periodHistory = (data?.period_history as string[]) || [];
+        
+        // Si hay historial con al menos 2 períodos, calcular promedio real
+        if (periodHistory.length >= 2) {
+            const sortedHistory = [...periodHistory].sort((a, b) => 
+                new Date(a).getTime() - new Date(b).getTime()
+            );
+            return calcularCicloPromedio(sortedHistory);
+        }
+        
+        // Si no hay historial suficiente, usar cycleLength actual o default
+        return currentCycleLength || 28;
+    } catch (error) {
+        logger.warn('Error calculando ciclo promedio desde historial, usando valor por defecto:', error);
+        return currentCycleLength || 28;
     }
-    
-    // Si no hay cycleLength, usamos 28 días por defecto (promedio estándar)
-    return 28;
 };
 
 /**

@@ -145,7 +145,6 @@ export const FORM_DEFINITIONS = {
     description:
       'Esta información es la base de tu protocolo personalizado. Tus datos de ciclo son vitales para calcular tus predicciones de fertilidad.',
     questions: [
-      { id: 'q8_last_period', text: 'Fecha última regla:', type: 'date' },
       { id: 'q6_cycle', text: 'Duración ciclo promedio:', type: 'stepper', min: 21, max: 40, unit: 'días' },
       { id: 'q7_regularity', text: '¿Ciclos regulares?', type: 'buttons', options: ['Regulares', 'Irregulares'] },
       { id: 'q1_birthdate', text: 'Tu fecha de nacimiento:', type: 'date' },
