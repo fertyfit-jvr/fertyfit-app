@@ -485,6 +485,85 @@ export function parseEspermiograma(text: string): ParsedExamData {
 }
 
 /**
+ * Detecta automáticamente el tipo de examen basándose en el texto
+ */
+export function detectExamType(text: string): {
+  types: Array<'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'>;
+  confidence: number;
+} {
+  const lowerText = text.toLowerCase();
+  const detectedTypes: Array<'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'> = [];
+  
+  // Palabras clave para cada tipo
+  const hormonalKeywords = ['fsh', 'lh', 'estradiol', 'e2', 'prolactina', 'tsh', 't4', 'tirotrofina', 'hormona folículo', 'hormona luteinizante'];
+  const metabolicKeywords = ['glucosa', 'insulina', 'ferritina', 'hierro', 'transferrina', 'colesterol', 'triglicéridos', 'trigliceridos', 'pcr', 'creatinina', 'urea'];
+  const vitaminDKeywords = ['vitamina d', 'vitamin d', '25-oh', '25oh', 'calcifediol'];
+  const ecografiaKeywords = ['ecografía', 'ecografia', 'afc', 'recuento folicular', 'endometrio', 'endometrial', 'transvaginal'];
+  const hsgKeywords = ['histerosalpingografía', 'histerosalpingografia', 'hsg', 'permeabilidad', 'trompa'];
+  const espermioKeywords = ['espermiograma', 'semen', 'espermatozoides', 'concentración', 'movilidad', 'morfología', 'vitalidad'];
+  
+  // Contar coincidencias
+  let hormonalScore = hormonalKeywords.filter(kw => lowerText.includes(kw)).length;
+  let metabolicScore = metabolicKeywords.filter(kw => lowerText.includes(kw)).length;
+  let vitaminDScore = vitaminDKeywords.filter(kw => lowerText.includes(kw)).length;
+  let ecografiaScore = ecografiaKeywords.filter(kw => lowerText.includes(kw)).length;
+  let hsgScore = hsgKeywords.filter(kw => lowerText.includes(kw)).length;
+  let espermioScore = espermioKeywords.filter(kw => lowerText.includes(kw)).length;
+  
+  // Umbral mínimo: al menos 2 keywords para considerar un tipo
+  if (hormonalScore >= 2) detectedTypes.push('hormonal');
+  if (metabolicScore >= 2) detectedTypes.push('metabolic');
+  if (vitaminDScore >= 1) detectedTypes.push('vitamin_d');
+  if (ecografiaScore >= 2) detectedTypes.push('ecografia');
+  if (hsgScore >= 1) detectedTypes.push('hsg');
+  if (espermioScore >= 2) detectedTypes.push('espermio');
+  
+  // Si no se detectó nada, intentar con umbral más bajo
+  if (detectedTypes.length === 0) {
+    if (hormonalScore >= 1) detectedTypes.push('hormonal');
+    if (metabolicScore >= 1) detectedTypes.push('metabolic');
+    if (ecografiaScore >= 1) detectedTypes.push('ecografia');
+    if (espermioScore >= 1) detectedTypes.push('espermio');
+  }
+  
+  // Calcular confianza basada en el número de keywords encontradas
+  const maxScore = Math.max(hormonalScore, metabolicScore, vitaminDScore, ecografiaScore, hsgScore, espermioScore);
+  const confidence = Math.min(1, maxScore / 5); // Normalizar a 0-1
+  
+  return {
+    types: detectedTypes.length > 0 ? detectedTypes : ['hormonal'], // Default a hormonal si no se detecta nada
+    confidence
+  };
+}
+
+/**
+ * Parsea TODOS los tipos de examen y extrae todos los valores encontrados
+ * Útil para detección automática donde no sabemos qué tipo de examen es
+ */
+export function parseAllExamTypes(text: string): ParsedExamData {
+  const cleanedText = sanitizeText(text);
+  const allData: ParsedExamData = {};
+  
+  // Parsear todos los tipos y combinar resultados
+  const hormonalData = parseHormonalPanel(cleanedText);
+  const metabolicData = parseMetabolicPanel(cleanedText);
+  const vitaminDData = parseVitaminaD(cleanedText);
+  const ecografiaData = parseEcografia(cleanedText);
+  const hsgData = parseHSG(cleanedText);
+  const espermioData = parseEspermiograma(cleanedText);
+  
+  // Combinar todos los datos (sin sobrescribir, solo agregar)
+  Object.assign(allData, hormonalData);
+  Object.assign(allData, metabolicData);
+  Object.assign(allData, vitaminDData);
+  Object.assign(allData, ecografiaData);
+  Object.assign(allData, hsgData);
+  Object.assign(allData, espermioData);
+  
+  return allData;
+}
+
+/**
  * Parsea un examen según su tipo
  * Limpia datos personales antes de parsear
  */

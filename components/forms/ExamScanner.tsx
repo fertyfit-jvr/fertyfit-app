@@ -6,14 +6,15 @@
 import { useState, useRef } from 'react';
 import { Camera, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { processImageOCR, fileToBase64 } from '../../services/googleCloud/visionService';
-import { parseExam } from '../../services/examParsers';
+import { parseExam, parseAllExamTypes, detectExamType } from '../../services/examParsers';
 import { logger } from '../../lib/logger';
 
 interface ExamScannerProps {
-  examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio';
+  examType?: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'; // Opcional: si no se proporciona, detecta automáticamente
   onDataExtracted: (data: Record<string, any>) => void;
   onClose: () => void;
   sectionTitle?: string;
+  autoDetect?: boolean; // Si true, detecta automáticamente el tipo y extrae todos los valores
 }
 
 const EXAM_TYPE_LABELS: Record<string, string> = {
@@ -25,7 +26,7 @@ const EXAM_TYPE_LABELS: Record<string, string> = {
   espermio: 'Espermiograma',
 };
 
-export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }: ExamScannerProps) => {
+export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, autoDetect = false }: ExamScannerProps) => {
   const [image, setImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<Record<string, any> | null>(null);
@@ -33,6 +34,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [detectedTypes, setDetectedTypes] = useState<string[]>([]); // Tipos de examen detectados
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,15 +99,16 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
       }
 
       logger.log('🖼️ Processing image with OCR...', { 
-        examType, 
+        examType: examType || 'auto-detect', 
+        autoDetect,
         imageLength: image.length,
         imagePreview: image.substring(0, 50) + '...'
       });
 
-      // Llamar a la API de OCR
+      // Llamar a la API de OCR (usar 'hormonal' como default si no hay examType)
       const ocrResult = await processImageOCR({
         image,
-        examType,
+        examType: examType || 'hormonal', // Default para la API
       });
 
       logger.log('📄 OCR Result:', { 
@@ -134,12 +137,23 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
 
       // Usar datos parseados de la API si están disponibles, sino parsear localmente
       let parsed: Record<string, any> = {};
+      let detectedTypesList: string[] = [];
       
-      if (ocrResult.parsedData && Object.keys(ocrResult.parsedData).length > 0) {
+      if (autoDetect || !examType) {
+        // Modo detección automática: parsear TODOS los tipos
+        logger.log('🔍 Auto-detecting exam type and parsing all types...');
+        const detection = detectExamType(ocrResult.text || '');
+        detectedTypesList = detection.types;
+        setDetectedTypes(detectedTypesList); // Guardar para mostrar en UI
+        logger.log('✅ Detected exam types:', detectedTypesList, 'confidence:', detection.confidence);
+        
+        parsed = parseAllExamTypes(ocrResult.text || '');
+        logger.log('📝 Parsed all exam types, found fields:', Object.keys(parsed));
+      } else if (ocrResult.parsedData && Object.keys(ocrResult.parsedData).length > 0) {
         parsed = ocrResult.parsedData;
         logger.log('✅ Using parsed data from API');
       } else if (ocrResult.text) {
-        logger.log('📝 Parsing text locally...');
+        logger.log('📝 Parsing text locally for type:', examType);
         parsed = parseExam(ocrResult.text, examType);
       }
 
@@ -206,6 +220,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
     setError(null);
     setWarnings([]);
     setValidationErrors([]);
+    setDetectedTypes([]);
   };
 
   return (
@@ -215,9 +230,15 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
         <div className="flex items-center justify-between p-6 border-b border-[#F4F0ED]">
           <div>
             <h3 className="text-lg font-bold text-[#4A4A4A]">
-              Escanear {sectionTitle || EXAM_TYPE_LABELS[examType]}
+              {autoDetect || !examType 
+                ? 'Escanear examen médico' 
+                : `Escanear ${sectionTitle || EXAM_TYPE_LABELS[examType]}`}
             </h3>
-            <p className="text-xs text-[#5D7180] mt-1">Toma una foto nítida del examen médico</p>
+            <p className="text-xs text-[#5D7180] mt-1">
+              {autoDetect || !examType 
+                ? 'Toma una foto del examen. Detectaremos automáticamente el tipo y extraeremos todos los valores.'
+                : 'Toma una foto nítida del examen médico'}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -338,7 +359,9 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle }
                   <div className="flex-1">
                     <p className="text-sm font-bold text-emerald-800">Datos extraídos</p>
                     <p className="text-xs text-emerald-700 mt-1">
-                      Revisa los valores encontrados y confirma para rellenar el formulario.
+                      {autoDetect && detectedTypes.length > 0
+                        ? `Detectado: ${detectedTypes.map(t => EXAM_TYPE_LABELS[t] || t).join(', ')}. Revisa los valores encontrados.`
+                        : 'Revisa los valores encontrados y confirma para rellenar el formulario.'}
                     </p>
                   </div>
                 </div>

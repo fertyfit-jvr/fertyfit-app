@@ -48,6 +48,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const [isEditMode, setIsEditMode] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [scanningSection, setScanningSection] = useState<string | null>(null);
+  const [isScanningAll, setIsScanningAll] = useState(false); // Nuevo estado para escaneo universal
   const originalAnswers = useRef<Record<string, any>>({});
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -710,6 +711,24 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
           <span>Puedes editar tus respuestas hasta que el especialista genere el informe.</span>
         </div>
       )}
+      {/* Botón único de escaneo para FUNCTION - discreto y elegante */}
+      {formType === 'FUNCTION' && (
+        <div className="mb-6 flex items-center gap-3 p-4 bg-gradient-to-r from-[#F9F6F4] to-[#F4F0ED] border border-[#E1D7D3] rounded-2xl">
+          <div className="flex-1">
+            <p className="text-xs font-bold text-[#95706B] mb-0.5">Escaneo inteligente</p>
+            <p className="text-[10px] text-[#5D7180]">Sube una foto y detectaremos automáticamente todos los valores</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsScanningAll(true)}
+            className="flex items-center gap-2 bg-white hover:bg-[#F9F6F4] border border-[#C7958E] text-[#95706B] px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm hover:shadow transition-all"
+          >
+            <Camera size={16} />
+            Escanear
+          </button>
+        </div>
+      )}
+      
       {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
         <button onClick={handleSubmit} className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2">
         Guardar y enviar <Download size={16} />
@@ -956,13 +975,22 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
         </div>
       )}
 
-      {/* Exam Scanner Modal */}
+      {/* Exam Scanner Modal - Modo específico por sección */}
       {scanningSection && SECTION_TO_EXAM_TYPE[scanningSection] && (
         <ExamScanner
           examType={SECTION_TO_EXAM_TYPE[scanningSection]}
           onDataExtracted={handleDataExtracted}
           onClose={() => setScanningSection(null)}
           sectionTitle={definition.sections?.find(s => s.id === scanningSection)?.title}
+        />
+      )}
+
+      {/* Exam Scanner Modal - Modo detección automática universal */}
+      {isScanningAll && (
+        <ExamScanner
+          autoDetect={true}
+          onDataExtracted={handleDataExtracted}
+          onClose={() => setIsScanningAll(false)}
         />
       )}
     </div>
