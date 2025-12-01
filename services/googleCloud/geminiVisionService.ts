@@ -29,13 +29,15 @@ export async function processImageWithGeminiVision(
   request: GeminiVisionRequest
 ): Promise<GeminiVisionResponse> {
   try {
-    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    // Always use full URL - in dev it points to Vercel, in prod it's the same domain
     const vercelUrl = import.meta.env.VITE_VERCEL_URL || import.meta.env.NEXT_PUBLIC_VERCEL_URL || 'https://method.fertyfit.com';
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development' || 
+      (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
     const apiUrl = isDev 
       ? `${vercelUrl}/api/gemini/process-vision`
-      : '/api/gemini/process-vision';
+      : (typeof window !== 'undefined' ? `${window.location.origin}/api/gemini/process-vision` : '/api/gemini/process-vision');
     
-    logger.log('🔮 Calling Gemini Vision API:', { url: apiUrl });
+    logger.log('🔮 Calling Gemini Vision API:', { url: apiUrl, isDev, vercelUrl });
     
     const startTime = Date.now();
     

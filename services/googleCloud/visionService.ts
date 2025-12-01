@@ -25,15 +25,15 @@ export interface OCRResponse {
  */
 export async function processImageOCR(request: OCRRequest): Promise<OCRResponse> {
   try {
-    // En desarrollo, usar URL de producción de Vercel
-    // En producción, usar ruta relativa
-    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
+    // Always use full URL - in dev it points to Vercel, in prod it's the same domain
     const vercelUrl = import.meta.env.VITE_VERCEL_URL || import.meta.env.NEXT_PUBLIC_VERCEL_URL || 'https://method.fertyfit.com';
+    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development' || 
+      (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
     const apiUrl = isDev 
       ? `${vercelUrl}/api/ocr/process`
-      : '/api/ocr/process';
+      : (typeof window !== 'undefined' ? `${window.location.origin}/api/ocr/process` : '/api/ocr/process');
     
-    logger.log('🔍 Calling OCR API:', { url: apiUrl, examType: request.examType });
+    logger.log('🔍 Calling OCR API:', { url: apiUrl, examType: request.examType, isDev, vercelUrl });
     
     const response = await fetch(apiUrl, {
       method: 'POST',

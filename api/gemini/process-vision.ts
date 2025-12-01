@@ -13,7 +13,7 @@ import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 import { applySecurityHeaders, validateImageUpload } from '../lib/security.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS
+  // Handle CORS FIRST - before anything else
   const origin = req.headers.origin || '';
   const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
   const allowedOrigins = [
@@ -32,24 +32,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     allowedOrigin = 'https://method.fertyfit.com';
   }
   
+  // Set CORS headers immediately
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin');
 
+  // Handle OPTIONS preflight request immediately
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  // Now apply security headers and continue
   applySecurityHeaders(res);
-  
-  // Re-assert CORS headers
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Vary', 'Origin');
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
