@@ -1,4 +1,4 @@
-import { UserProfile, AppNotification, NotificationAction, NotificationMetadata } from '../types';
+import { UserProfile, AppNotification, NotificationAction, NotificationMetadata, NotificationType } from '../types';
 import { supabase } from './supabase';
 import { logger } from '../lib/logger';
 import {
@@ -11,7 +11,6 @@ import {
 // --- Types ---
 
 export type RuleTrigger = 'DAILY_CHECK' | 'WEIGHT_UPDATE' | 'AGE_CHECK';
-export type NotificationType = 'alert' | 'insight' | 'celebration' | 'tip' | 'opportunity' | 'confirmation';
 export type Priority = 1 | 2 | 3;
 
 export interface RuleContext {

@@ -263,11 +263,38 @@ export async function fetchEducationForUser(
 }
 
 /**
+ * Database profile type (raw Supabase response)
+ */
+interface SupabaseProfile {
+  id: string;
+  email?: string;
+  name: string;
+  created_at: string;
+  method_start_date?: string | null;
+  age: number;
+  weight: number;
+  height: number;
+  time_trying?: number | string | null; // Puede ser número o string en BD
+  diagnoses?: string[] | null;
+  disclaimer_accepted: boolean;
+  main_objective?: string | null;
+  partner_status?: string | null;
+  role?: string | null;
+  cycle_regularity?: string | null;
+  cycle_length?: number | null;
+  last_period_date?: string | null;
+  fertility_treatments?: string | null;
+  supplements?: string | null;
+  alcohol_consumption?: string | null;
+  user_type?: string | null;
+}
+
+/**
  * Fetches user profile
  * @param userId - User ID
  * @returns User profile object or null
  */
-export async function fetchProfileForUser(userId: string): Promise<any | null> {
+export async function fetchProfileForUser(userId: string): Promise<SupabaseProfile | null> {
   try {
     const { data, error } = await supabase
       .from('profiles')
@@ -283,7 +310,7 @@ export async function fetchProfileForUser(userId: string): Promise<any | null> {
       throw error;
     }
 
-    return data;
+    return data as SupabaseProfile;
   } catch (error) {
     logger.error('❌ Error fetching profile:', error);
     throw error;

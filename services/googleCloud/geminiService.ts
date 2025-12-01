@@ -72,7 +72,7 @@ export async function generateF0Notification(profile: {
   name: string;
   age?: number;
   main_objective?: string;
-  time_trying?: string;
+  time_trying?: number | string; // Puede ser número (meses) o string
   diagnoses?: string[];
   partner_status?: string;
 }): Promise<string> {
@@ -85,7 +85,11 @@ export async function generateF0Notification(profile: {
     DATOS ACTUALES:
     - Edad: ${profile.age} años
     - Objetivo Principal: "${profile.main_objective || 'Mejorar salud hormonal'}"
-    - Tiempo buscando: ${profile.time_trying || 'Recién empezando'}
+    - Tiempo buscando: ${typeof profile.time_trying === 'number' 
+        ? profile.time_trying > 0 
+          ? `${profile.time_trying} ${profile.time_trying === 1 ? 'mes' : 'meses'}`
+          : 'Recién empezando'
+        : (profile.time_trying || 'Recién empezando')}
     - Diagnósticos: ${profile.diagnoses && profile.diagnoses.length > 0 ? profile.diagnoses.join(', ') : 'Ninguno'}
     - Estado Civil: ${profile.partner_status || 'No especificado'}
     - Semilla aleatoria: ${seed}
@@ -125,7 +129,7 @@ export async function generateLogAnalysis(
     age?: number;
     main_objective?: string;
     diagnoses?: string[];
-    time_trying?: string;
+    time_trying?: number | string; // Puede ser número (meses) o string
     cycle_length?: number;
     cycle_regularity?: string;
   },
@@ -161,7 +165,11 @@ IMPORTANTE:
     edad: profile.age,
     objetivo: profile.main_objective,
     diagnosticos: profile.diagnoses && profile.diagnoses.length > 0 ? profile.diagnoses.join(', ') : 'Ninguno',
-    tiempoBuscando: profile.time_trying || 'No especificado',
+    tiempoBuscando: typeof profile.time_trying === 'number'
+      ? profile.time_trying > 0
+        ? `${profile.time_trying} ${profile.time_trying === 1 ? 'mes' : 'meses'}`
+        : 'No especificado'
+      : (profile.time_trying || 'No especificado'),
     cicloPromedio: profile.cycle_length,
     regularidad: profile.cycle_regularity,
   };

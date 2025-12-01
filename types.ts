@@ -9,7 +9,7 @@ export interface UserProfile {
   age: number;
   weight: number;
   height: number;
-  timeTrying: string; // e.g., "1 year"
+  timeTrying: number; // meses intentando embarazo
   diagnoses: string[];
   treatments: string[];
   disclaimerAccepted: boolean;

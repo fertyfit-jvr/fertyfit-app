@@ -32,7 +32,13 @@ export const NotificationList: React.FC<{
                 return { icon: <AlertCircle size={14} />, color: 'text-rose-600' };
             case 'opportunity':
                 return { icon: <Star size={14} />, color: 'text-amber-600' };
+            case 'insight':
+            case 'tip':
+                return { icon: <Bell size={14} />, color: 'text-blue-600' };
+            case 'confirmation':
+                return { icon: <CheckCircle size={14} />, color: 'text-green-600' };
             default:
+                // Fallback para tipos desconocidos (nunca debería llegar aquí con tipos estrictos)
                 return { icon: <Bell size={14} />, color: 'text-[#95706B]' };
         }
     };

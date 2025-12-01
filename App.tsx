@@ -606,7 +606,7 @@ function AppContent() {
             user_id: userId,
             title: '💚 Aspecto Positivo Detectado',
             message: positiveMessage,
-            type: 'success',
+            type: 'celebration',
             priority: 2
           });
           logger.log('✅ Positive AI notification created:', { success: !error });

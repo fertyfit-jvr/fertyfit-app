@@ -64,7 +64,11 @@ export function useAuth() {
             age: profile.age,
             weight: profile.weight,
             height: profile.height,
-            timeTrying: profile.time_trying,
+            timeTrying: typeof profile.time_trying === 'number' 
+              ? profile.time_trying 
+              : (typeof profile.time_trying === 'string' 
+                  ? parseInt(profile.time_trying) || 0 
+                  : 0),
             diagnoses: profile.diagnoses || [],
             treatments: [],
             disclaimerAccepted: profile.disclaimer_accepted,
