@@ -114,17 +114,6 @@ interface ProfileViewProps {
   reports: AdminReport[];
   scores: { total: number; function: number; food: number; flora: number; flow: number };
   visibleNotifications: AppNotification[];
-  profileTab: 'PROFILE' | 'HISTORIA';
-  setProfileTab: (tab: 'PROFILE' | 'HISTORIA') => void;
-  isEditingProfile: boolean;
-  setIsEditingProfile: (value: boolean) => void;
-  editName: string;
-  setEditName: (value: string) => void;
-  onSaveProfile: () => Promise<void>;
-  isEditingF0: boolean;
-  setIsEditingF0: (value: boolean) => void;
-  f0Answers: Record<string, any>;
-  setF0Answers: (answers: Record<string, any>) => void;
   showNotif: (msg: string, type: 'success' | 'error') => void;
   setView: (view: ViewState) => void;
   fetchUserForms: (userId: string) => Promise<void>;
@@ -145,17 +134,6 @@ const ProfileView = ({
   reports,
   scores,
   visibleNotifications,
-  profileTab,
-  setProfileTab,
-  isEditingProfile,
-  setIsEditingProfile,
-  editName,
-  setEditName,
-  onSaveProfile,
-  isEditingF0,
-  setIsEditingF0,
-  f0Answers,
-  setF0Answers,
   showNotif,
   setView,
   fetchUserForms,
@@ -168,6 +146,13 @@ const ProfileView = ({
   fetchAllLogs,
   setLogs
 }: ProfileViewProps) => {
+  // Estados locales - ya no están en el store global
+  const [profileTab, setProfileTab] = useState<'PROFILE' | 'HISTORIA'>('PROFILE');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(user.name);
+  const [isEditingF0, setIsEditingF0] = useState(false);
+  const [f0Answers, setF0Answers] = useState<Record<string, any>>({});
+  
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedAllHistory, setHasLoadedAllHistory] = useState(false);
   
@@ -175,10 +160,33 @@ const ProfileView = ({
   const originalEditName = useRef<string>(user.name);
   const originalF0Answers = useRef<Record<string, any>>({});
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Sincronizar editName cuando cambie el usuario
+  useEffect(() => {
+    setEditName(user.name);
+    originalEditName.current = user.name;
+  }, [user.name]);
+
+  // Función local para guardar perfil
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+
+    const { error } = await supabase.from('profiles').update({
+      name: editName
+    }).eq('id', user.id);
+
+    if (!error) {
+      setUser({ ...user, name: editName });
+      setIsEditingProfile(false);
+      showNotif('Perfil actualizado correctamente', 'success');
+    } else {
+      showNotif('Error al actualizar perfil', 'error');
+    }
+  };
 
   const handleProfileEditClick = () => {
     if (isEditingProfile) {
-      onSaveProfile();
+      handleSaveProfile();
     } else {
       originalEditName.current = user.name;
       setIsEditingProfile(true);

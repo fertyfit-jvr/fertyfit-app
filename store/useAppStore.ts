@@ -54,14 +54,7 @@ interface AppStore {
   courseModules: CourseModule[];
   todayLog: TodayLogState;
   activeLesson: Lesson | null;
-  profileTab: 'PROFILE' | 'HISTORIA';
   deletedNotificationIds: number[];
-  isEditingProfile: boolean;
-  editName: string;
-  isEditingF0: boolean;
-  f0Answers: Record<string, any>;
-  specialistMode: boolean;
-  pendingForms: ConsultationForm[];
 
   setLoading: (loading: boolean) => void;
   setView: (view: ViewState) => void;
@@ -81,14 +74,7 @@ interface AppStore {
   setCourseModules: (modules: CourseModule[]) => void;
   setTodayLog: (log: TodayLogState | ((prev: TodayLogState) => TodayLogState)) => void;
   setActiveLesson: (lesson: Lesson | null) => void;
-  setProfileTab: (tab: 'PROFILE' | 'HISTORIA') => void;
   setDeletedNotificationIds: (ids: number[]) => void;
-  setIsEditingProfile: (editing: boolean) => void;
-  setEditName: (name: string) => void;
-  setIsEditingF0: (editing: boolean) => void;
-  setF0Answers: (answers: Record<string, any>) => void;
-  setSpecialistMode: (value: boolean) => void;
-  setPendingForms: (forms: ConsultationForm[]) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -110,14 +96,7 @@ export const useAppStore = create<AppStore>((set) => ({
   courseModules: [],
   todayLog: buildInitialTodayLog(),
   activeLesson: null,
-  profileTab: 'PROFILE',
   deletedNotificationIds: loadDeletedNotifications(),
-  isEditingProfile: false,
-  editName: '',
-  isEditingF0: false,
-  f0Answers: {},
-  specialistMode: false,
-  pendingForms: [],
 
   setLoading: (loading) => set({ loading }),
   setView: (view) => set({ view }),
@@ -139,13 +118,6 @@ export const useAppStore = create<AppStore>((set) => ({
     todayLog: typeof log === 'function' ? log(state.todayLog) : log
   })),
   setActiveLesson: (lesson) => set({ activeLesson: lesson }),
-  setProfileTab: (tab) => set({ profileTab: tab }),
-  setDeletedNotificationIds: (ids) => set({ deletedNotificationIds: ids }),
-  setIsEditingProfile: (editing) => set({ isEditingProfile: editing }),
-  setEditName: (name) => set({ editName: name }),
-  setIsEditingF0: (editing) => set({ isEditingF0: editing }),
-  setF0Answers: (answers) => set({ f0Answers: answers }),
-  setSpecialistMode: (value) => set({ specialistMode: value }),
-  setPendingForms: (forms) => set({ pendingForms: forms })
+  setDeletedNotificationIds: (ids) => set({ deletedNotificationIds: ids })
 }));
 

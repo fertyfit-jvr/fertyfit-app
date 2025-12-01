@@ -180,12 +180,7 @@ function AppContent() {
     courseModules, setCourseModules,
     todayLog, setTodayLog,
     activeLesson, setActiveLesson,
-    profileTab, setProfileTab,
-    deletedNotificationIds, setDeletedNotificationIds,
-    isEditingProfile, setIsEditingProfile,
-    editName, setEditName,
-    isEditingF0, setIsEditingF0,
-    f0Answers, setF0Answers
+    deletedNotificationIds, setDeletedNotificationIds
   } = useAppStore();
 
   // Initialize hooks for auth and daily notifications
@@ -208,21 +203,6 @@ function AppContent() {
     setTimeout(() => setNotif(null), 4000);
   };
 
-  const handleSaveProfile = async () => {
-    if (!user) return;
-
-    const { error } = await supabase.from('profiles').update({
-      name: editName
-    }).eq('id', user.id);
-
-    if (!error) {
-      setUser({ ...user, name: editName });
-      setIsEditingProfile(false);
-      showNotif('Perfil actualizado correctamente', 'success');
-    } else {
-      showNotif('Error al actualizar perfil', 'error');
-    }
-  };
 
   const handleRestartMethod = async () => {
     if (!user?.id) return;
@@ -330,12 +310,6 @@ function AppContent() {
     }
   };
 
-  // Initialize edit state when entering profile
-  useEffect(() => {
-    if (user && view === 'PROFILE') {
-      setEditName(user.name);
-    }
-  }, [user, view]);
 
   // Track if data has been loaded to avoid multiple loads
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -1065,17 +1039,6 @@ function AppContent() {
             reports={reports}
             scores={dashboardScores}
             visibleNotifications={visibleNotifications}
-            profileTab={profileTab}
-            setProfileTab={setProfileTab}
-            isEditingProfile={isEditingProfile}
-            setIsEditingProfile={setIsEditingProfile}
-            editName={editName}
-            setEditName={setEditName}
-            onSaveProfile={handleSaveProfile}
-            isEditingF0={isEditingF0}
-            setIsEditingF0={setIsEditingF0}
-            f0Answers={f0Answers}
-            setF0Answers={setF0Answers}
             showNotif={showNotif}
             setView={setView}
             fetchUserForms={fetchUserForms}
@@ -1085,8 +1048,8 @@ function AppContent() {
             onNotificationAction={handleNotificationAction}
             onRestartMethod={handleRestartMethod}
             onLogout={handleLogout}
-              fetchAllLogs={fetchAllLogs}
-              setLogs={setLogs}
+            fetchAllLogs={fetchAllLogs}
+            setLogs={setLogs}
           />
           </Suspense>
         ) : (
