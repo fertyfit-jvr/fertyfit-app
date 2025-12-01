@@ -21,15 +21,17 @@ export default defineConfig({
   plugins: [react(), blockGeminiPlugin()],
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   server: {
-    // Proxy para redirigir llamadas a /api/ocr a Vercel en desarrollo
-    proxy: {
-      '/api/ocr': {
-        target: 'https://method.fertyfit.com',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path, // Mantener la ruta original
-      },
-    },
+    // En desarrollo local, las funciones serverless se ejecutan localmente
+    // No necesitamos proxy si estamos ejecutando las funciones localmente
+    // Si necesitas probar contra producción, descomenta el proxy:
+    // proxy: {
+    //   '/api/ocr': {
+    //     target: 'https://method.fertyfit.com',
+    //     changeOrigin: true,
+    //     secure: true,
+    //     rewrite: (path) => path,
+    //   },
+    // },
   },
   build: {
     rollupOptions: {
