@@ -70,6 +70,7 @@ function sanitizeNumber(value: unknown, min?: number, max?: number): number | nu
 
 /**
  * Busca un valor numérico después de una etiqueta en el texto
+ * Versión mejorada: busca en un radio alrededor de la etiqueta para manejar tablas
  */
 function findValueAfterLabel(
   text: string,
@@ -79,21 +80,45 @@ function findValueAfterLabel(
     min?: number;
     max?: number;
     allowRange?: boolean;
+    searchRadius?: number; // Radio de búsqueda en caracteres (default: 300)
   } = {}
 ): number | null {
+  const searchRadius = options.searchRadius || 300; // Buscar hasta 300 caracteres después
   const normalizedText = text.toLowerCase();
   
   for (const label of labels) {
     const labelLower = label.toLowerCase();
-    // Escape regex special characters to prevent injection
+    // Escape regex special characters
     const escapedLabel = labelLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const labelRegex = new RegExp(`(${escapedLabel})[\\s:]*([\\d.,]+)`, 'i');
-    const match = text.match(labelRegex);
     
-    if (match && match[2]) {
-      // Sanitize and validate the extracted value
-      const value = sanitizeNumber(match[2], options.min, options.max);
-      return value;
+    // Buscar la etiqueta (permitir espacios, guiones, dos puntos)
+    // Ejemplo: "estradiol", "estradiol-e2", "estradiol sérico", "ESTRADIOL SÉRICO:"
+    const labelPattern = escapedLabel.replace(/\s+/g, '[\\s\\-]*'); // Permitir espacios y guiones
+    const labelRegex = new RegExp(`(${labelPattern})`, 'i');
+    const labelMatch = text.match(labelRegex);
+    
+    if (!labelMatch || labelMatch.index === undefined) continue;
+    
+    // Extraer texto después de la etiqueta (hasta searchRadius caracteres)
+    const startIndex = labelMatch.index + labelMatch[0].length;
+    const textAfterLabel = text.substring(startIndex, startIndex + searchRadius);
+    
+    // Buscar número con unidades comunes (más flexible)
+    // Patrones: número (con coma o punto) seguido opcionalmente de unidad
+    const numberPatterns = [
+      /([\d.,]+)\s*(?:mUI|pg|ng|uUI|U|mg|dl|ml|µUI|mIU)\s*\/\s*(?:ml|dl|L)/i, // Con unidad completa: "6,69 mUI/ml"
+      /([\d.,]+)\s*(?:mUI|pg|ng|uUI|U|mg|dl|ml|µUI|mIU)/i, // Con unidad: "6,69 mUI"
+      /([\d.,]+)(?:\s|$)/, // Solo número: "6,69"
+    ];
+    
+    for (const pattern of numberPatterns) {
+      const numberMatch = textAfterLabel.match(pattern);
+      if (numberMatch && numberMatch[1]) {
+        const value = sanitizeNumber(numberMatch[1], options.min, options.max);
+        if (value !== null) {
+          return value;
+        }
+      }
     }
   }
   
@@ -106,40 +131,83 @@ function findValueAfterLabel(
 export function parseHormonalPanel(text: string): ParsedExamData {
   const data: ParsedExamData = {};
 
-  // FSH
-  data.function_fsh = findValueAfterLabel(text, ['fsh', 'hormona folículo estimulante'], {
+  // FSH - agregar más variaciones
+  data.function_fsh = findValueAfterLabel(text, [
+    'fsh',
+    'hormona folículo estimulante',
+    'fsh - hormona folículo estimulante',
+    'hormona folículo-estimulante'
+  ], {
     min: 0,
     max: 40,
+    searchRadius: 400,
   });
 
-  // LH
-  data.function_lh = findValueAfterLabel(text, ['lh', 'hormona luteinizante'], {
+  // LH - agregar más variaciones
+  data.function_lh = findValueAfterLabel(text, [
+    'lh',
+    'hormona luteinizante',
+    'lh - hormona luteinizante'
+  ], {
     min: 0,
     max: 40,
+    searchRadius: 400,
   });
 
-  // Estradiol
-  data.function_estradiol = findValueAfterLabel(text, ['estradiol', 'e2', 'estradiol (e2)'], {
+  // Estradiol - agregar más variaciones comunes
+  data.function_estradiol = findValueAfterLabel(text, [
+    'estradiol sérico',
+    'estradiol-e2',
+    'estradiol - e2',
+    'estradiol (e2)',
+    'estradiol',
+    'e2 sérico',
+    'e2',
+    'estradiol-e2 - sérico',
+    'estradiol-e2 sérico'
+  ], {
     min: 0,
     max: 1000,
+    searchRadius: 400, // Buscar más lejos porque puede estar en otra columna
   });
 
-  // Prolactina
-  data.function_prolactina = findValueAfterLabel(text, ['prolactina', 'prl'], {
+  // Prolactina - agregar más variaciones
+  data.function_prolactina = findValueAfterLabel(text, [
+    'prolactina',
+    'prl',
+    'prolactina.'
+  ], {
     min: 0,
     max: 100,
+    searchRadius: 400,
   });
 
-  // TSH
-  data.function_tsh = findValueAfterLabel(text, ['tsh', 'hormona estimulante del tiroides'], {
+  // TSH - agregar más variaciones
+  data.function_tsh = findValueAfterLabel(text, [
+    'tsh',
+    'hormona estimulante del tiroides',
+    'tirotrofina',
+    'tsh-tirotrofina',
+    'tsh - tirotrofina'
+  ], {
     min: 0,
     max: 10,
+    searchRadius: 400,
   });
 
-  // T4 libre
-  data.function_t4 = findValueAfterLabel(text, ['t4 libre', 't4', 'tiroxina libre'], {
+  // T4 libre - agregar más variaciones
+  data.function_t4 = findValueAfterLabel(text, [
+    't4 libre',
+    't4',
+    'tiroxina libre',
+    't4-libre',
+    't4 - libre',
+    'tiroxina efectiva',
+    'tiroxina efectiva - t4 - libre'
+  ], {
     min: 0,
     max: 5,
+    searchRadius: 400,
   });
 
   // Día del ciclo

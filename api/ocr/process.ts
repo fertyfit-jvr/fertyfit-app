@@ -175,19 +175,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for OCR
 
     try {
-      const [result] = await client.textDetection({
+      // Usar documentTextDetection para mejor detección de estructura en tablas
+      const [result] = await client.documentTextDetection({
         image: { content: imageBuffer },
       });
 
       clearTimeout(timeoutId);
 
-      const detections = result.textAnnotations;
-      if (!detections || detections.length === 0) {
+      // documentTextDetection devuelve fullTextAnnotation en lugar de textAnnotations
+      const fullTextAnnotation = result.fullTextAnnotation;
+      if (!fullTextAnnotation || !fullTextAnnotation.text) {
         throw createError(getErrorMessage('NO_TEXT_DETECTED', examType), 400, 'NO_TEXT_DETECTED');
       }
 
-      // El primer elemento contiene todo el texto
-      const fullText = detections[0].description || '';
+      // El texto completo está en fullTextAnnotation.text
+      const fullText = fullTextAnnotation.text || '';
 
       if (!fullText || fullText.trim().length < 10) {
         throw createError(getErrorMessage('INSUFFICIENT_TEXT', examType), 400, 'INSUFFICIENT_TEXT');
