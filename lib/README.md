@@ -1,56 +1,27 @@
-# Security & Validation Library
+# Logger Library
 
-Este directorio contiene utilidades de seguridad, validación y manejo de errores.
+Este directorio contiene el logger centralizado para el frontend.
 
 ## Archivos
 
-### `validation.ts`
-Esquemas de validación usando Zod para:
-- Autenticación (login, signup)
-- Perfiles de usuario
-- Ciclos menstruales
-- Registros diarios
-- Requests de API (Gemini, OCR)
-
-### `rateLimiter.ts`
-Sistema de rate limiting para prevenir abuso:
-- `geminiRateLimiter`: 20 requests/minuto
-- `ocrRateLimiter`: 10 requests/minuto
-- `apiRateLimiter`: 100 requests/minuto
-
-### `errorHandler.ts`
-Manejo centralizado de errores:
-- Oculta detalles en producción
-- Logging estructurado
-- Respuestas user-friendly
-
-### `security.ts`
-Headers de seguridad y utilidades:
-- CSP headers
-- Validación de imágenes
-- CORS validation
+### `logger.ts`
+Logger centralizado que solo muestra logs en desarrollo:
+- `logger.log()` - Logs en desarrollo
+- `logger.error()` - Siempre muestra errores
+- `logger.warn()` - Warnings en desarrollo
+- `logger.info()` - Info en desarrollo
+- `logger.debug()` - Debug en desarrollo
 
 ## Uso
 
 ```typescript
-// Validación
-import { LoginSchema } from './lib/validation';
-const validated = LoginSchema.parse(req.body);
+import { logger } from './lib/logger';
 
-// Rate limiting
-import { geminiRateLimiter, rateLimitMiddleware } from './lib/rateLimiter';
-const result = rateLimitMiddleware(geminiRateLimiter, req, res);
-
-// Error handling
-import { sendErrorResponse, createError } from './lib/errorHandler';
-try {
-  // ...
-} catch (error) {
-  sendErrorResponse(res, error, req);
-}
-
-// Security headers
-import { applySecurityHeaders } from './lib/security';
-applySecurityHeaders(res);
+logger.log('Mensaje informativo');
+logger.error('Error:', error);
+logger.warn('Advertencia');
 ```
 
+## Nota
+
+Las utilidades de seguridad, validación y manejo de errores para las APIs serverless se encuentran en `api/lib/`.

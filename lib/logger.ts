@@ -12,12 +12,9 @@ export const logger = {
     }
   },
   error: (...args: any[]) => {
-    // Always log errors, but in production could send to logging service
+    // Always log errors in console
     console.error(...args);
-    // TODO: In production, send to logging service (Sentry, LogRocket, etc.)
-    // if (!isDevelopment) {
-    //   sendToLoggingService('error', args);
-    // }
+    // Note: In production, could integrate with error monitoring service (Sentry, etc.)
   },
   warn: (...args: any[]) => {
     if (isDevelopment) {

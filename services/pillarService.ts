@@ -206,15 +206,23 @@ export async function fetchPillarData<T extends PillarData>(
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        return null; // No data found
+      // Si la tabla no existe (error 406 o similar), retornar null silenciosamente
+      // Esto permite que el cálculo use valores por defecto
+      if (error.code === 'PGRST116' || error.code === '42P01' || error.status === 406) {
+        logger.warn(`Table ${tableName} not found or not accessible, using default values`);
+        return null; // No data found - will use defaults
       }
       logger.error(`Error fetching ${pillarType} pillar:`, error);
       return null;
     }
 
     return data as T;
-  } catch (error) {
+  } catch (error: any) {
+    // Si hay un error de conexión o tabla no existe, retornar null para usar defaults
+    if (error?.code === '42P01' || error?.status === 406 || error?.message?.includes('does not exist')) {
+      logger.warn(`Table pillar_${pillarType.toLowerCase()} not found, using default values`);
+      return null;
+    }
     logger.error(`Error in fetchPillarData for ${pillarType}:`, error);
     return null;
   }

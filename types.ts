@@ -1,4 +1,4 @@
-import { HealthData } from './types/health';
+// HealthData removed - wearable integration temporarily disabled
 
 export interface UserProfile {
   id?: string; // Supabase Auth ID
@@ -70,8 +70,8 @@ export interface DailyLog {
   alcohol: boolean;
   alcoholUnits?: number;
 
-  // NEW: Wearable/Health Data Integration
-  healthData?: HealthData; // Full health data from wearable
+  // Wearable/Health Data Integration (temporarily disabled)
+  // healthData?: HealthData; // Full health data from wearable
   dataSource?: 'manual' | 'wearable' | 'hybrid'; // Tracking of data origin
   
   // Enhanced fields (retrocompatible)

@@ -279,7 +279,7 @@ const FertyScoreCircular = ({
               }}
             >
               <div className="text-center">
-                <div className="text-4xl font-bold leading-none">{totalScore}</div>
+                <div className="text-4xl font-bold leading-none">{totalScore > 0 ? totalScore : '-'}</div>
                 <div className="text-[8px] opacity-90 mt-1 uppercase tracking-wider font-medium">FertyScore</div>
               </div>
             </div>
@@ -303,7 +303,7 @@ const FertyScoreCircular = ({
             >
               <div className="flex items-center justify-center gap-1.5">
                 <div className="text-lg font-bold text-[#4A4A4A]">
-                  {pillar.score}
+                  {pillar.score > 0 ? pillar.score : '-'}
                 </div>
                 {/* Flechita indicadora */}
                 {arrowInfo.icon === 'up' ? (

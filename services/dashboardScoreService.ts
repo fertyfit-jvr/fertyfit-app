@@ -17,6 +17,7 @@ export interface DashboardScores {
   flow: number;
 }
 
+// Scores vacíos se mostrarán como "-" en la UI, pero internamente son 0
 export const emptyDashboardScores: DashboardScores = {
   total: 0,
   function: 0,

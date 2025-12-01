@@ -101,22 +101,64 @@ function calculateFunctionBaseline(user: UserProfile, pillar?: PillarFunction | 
     if (text.includes('diario')) smokingScore = 40;
     else if (text.includes('ocasional')) smokingScore = 75;
     else if (text !== 'no') smokingScore = 70;
-  } else if (pillar?.semen_analysis && Object.keys(pillar.semen_analysis).length > 0) {
-    // Si hay espermiograma con valores anómalos, ajustar hacia abajo (placeholder moderado)
-    spermScore = 70;
   }
 
   // -------------------------
-  // 8) Panel metabólico (placeholder simple)
+  // 5) Panel hormonal (del pilar)
   // -------------------------
-  let metabolicScore = 80;
+  let hormonalScore = 85; // Valor por defecto si no hay datos
+  if (pillar?.hormonal_panel && Object.keys(pillar.hormonal_panel).length > 0) {
+    // En el futuro se puede hacer scoring fino por cada parámetro (FSH, LH, estradiol, etc.)
+    hormonalScore = 85;
+  }
+
+  // -------------------------
+  // 6) Panel metabólico (del pilar)
+  // -------------------------
+  let metabolicScore = 85; // Valor por defecto si no hay datos
   if (pillar?.metabolic_panel && Object.keys(pillar.metabolic_panel).length > 0) {
     // En el futuro se puede hacer scoring fino por cada parámetro (glucosa, insulina, etc.)
     metabolicScore = 85;
   }
 
   // -------------------------
-  // Combinar (ponderaciones ajustables)
+  // 7) Vitamina D (del pilar)
+  // -------------------------
+  let vitaminDScore = 85; // Valor por defecto si no hay datos
+  if (pillar?.vitamin_d && Object.keys(pillar.vitamin_d).length > 0) {
+    // En el futuro se puede hacer scoring basado en niveles de vitamina D
+    vitaminDScore = 85;
+  }
+
+  // -------------------------
+  // 8) Ecografía (del pilar)
+  // -------------------------
+  let ultrasoundScore = 85; // Valor por defecto si no hay datos
+  if (pillar?.ultrasound && Object.keys(pillar.ultrasound).length > 0) {
+    // En el futuro se puede hacer scoring basado en resultados de ecografía
+    ultrasoundScore = 85;
+  }
+
+  // -------------------------
+  // 9) HSG (Histerosalpingografía) (del pilar)
+  // -------------------------
+  let hsgScore = 85; // Valor por defecto si no hay datos
+  if (pillar?.hsg && Object.keys(pillar.hsg).length > 0) {
+    // En el futuro se puede hacer scoring basado en resultados de HSG
+    hsgScore = 85;
+  }
+
+  // -------------------------
+  // 10) Espermiograma (del pilar)
+  // -------------------------
+  let spermScore = 85; // Valor por defecto si no hay datos
+  if (pillar?.semen_analysis && Object.keys(pillar.semen_analysis).length > 0) {
+    // En el futuro se puede hacer scoring basado en resultados del espermiograma
+    spermScore = 85;
+  }
+
+  // -------------------------
+  // Combinar todos los tests (ponderaciones ajustables)
   // -------------------------
   const combinedFromTests =
     hormonalScore * 0.4 +
