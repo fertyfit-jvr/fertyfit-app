@@ -71,6 +71,7 @@ function sanitizeNumber(value: unknown, min?: number, max?: number): number | nu
 /**
  * Busca un valor numérico después de una etiqueta en el texto
  * Versión mejorada: busca en un radio alrededor de la etiqueta para manejar tablas
+ * Busca el PRIMER número válido más cercano a la etiqueta para evitar capturar valores de otros campos
  */
 function findValueAfterLabel(
   text: string,
@@ -81,10 +82,14 @@ function findValueAfterLabel(
     max?: number;
     allowRange?: boolean;
     searchRadius?: number; // Radio de búsqueda en caracteres (default: 300)
+    excludeValues?: number[]; // Valores a excluir (ya encontrados por otros campos)
   } = {}
 ): number | null {
   const searchRadius = options.searchRadius || 300; // Buscar hasta 300 caracteres después
+  const excludeValues = options.excludeValues || [];
   const normalizedText = text.toLowerCase();
+  
+  let bestMatch: { value: number; distance: number } | null = null;
   
   for (const label of labels) {
     const labelLower = label.toLowerCase();
@@ -115,14 +120,22 @@ function findValueAfterLabel(
       const numberMatch = textAfterLabel.match(pattern);
       if (numberMatch && numberMatch[1]) {
         const value = sanitizeNumber(numberMatch[1], options.min, options.max);
-        if (value !== null) {
-          return value;
+        
+        // Excluir valores que ya fueron encontrados por otros campos
+        if (value !== null && !excludeValues.includes(value)) {
+          // Calcular distancia desde el inicio (más cercano = mejor)
+          const distance = numberMatch.index || 0;
+          
+          // Si no hay mejor match o este está más cerca, actualizar
+          if (!bestMatch || distance < bestMatch.distance) {
+            bestMatch = { value, distance };
+          }
         }
       }
     }
   }
   
-  return null;
+  return bestMatch ? bestMatch.value : null;
 }
 
 /**
@@ -130,6 +143,7 @@ function findValueAfterLabel(
  */
 export function parseHormonalPanel(text: string): ParsedExamData {
   const data: ParsedExamData = {};
+  const foundValues: number[] = []; // Track valores encontrados para evitar duplicados
 
   // FSH - agregar más variaciones
   data.function_fsh = findValueAfterLabel(text, [
@@ -140,10 +154,15 @@ export function parseHormonalPanel(text: string): ParsedExamData {
   ], {
     min: 0,
     max: 40,
-    searchRadius: 400,
+    searchRadius: 250, // Reducir radio para ser más preciso
   });
+  
+  // Agregar valor encontrado a la lista de exclusión
+  if (data.function_fsh !== null) {
+    foundValues.push(data.function_fsh);
+  }
 
-  // LH - agregar más variaciones
+  // LH - agregar más variaciones (excluir valores ya encontrados)
   data.function_lh = findValueAfterLabel(text, [
     'lh',
     'hormona luteinizante',
@@ -151,10 +170,16 @@ export function parseHormonalPanel(text: string): ParsedExamData {
   ], {
     min: 0,
     max: 40,
-    searchRadius: 400,
+    searchRadius: 250, // Reducir radio para ser más preciso
+    excludeValues: foundValues, // Excluir valores ya encontrados (como FSH)
   });
+  
+  // Agregar valor encontrado a la lista de exclusión
+  if (data.function_lh !== null) {
+    foundValues.push(data.function_lh);
+  }
 
-  // Estradiol - agregar más variaciones comunes
+  // Estradiol - agregar más variaciones comunes (excluir valores ya encontrados)
   data.function_estradiol = findValueAfterLabel(text, [
     'estradiol sérico',
     'estradiol-e2',
@@ -168,10 +193,15 @@ export function parseHormonalPanel(text: string): ParsedExamData {
   ], {
     min: 0,
     max: 1000,
-    searchRadius: 400, // Buscar más lejos porque puede estar en otra columna
+    searchRadius: 300,
+    excludeValues: foundValues,
   });
+  
+  if (data.function_estradiol !== null) {
+    foundValues.push(data.function_estradiol);
+  }
 
-  // Prolactina - agregar más variaciones
+  // Prolactina - agregar más variaciones (excluir valores ya encontrados)
   data.function_prolactina = findValueAfterLabel(text, [
     'prolactina',
     'prl',
@@ -179,10 +209,15 @@ export function parseHormonalPanel(text: string): ParsedExamData {
   ], {
     min: 0,
     max: 100,
-    searchRadius: 400,
+    searchRadius: 300,
+    excludeValues: foundValues,
   });
+  
+  if (data.function_prolactina !== null) {
+    foundValues.push(data.function_prolactina);
+  }
 
-  // TSH - agregar más variaciones
+  // TSH - agregar más variaciones (excluir valores ya encontrados)
   data.function_tsh = findValueAfterLabel(text, [
     'tsh',
     'hormona estimulante del tiroides',
@@ -192,10 +227,15 @@ export function parseHormonalPanel(text: string): ParsedExamData {
   ], {
     min: 0,
     max: 10,
-    searchRadius: 400,
+    searchRadius: 300,
+    excludeValues: foundValues,
   });
+  
+  if (data.function_tsh !== null) {
+    foundValues.push(data.function_tsh);
+  }
 
-  // T4 libre - agregar más variaciones
+  // T4 libre - agregar más variaciones (excluir valores ya encontrados)
   data.function_t4 = findValueAfterLabel(text, [
     't4 libre',
     't4',
@@ -207,7 +247,8 @@ export function parseHormonalPanel(text: string): ParsedExamData {
   ], {
     min: 0,
     max: 5,
-    searchRadius: 400,
+    searchRadius: 300,
+    excludeValues: foundValues,
   });
 
   // Día del ciclo
