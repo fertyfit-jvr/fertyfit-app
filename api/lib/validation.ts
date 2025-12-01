@@ -50,28 +50,66 @@ export const ProfileUpdateSchema = z.object({
     .optional(),
   age: z.number()
     .int('La edad debe ser un número entero')
-    .min(13, 'Edad mínima: 13 años')
-    .max(100, 'Edad máxima: 100 años')
+    .min(18, 'Edad mínima: 18 años')
+    .max(60, 'Edad máxima: 60 años')
     .optional(),
+  lastPeriodDate: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
+    .refine((date) => {
+      const dateObj = new Date(date);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      return dateObj <= today;
+    }, 'La fecha no puede ser futura')
+    .optional(),
+  cycleLength: z.number()
+    .int('La duración del ciclo debe ser un número entero')
+    .min(21, 'Ciclo mínimo: 21 días')
+    .max(45, 'Ciclo máximo: 45 días')
+    .optional(),
+  cycleRegularity: z.enum(['regular', 'irregular']).optional(),
+  mainObjective: z.string().max(500).optional(),
+  timeTrying: z.union([
+    z.number().int().min(0).max(240),
+    z.string().max(50),
+  ]).optional(),
+  diagnoses: z.array(z.string()).optional(),
+  partnerStatus: z.enum(['solo', 'pareja']).optional(),
+  fertilityTreatment: z.enum(['si', 'no']).optional(),
+  medicalHistory: z.string().max(2000).optional(),
+  familyHistory: z.string().max(2000).optional(),
 });
-
-// ============================================================================
-// CYCLE SCHEMAS
-// ============================================================================
 
 export const CycleUpdateSchema = z.object({
   lastPeriodDate: z.string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
     .refine((date) => {
-      const d = new Date(date);
+      const dateObj = new Date(date);
       const today = new Date();
       today.setHours(23, 59, 59, 999);
-      return d <= today && d >= new Date('1900-01-01');
-    }, 'La fecha debe ser válida y no puede ser futura'),
+      return dateObj <= today;
+    }, 'La fecha no puede ser futura'),
   cycleLength: z.number()
     .int('La duración del ciclo debe ser un número entero')
     .min(21, 'Ciclo mínimo: 21 días')
-    .max(45, 'Ciclo máximo: 45 días'),
+    .max(45, 'Ciclo máximo: 45 días')
+    .optional(),
+});
+
+export const PeriodHistorySchema = z.object({
+  date: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')
+    .refine((date) => {
+      const dateObj = new Date(date);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      return dateObj <= today;
+    }, 'La fecha no puede ser futura'),
+  cycleLength: z.number()
+    .int('La duración del ciclo debe ser un número entero')
+    .min(21, 'Ciclo mínimo: 21 días')
+    .max(45, 'Ciclo máximo: 45 días')
+    .optional(),
 });
 
 // ============================================================================
@@ -131,6 +169,20 @@ export const OCRRequestSchema = z.object({
   examType: z.enum(['hormonal', 'metabolic', 'vitamin_d', 'ecografia', 'hsg', 'espermio']),
 });
 
+// Schema para Gemini Vision - acepta imagen sin examType (la IA lo detecta)
+export const GeminiVisionRequestSchema = z.object({
+  image: z.string()
+    .min(100, 'Imagen inválida o demasiado pequeña')
+    .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, 'Formato de imagen inválido'),
+});
+
+// Schema para Gemini Vision - acepta imagen sin examType (la IA lo detecta)
+export const GeminiVisionRequestSchema = z.object({
+  image: z.string()
+    .min(100, 'Imagen inválida o demasiado pequeña')
+    .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, 'Formato de imagen inválido'),
+});
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -167,7 +219,8 @@ export function sanitizeNumber(input: unknown): number | null {
  */
 export function sanitizeEmail(email: string): string | null {
   try {
-    return LoginSchema.shape.email.parse(email);
+    const parsed = LoginSchema.shape.email.parse(email);
+    return parsed;
   } catch {
     return null;
   }
