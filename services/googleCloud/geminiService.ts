@@ -21,47 +21,12 @@ export interface GeminiResponse {
  * Llama a la API de Gemini a través de la API route de Vercel
  */
 export async function callGeminiAPI(request: GeminiRequest): Promise<GeminiResponse> {
-  try {
-    // Always use full URL - in dev it points to Vercel, in prod it's the same domain
-    const vercelUrl = import.meta.env.VITE_VERCEL_URL || import.meta.env.NEXT_PUBLIC_VERCEL_URL || 'https://method.fertyfit.com';
-    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development' || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
-    const apiUrl = isDev 
-      ? `${vercelUrl}/api/gemini/generate`
-      : (typeof window !== 'undefined' ? `${window.location.origin}/api/gemini/generate` : '/api/gemini/generate');
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: request.prompt,
-        context: request.context,
-        maxTokens: request.maxTokens || 200,
-        temperature: request.temperature || 0.9,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      return {
-        text: '',
-        error: errorData.error || `HTTP ${response.status}`,
-      };
-    }
-
-    const data = await response.json();
-    return {
-      text: data.text || '',
-      error: data.error,
-    };
-  } catch (error) {
-    logger.error('❌ Error calling Gemini API:', error);
-    return {
-      text: '',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+  // TEMPORALMENTE DESHABILITADO - Solo OCR activo para evitar errores en bucle
+  logger.warn('⚠️ Gemini API calls are temporarily disabled - OCR only mode');
+  return {
+    text: '',
+    error: undefined, // No error, just disabled
+  };
 }
 
 /**
