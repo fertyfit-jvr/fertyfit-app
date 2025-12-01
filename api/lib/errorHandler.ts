@@ -90,9 +90,37 @@ export function handleError(error: unknown, req?: any): {
 
 /**
  * Safe error response for API routes
+ * Ensures CORS headers are always set, even on errors
  */
 export function sendErrorResponse(res: any, error: unknown, req?: any): void {
   const errorResponse = handleError(error, req);
+  
+  // Ensure CORS headers are set even on errors
+  if (req && req.headers) {
+    const origin = req.headers.origin || '';
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
+    const allowedOrigins = [
+      'https://method.fertyfit.com',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+    ];
+    
+    let allowedOrigin: string;
+    if (origin && allowedOrigins.includes(origin)) {
+      allowedOrigin = origin;
+    } else if (isLocalhost) {
+      allowedOrigin = origin;
+    } else {
+      allowedOrigin = 'https://method.fertyfit.com';
+    }
+    
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
   
   // Set headers
   if (errorResponse.code === 'RATE_LIMIT_EXCEEDED') {
