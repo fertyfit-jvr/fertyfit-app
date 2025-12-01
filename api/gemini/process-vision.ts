@@ -50,7 +50,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Handle OPTIONS preflight request immediately
     if (req.method === 'OPTIONS') {
-      return res.status(200).end();
+      res.status(200);
+      res.setHeader('Content-Length', '0');
+      return res.end();
     }
 
     // Now apply security headers and continue

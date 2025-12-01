@@ -93,15 +93,17 @@ function setCORSHeaders(res: VercelResponse, origin: string): string {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Wrap everything in try-catch to ensure JSON responses always
   try {
-    // Handle CORS - Allow localhost in development and production domains
+    // Handle CORS FIRST - before anything else
     const origin = req.headers.origin || '';
-    const allowedOrigin = setCORSHeaders(res, origin);
+    setCORSHeaders(res, origin);
     
-    logger.log('CORS Debug:', { origin, allowedOrigin, method: req.method });
+    logger.log('CORS Debug:', { origin, method: req.method });
 
-    // Handle preflight - must return early
+    // Handle preflight - must return early with CORS headers set
     if (req.method === 'OPTIONS') {
-      return res.status(200).end();
+      res.status(200);
+      res.setHeader('Content-Length', '0');
+      return res.end();
     }
 
     // Apply security headers AFTER CORS (security headers don't include CORS)
@@ -130,7 +132,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.setHeader(key, value);
     });
 
-    try {
     // Validate input
     const validatedData = OCRRequestSchema.parse(req.body);
     const { image, examType } = validatedData;
@@ -270,15 +271,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       throw ocrError;
     }
-    } catch (error) {
-      // Log error details for debugging
-      logger.error('OCR API Error:', {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        body: req.body ? { examType: req.body.examType, hasImage: !!req.body.image } : undefined,
-      });
-      sendErrorResponse(res, error, req);
-    }
+  } catch (error) {
+    // Log error details for debugging
+    logger.error('OCR API Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      body: req.body ? { examType: req.body.examType, hasImage: !!req.body.image } : undefined,
+    });
+    sendErrorResponse(res, error, req);
   } catch (globalError) {
     // Catch any error that occurs before the main try block
     // This ensures we always return a valid JSON response with CORS
