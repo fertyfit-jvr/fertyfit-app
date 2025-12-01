@@ -12,9 +12,8 @@ import { geminiRateLimiter, rateLimitMiddleware } from '../lib/rateLimiter.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 import { applySecurityHeaders, validateImageUpload } from '../lib/security.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS FIRST - before anything else
-  const origin = req.headers.origin || '';
+// Helper function to set CORS headers
+function setCORSHeaders(res: VercelResponse, origin: string): string {
   const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
   const allowedOrigins = [
     'https://method.fertyfit.com',
@@ -32,41 +31,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     allowedOrigin = 'https://method.fertyfit.com';
   }
   
-  // Set CORS headers immediately
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin');
+  res.setHeader('Content-Type', 'application/json');
+  
+  return allowedOrigin;
+}
 
-  // Handle OPTIONS preflight request immediately
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Wrap everything in try-catch to ensure JSON responses always
+  try {
+    // Handle CORS FIRST - before anything else
+    const origin = req.headers.origin || '';
+    const allowedOrigin = setCORSHeaders(res, origin);
 
-  // Now apply security headers and continue
-  applySecurityHeaders(res);
+    // Handle OPTIONS preflight request immediately
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+    // Now apply security headers and continue
+    applySecurityHeaders(res);
+    
+    // Re-assert CORS headers after security headers
+    setCORSHeaders(res, origin);
 
-  // Rate limiting
-  const rateLimit = rateLimitMiddleware(geminiRateLimiter, req, res);
-  if (!rateLimit.allowed) {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // Rate limiting
+    const rateLimit = rateLimitMiddleware(geminiRateLimiter, req, res);
+    if (!rateLimit.allowed) {
+      Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
+        res.setHeader(key, value);
+      });
+      return res.status(429).json({
+        error: 'Demasiadas solicitudes. Por favor, intenta de nuevo en un momento.',
+        code: 'RATE_LIMIT_EXCEEDED',
+      });
+    }
     Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
       res.setHeader(key, value);
     });
-    return res.status(429).json({
-      error: 'Demasiadas solicitudes. Por favor, intenta de nuevo en un momento.',
-      code: 'RATE_LIMIT_EXCEEDED',
-    });
-  }
-  Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
-    res.setHeader(key, value);
-  });
 
-  try {
+    try {
     // Validate input
     const validatedData = GeminiVisionRequestSchema.parse(req.body);
     const { image } = validatedData;
@@ -218,13 +230,26 @@ Si no encuentras datos médicos, devuelve extractedData como objeto vacío {} pe
       }
       throw fetchError;
     }
-  } catch (error) {
-    console.error('Gemini Vision API Error:', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      body: req.body ? { hasImage: !!req.body.image } : undefined,
+    } catch (error) {
+      console.error('Gemini Vision API Error:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        body: req.body ? { hasImage: !!req.body.image } : undefined,
+      });
+      sendErrorResponse(res, error, req);
+    }
+  } catch (globalError) {
+    // Catch any error that occurs before the main try block
+    // This ensures we always return a valid JSON response with CORS
+    const origin = req.headers.origin || '';
+    setCORSHeaders(res, origin);
+    
+    console.error('Gemini Vision Global Error:', {
+      message: globalError instanceof Error ? globalError.message : String(globalError),
+      stack: globalError instanceof Error ? globalError.stack : undefined,
     });
-    sendErrorResponse(res, error, req);
+    
+    sendErrorResponse(res, globalError, req);
   }
 }
 

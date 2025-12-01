@@ -61,73 +61,76 @@ async function getVisionClient() {
   }
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS - Allow localhost in development and production domains
-  const origin = req.headers.origin || '';
+// Helper function to set CORS headers
+function setCORSHeaders(res: VercelResponse, origin: string): string {
   const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
   const allowedOrigins = [
-    'https://method.fertyfit.com', // Solo la app en producción
-    'http://localhost:5173',        // Desarrollo local
-    'http://localhost:5174',        // Desarrollo local (puerto alternativo)
-    'http://127.0.0.1:5173',        // Desarrollo local (IP)
+    'https://method.fertyfit.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
   ];
   
-  // Determine which origin to allow - prioritize exact match
   let allowedOrigin: string;
   if (origin && allowedOrigins.includes(origin)) {
-    allowedOrigin = origin; // Use the exact origin from the request
+    allowedOrigin = origin;
   } else if (isLocalhost) {
-    allowedOrigin = origin; // Even if not in list, allow localhost
+    allowedOrigin = origin;
   } else {
-    allowedOrigin = 'https://method.fertyfit.com'; // Fallback to production origin
+    allowedOrigin = 'https://method.fertyfit.com';
   }
   
-  // Log for debugging
-  logger.log('CORS Debug:', { origin, isLocalhost, allowedOrigin, method: req.method });
-  
-  // Always set CORS headers - this must be done before any other response
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Vary', 'Origin'); // Important for CORS caching
-
-  // Handle preflight - must return early
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // Apply security headers AFTER CORS (security headers don't include CORS)
-  applySecurityHeaders(res);
-  
-  // Re-assert CORS headers after security headers to ensure they're not overwritten
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin');
+  res.setHeader('Content-Type', 'application/json');
+  
+  return allowedOrigin;
+}
 
-  // Only allow POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Wrap everything in try-catch to ensure JSON responses always
+  try {
+    // Handle CORS - Allow localhost in development and production domains
+    const origin = req.headers.origin || '';
+    const allowedOrigin = setCORSHeaders(res, origin);
+    
+    logger.log('CORS Debug:', { origin, allowedOrigin, method: req.method });
 
-  // Rate limiting (stricter for OCR as it's more expensive)
-  const rateLimit = rateLimitMiddleware(ocrRateLimiter, req, res);
-  if (!rateLimit.allowed) {
+    // Handle preflight - must return early
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+
+    // Apply security headers AFTER CORS (security headers don't include CORS)
+    applySecurityHeaders(res);
+    
+    // Re-assert CORS headers after security headers to ensure they're not overwritten
+    setCORSHeaders(res, origin);
+
+    // Only allow POST
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // Rate limiting (stricter for OCR as it's more expensive)
+    const rateLimit = rateLimitMiddleware(ocrRateLimiter, req, res);
+    if (!rateLimit.allowed) {
+      Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
+        res.setHeader(key, value);
+      });
+      return res.status(429).json({
+        error: 'Demasiadas solicitudes de OCR. Por favor, intenta de nuevo en un momento.',
+        code: 'RATE_LIMIT_EXCEEDED',
+      });
+    }
     Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
       res.setHeader(key, value);
     });
-    return res.status(429).json({
-      error: 'Demasiadas solicitudes de OCR. Por favor, intenta de nuevo en un momento.',
-      code: 'RATE_LIMIT_EXCEEDED',
-    });
-  }
-  Object.entries(rateLimit.headers || {}).forEach(([key, value]) => {
-    res.setHeader(key, value);
-  });
 
-  try {
+    try {
     // Validate input
     const validatedData = OCRRequestSchema.parse(req.body);
     const { image, examType } = validatedData;
@@ -267,14 +270,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       throw ocrError;
     }
-  } catch (error) {
-    // Log error details for debugging
-    logger.error('OCR API Error:', {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      body: req.body ? { examType: req.body.examType, hasImage: !!req.body.image } : undefined,
+    } catch (error) {
+      // Log error details for debugging
+      logger.error('OCR API Error:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        body: req.body ? { examType: req.body.examType, hasImage: !!req.body.image } : undefined,
+      });
+      sendErrorResponse(res, error, req);
+    }
+  } catch (globalError) {
+    // Catch any error that occurs before the main try block
+    // This ensures we always return a valid JSON response with CORS
+    const origin = req.headers.origin || '';
+    setCORSHeaders(res, origin);
+    
+    logger.error('OCR Global Error:', {
+      message: globalError instanceof Error ? globalError.message : String(globalError),
+      stack: globalError instanceof Error ? globalError.stack : undefined,
     });
-    sendErrorResponse(res, error, req);
+    
+    sendErrorResponse(res, globalError, req);
   }
 }
 
