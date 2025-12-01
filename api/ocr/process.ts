@@ -13,14 +13,14 @@ import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 import { applySecurityHeaders, validateImageUpload } from '../lib/security.js';
 import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../lib/medicalValidation.js';
 
-// Logger simple para serverless functions
+// Logger simple para serverless functions (solo para serverless, no usar en frontend)
 const logger = {
-  log: (...args: any[]) => {
+  log: (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
       console.log(...args);
     }
   },
-  error: (...args: any[]) => {
+  error: (...args: unknown[]) => {
     console.error(...args);
   },
 };

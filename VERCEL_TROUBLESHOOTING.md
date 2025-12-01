@@ -51,7 +51,6 @@ vercel logs --function=api/ocr/process
 2. **Verifica las siguientes variables:**
    - ✅ `GOOGLE_CLOUD_CREDENTIALS` - Debe contener el JSON completo del service account
    - ✅ `GOOGLE_CLOUD_PROJECT_ID` - ID del proyecto de Google Cloud
-   - ✅ `GEMINI_API` - API key de Gemini
    - ✅ `NODE_ENV` - Debe ser `production` (opcional, Vercel lo establece automáticamente)
 
 3. **Verificar que estén en el entorno correcto:**
@@ -113,7 +112,6 @@ curl -X POST https://method.fertyfit.com/api/ocr/process \
 3. Verifica que el estado sea **"Ready"** (verde)
 4. En la sección **"Functions"**, deberías ver:
    - `/api/ocr/process`
-   - `/api/gemini/generate`
 
 ### 6. Re-desplegar si es Necesario
 
@@ -176,6 +174,6 @@ Antes de reportar un problema, verifica:
 - [ ] La Vision API está habilitada en Google Cloud
 - [ ] El service account tiene permisos de Vision API
 - [ ] El último deployment está en estado "Ready"
-- [ ] Las funciones `/api/ocr/process` y `/api/gemini/generate` aparecen en Functions
+- [ ] La función `/api/ocr/process` aparece en Functions
 - [ ] Revisaste los logs de la función para ver el error exacto
 

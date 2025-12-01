@@ -2,7 +2,7 @@
 
 ## Problema
 
-Estás recibiendo errores 500 tanto en `/api/ocr/process` como en `/api/gemini/process-vision`.
+Estás recibiendo errores 500 en `/api/ocr/process`.
 
 ## Causas Comunes
 
@@ -13,10 +13,6 @@ Necesitas estas variables en Vercel:
 - `GOOGLE_CLOUD_CREDENTIALS` - JSON del service account
 - `GOOGLE_CLOUD_PROJECT_ID` - ID del proyecto de Google Cloud
 
-#### Para Gemini Vision (`/api/gemini/process-vision`):
-Necesitas esta variable:
-- `GEMINI_API` - API key de Gemini
-
 ### 2. Cómo Verificar Variables de Entorno en Vercel
 
 1. Ve a https://vercel.com/dashboard
@@ -25,7 +21,6 @@ Necesitas esta variable:
 4. Verifica que existan:
    - `GOOGLE_CLOUD_CREDENTIALS`
    - `GOOGLE_CLOUD_PROJECT_ID`
-   - `GEMINI_API`
 5. Asegúrate de que estén marcadas para **Production**
 
 ### 3. Ver Logs de Error en Vercel
@@ -33,16 +28,13 @@ Necesitas esta variable:
 1. Ve a **Deployments** en Vercel Dashboard
 2. Selecciona el último deployment
 3. Ve a la pestaña **Functions**
-4. Haz clic en `/api/ocr/process` o `/api/gemini/process-vision`
+4. Haz clic en `/api/ocr/process`
 5. Revisa los **Runtime Logs** para ver el error específico
 
 Los errores más comunes que verás:
 
 #### Error: "Google Cloud credentials not configured"
 **Solución**: Añade `GOOGLE_CLOUD_CREDENTIALS` y `GOOGLE_CLOUD_PROJECT_ID` en Vercel
-
-#### Error: "Gemini API key not configured"
-**Solución**: Añade `GEMINI_API` en Vercel
 
 #### Error: "Invalid credentials format"
 **Solución**: Verifica que `GOOGLE_CLOUD_CREDENTIALS` sea un JSON válido en una sola línea
@@ -52,9 +44,9 @@ Los errores más comunes que verás:
 - Verifica que el service account tenga permisos de Vision API
 - Verifica que Vision API esté habilitada en Google Cloud Console
 
-### 4. Probar Directamente las APIs
+### 4. Probar Directamente la API
 
-Puedes probar las APIs directamente desde la terminal para ver el error completo:
+Puedes probar la API directamente desde la terminal para ver el error completo:
 
 ```bash
 # Probar OCR (necesitas una imagen en base64)
@@ -64,15 +56,6 @@ curl -X POST https://method.fertyfit.com/api/ocr/process \
   -d '{
     "image": "data:image/jpeg;base64,iVBORw0KG...",
     "examType": "hormonal"
-  }' \
-  -v
-
-# Probar Gemini Vision
-curl -X POST https://method.fertyfit.com/api/gemini/process-vision \
-  -H "Content-Type: application/json" \
-  -H "Origin: http://localhost:5173" \
-  -d '{
-    "image": "data:image/jpeg;base64,iVBORw0KG..."
   }' \
   -v
 ```
