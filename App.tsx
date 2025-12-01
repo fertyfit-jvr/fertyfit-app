@@ -6,7 +6,7 @@ import {
   CheckCircle, WineOff, Calendar, Thermometer, Droplets, Zap, Clock, Scale, Minus, Sparkles, Trash
 } from 'lucide-react';
 
-import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport, DailyLog as DailyLogType, ConsultationForm, LHResult, Lesson, AppNotification, NotificationAction } from './types';
+import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport, ConsultationForm, LHResult, Lesson, AppNotification, NotificationAction } from './types';
 import { MedicalReport } from './components/MedicalReport';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { FORM_DEFINITIONS } from './constants/formDefinitions';
@@ -351,9 +351,9 @@ function AppContent() {
           fetchEducation(user.id, user.methodStartDate || undefined),
         ]);
         
-        // Load reports only for subscribers/admins
+        // Load reports only for admins
         const currentUser = useAppStore.getState().user;
-        if (currentUser && (currentUser.role === 'admin' || (currentUser as any).user_type === 'subscriber')) {
+        if (currentUser && currentUser.role === 'admin') {
           await fetchReports(user.id);
         }
         

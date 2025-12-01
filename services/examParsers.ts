@@ -544,7 +544,6 @@ export function parseAllExamTypes(text: string): ParsedExamData {
   const cleanedText = sanitizeText(text);
   const allData: ParsedExamData = {};
   
-  // Parsear todos los tipos y combinar resultados
   const hormonalData = parseHormonalPanel(cleanedText);
   const metabolicData = parseMetabolicPanel(cleanedText);
   const vitaminDData = parseVitaminaD(cleanedText);
@@ -552,13 +551,7 @@ export function parseAllExamTypes(text: string): ParsedExamData {
   const hsgData = parseHSG(cleanedText);
   const espermioData = parseEspermiograma(cleanedText);
   
-  // Combinar todos los datos (sin sobrescribir, solo agregar)
-  Object.assign(allData, hormonalData);
-  Object.assign(allData, metabolicData);
-  Object.assign(allData, vitaminDData);
-  Object.assign(allData, ecografiaData);
-  Object.assign(allData, hsgData);
-  Object.assign(allData, espermioData);
+  Object.assign(allData, hormonalData, metabolicData, vitaminDData, ecografiaData, hsgData, espermioData);
   
   return allData;
 }
