@@ -13,7 +13,7 @@ import { FORM_DEFINITIONS } from './constants/formDefinitions';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus } from './services/dataService';
 import { calculateFertyScore } from './services/fertyscoreService';
 import { supabase } from './services/supabase';
-import { evaluateRules, saveNotifications, calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from './services/RuleEngine';
+import { calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from './services/RuleEngine';
 import { getCycleDay } from './hooks/useCycleDay';
 import { isValidNotificationHandler } from './types';
 import { generarDatosInformeMedico } from './services/MedicalReportHelpers';
@@ -24,14 +24,17 @@ import LogHistoryItem from './components/common/LogHistoryItem';
 import PhaseIntroModal from './components/common/PhaseIntroModal';
 import NavButton from './components/common/NavButton';
 import StatCard from './components/common/StatCard';
+import { useAuth } from './hooks/useAuth';
+import { useDailyNotifications } from './hooks/useDailyNotifications';
 import {
-  useFetchLogs,
-  useFetchNotifications,
-  useFetchUserForms,
-  useFetchReports,
-  useFetchEducation,
-  initializeTodayLog
-} from './hooks/useUserData';
+  fetchLogsForUser,
+  fetchAllLogsForUser,
+  fetchNotificationsForUser,
+  fetchUserFormsForUser,
+  fetchReportsForUser,
+  fetchEducationForUser,
+  mapLogFromDB
+} from './services/userDataService';
 import { logger } from './lib/logger';
 import { EXTERNAL_URLS } from './constants/api';
 
@@ -93,28 +96,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 
 // --- Helpers ---
-const mapLogFromDB = (dbLog: any): DailyLog => ({
-  id: dbLog.id,
-  user_id: dbLog.user_id,
-  date: dbLog.date,
-  cycleDay: dbLog.cycle_day,
-  bbt: dbLog.bbt,
-  mucus: dbLog.mucus || '',
-  cervixHeight: dbLog.cervix_height || '',
-  cervixFirmness: dbLog.cervix_firmness || '',
-  cervixOpenness: dbLog.cervix_openness || '',
-  lhTest: dbLog.lh_test || 'No realizado',
-  symptoms: dbLog.symptoms || [],
-  sex: dbLog.sex,
-  sleepQuality: dbLog.sleep_quality,
-  sleepHours: dbLog.sleep_hours,
-  stressLevel: dbLog.stress_level,
-  activityMinutes: dbLog.activity_minutes || 0,
-  sunMinutes: dbLog.sun_minutes || 0,
-  waterGlasses: dbLog.water_glasses,
-  veggieServings: dbLog.veggie_servings,
-  alcohol: dbLog.alcohol
-});
+// mapLogFromDB is now in services/userDataService.ts
 
 const mapLogToDB = (log: DailyLog, userId: string) => ({
   user_id: userId,
@@ -206,6 +188,10 @@ function AppContent() {
     f0Answers, setF0Answers
   } = useAppStore();
 
+  // Initialize hooks for auth and daily notifications
+  const { checkUser, handleAuth: authHandleAuth, handleLogout, refreshUserProfile } = useAuth();
+  useDailyNotifications();
+
   // Filter notifications based on blacklist
   // Ensure notifications is always an array
   const safeNotifications = Array.isArray(notifications) ? notifications : [];
@@ -251,221 +237,97 @@ function AppContent() {
     showNotif('Método reiniciado correctamente', 'success');
   };
 
-  /**
-   * Helper function for retry logic with exponential backoff
-   * Uses function declaration syntax for esbuild compatibility (not arrow function)
-   * @param fn - Async function to retry
-   * @param retries - Number of retry attempts (default: 3)
-   * @param baseDelay - Base delay in milliseconds (default: 1000)
-   * @returns Result of the function or throws error after all retries
-   */
-  async function withRetry<T>(
-    fn: () => Promise<T>,
-    retries: number = 3,
-    baseDelay: number = 1000
-  ): Promise<T> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        return await fn();
-      } catch (error) {
-        if (i === retries - 1) {
-          throw error; // Last attempt, throw error
-        }
-        // Exponential backoff: 1s, 2s, 3s...
-        const delay = baseDelay * (i + 1);
-        logger.warn(`Retry attempt ${i + 2}/${retries} after ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    throw new Error('Retry failed'); // Should never reach here
-  }
-
-  // Define ALL fetch functions FIRST to avoid circular dependencies
+  // Wrapper functions using centralized services
+  // These wrappers handle state updates and todayLog initialization
   const fetchLogs = async (userId: string, daysLimit: number = 90) => {
     try {
-      // Calculate cutoff date (default: last 90 days)
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
-      const cutoffDateStr = formatDateForDB(cutoffDate);
-
-      const { data, error } = await withRetry(async () => {
-        const result = await supabase
-          .from('daily_logs')
-          .select('*')
-          .eq('user_id', userId)
-          .gte('date', cutoffDateStr)
-          .order('date', { ascending: false })
-          .limit(daysLimit);
+      const mappedLogs = await fetchLogsForUser(userId, daysLimit);
+      setLogs(mappedLogs);
+      const todayStr = formatDateForDB(new Date());
+      const existingToday = mappedLogs.find(l => l.date === todayStr);
+      
+      // Always calculate cycleDay based on user's lastPeriodDate, not from previous logs
+      if (user?.lastPeriodDate && user?.cycleLength) {
+        const currentCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
         
-        if (result.error) {
-          throw result.error;
+        if (existingToday) {
+          // Update existing log with correct cycleDay
+          setTodayLog({ ...existingToday, cycleDay: currentCycleDay });
+        } else {
+          // Create new today log with correct cycleDay
+          setTodayLog({
+            date: todayStr,
+            cycleDay: currentCycleDay > 0 ? currentCycleDay : 1,
+            symptoms: [],
+            alcohol: false,
+            lhTest: 'No realizado',
+            activityMinutes: 0,
+            sunMinutes: 0
+          });
         }
-        return result;
-      });
-
-      if (data) {
-        const mappedLogs = data.map(mapLogFromDB);
-        setLogs(mappedLogs);
-        const todayStr = formatDateForDB(new Date());
-        const existingToday = mappedLogs.find(l => l.date === todayStr);
-        
-        // Always calculate cycleDay based on user's lastPeriodDate, not from previous logs
-        if (user?.lastPeriodDate && user?.cycleLength) {
-          const currentCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
-          
-          if (existingToday) {
-            // Update existing log with correct cycleDay
-            setTodayLog({ ...existingToday, cycleDay: currentCycleDay });
-          } else {
-            // Create new today log with correct cycleDay
-            setTodayLog({
-              date: todayStr,
-              cycleDay: currentCycleDay > 0 ? currentCycleDay : 1,
-              symptoms: [],
-              alcohol: false,
-              lhTest: 'No realizado',
-              activityMinutes: 0,
-              sunMinutes: 0
-            });
-          }
-        } else if (existingToday) {
-          setTodayLog(existingToday);
-        } else if (mappedLogs.length > 0) {
-          // Fallback: if no user cycle data, use last log (shouldn't happen normally)
-          const last = mappedLogs[0];
-          const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
-          setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
-        }
-        return mappedLogs;
+      } else if (existingToday) {
+        setTodayLog(existingToday);
+      } else if (mappedLogs.length > 0) {
+        // Fallback: if no user cycle data, use last log (shouldn't happen normally)
+        const last = mappedLogs[0];
+        const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
+        setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
       }
-      return [];
+      return mappedLogs;
     } catch (error) {
-      logger.error('❌ Error fetching logs after retries:', error);
+      logger.error('❌ Error fetching logs:', error);
       showNotif('Error cargando registros. Intenta recargar la página.', 'error');
-      // Return empty array as fallback to prevent app crash
       return [];
     }
   };
 
-  // Function to fetch all logs (for history view)
   const fetchAllLogs = async (userId: string) => {
     try {
-      const { data, error } = await withRetry(async () => {
-        const result = await supabase
-          .from('daily_logs')
-          .select('*')
-          .eq('user_id', userId)
-          .order('date', { ascending: false });
-        
-        if (result.error) {
-          throw result.error;
-        }
-        return result;
-      });
-
-      if (data) {
-        const mappedLogs = data.map(mapLogFromDB);
-        setLogs(mappedLogs);
-        return mappedLogs;
-      }
-      return [];
+      const mappedLogs = await fetchAllLogsForUser(userId);
+      setLogs(mappedLogs);
+      return mappedLogs;
     } catch (error) {
-      logger.error('❌ Error fetching all logs after retries:', error);
+      logger.error('❌ Error fetching all logs:', error);
       showNotif('Error cargando historial completo. Intenta recargar la página.', 'error');
       return [];
     }
   };
 
   const fetchNotifications = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) logger.error('❌ Error fetching notifications:', error);
-    if (data) {
-      // Filter out soft-deleted notifications (metadata.deleted === true)
-      const activeNotifications = Array.isArray(data) ? data.filter(n => !n.metadata?.deleted) : [];
+    try {
+      const activeNotifications = await fetchNotificationsForUser(userId);
       setNotifications(activeNotifications);
-    } else {
-      // Ensure notifications is always an array
+    } catch (error) {
+      logger.error('❌ Error fetching notifications:', error);
       setNotifications([]);
     }
   };
 
   const fetchReports = async (userId: string) => {
-    const { data, error } = await supabase.from('admin_reports').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-
-    if (error) logger.error('❌ Error fetching reports:', error);
-    if (data) {
-      setReports(data);
+    try {
+      const reports = await fetchReportsForUser(userId);
+      setReports(reports);
+    } catch (error) {
+      logger.error('❌ Error fetching reports:', error);
     }
   };
 
   const fetchUserForms = async (userId: string) => {
     try {
-      const { data, error } = await withRetry(async () => {
-        const result = await supabase
-          .from('consultation_forms')
-          .select('*')
-          .eq('user_id', userId);
-        
-        if (result.error) {
-          throw result.error;
-        }
-        return result;
-      });
-
-      if (data) {
-        setSubmittedForms(data);
-      }
+      const forms = await fetchUserFormsForUser(userId);
+      setSubmittedForms(forms);
     } catch (error) {
-      logger.error('❌ Error fetching forms after retries:', error);
+      logger.error('❌ Error fetching forms:', error);
       showNotif('Error cargando formularios. Intenta recargar la página.', 'error');
     }
   };
 
   const fetchEducation = async (userId: string, methodStart?: string) => {
-    const { data: modulesData } = await supabase.from('content_modules').select(`*, content_lessons (*)`).order('order_index');
-    const { data: progressData } = await supabase.from('user_progress').select('lesson_id').eq('user_id', userId);
-    const completedSet = new Set(progressData?.map(p => p.lesson_id) || []);
-
-    let currentWeek = 0;
-    if (methodStart) {
-      const start = new Date(methodStart);
-      start.setHours(0, 0, 0, 0);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
-      currentWeek = Math.ceil(days / 7) || 1;
-    }
-
-    if (modulesData && Array.isArray(modulesData)) {
-      setCourseModules(modulesData.map(m => {
-        const safeContentLessons = Array.isArray(m.content_lessons) ? m.content_lessons : [];
-        const safeCompletedSet = Array.isArray(Array.from(completedSet)) ? completedSet : new Set();
-        
-        return {
-          id: m.id, 
-          title: m.title, 
-          description: m.description, 
-          order_index: m.order_index, 
-          phase: m.phase as any,
-          lessons: safeContentLessons.sort((a: any, b: any) => {
-            if (a.type === 'video' && b.type !== 'video') return -1;
-            if (a.type !== 'video' && b.type === 'video') return 1;
-            return 0;
-          }),
-          completedLessons: Array.from(safeCompletedSet).filter(id => 
-            safeContentLessons.some((l: any) => l.id === id)
-          ) as number[],
-          isCompleted: false,
-          isLocked: m.phase > 0 && (!methodStart || m.order_index > currentWeek)
-        };
-      }));
-    } else {
-      // Ensure courseModules is always an array
+    try {
+      const modules = await fetchEducationForUser(userId, methodStart);
+      setCourseModules(modules);
+    } catch (error) {
+      logger.error('❌ Error fetching education:', error);
       setCourseModules([]);
     }
   };
@@ -477,228 +339,68 @@ function AppContent() {
     }
   }, [user, view]);
 
-  useEffect(() => { checkUser(); }, []);
+  // Track if data has been loaded to avoid multiple loads
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Track last daily check date to avoid redundant executions
-  const [lastDailyCheckDate, setLastDailyCheckDate] = useState<string | null>(null);
+  // Check user session on mount using hook
+  useEffect(() => { 
+    checkUser(); 
+  }, []);
 
+  // Load user data after authentication
   useEffect(() => {
-    if (!user?.id) return;
-    if (!user.lastPeriodDate || !user.cycleLength) {
-      logger.warn('🔁 Cycle tracking skipped - missing data', {
-        userId: user.id,
-        hasLastPeriodDate: Boolean(user.lastPeriodDate),
-        hasCycleLength: Boolean(user.cycleLength)
-      });
-      return;
-    }
-
-    const todayKey = `fertyfit_daily_check_${user.id}`;
-    const todayStr = formatDateForDB(new Date());
-    
-    // Check both localStorage and state to avoid redundant checks
-    const storedCheckDate = localStorage.getItem(todayKey);
-    if (storedCheckDate === todayStr || lastDailyCheckDate === todayStr) {
-      return; // Already checked today
-    }
-
-    const currentCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
-    if (!currentCycleDay) return;
-
-    let cancelled = false;
-
-    const runDailyCheck = async () => {
+    const loadUserData = async () => {
+      if (!user?.id || dataLoaded) return;
+      
+      logger.log('🔄 Fetching user data...');
+      
       try {
-        const ruleNotifications = await evaluateRules('DAILY_CHECK', {
-          user,
-          currentCycleDay
-        });
-
-        if (!cancelled && ruleNotifications.length > 0) {
-          await saveNotifications(user.id!, ruleNotifications);
-          // Fetch notifications after saving
-          const { data: notifData } = await supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-          if (notifData) {
-            const activeNotifications = Array.isArray(notifData) ? notifData.filter(n => !n.metadata?.deleted) : [];
-            setNotifications(activeNotifications);
-          } else {
-            // Ensure notifications is always an array
-            setNotifications([]);
-          }
+        // Load data in parallel for better performance
+        await Promise.all([
+          fetchLogs(user.id),
+          fetchUserForms(user.id),
+          fetchNotifications(user.id),
+          fetchEducation(user.id, user.methodStartDate || undefined),
+        ]);
+        
+        // Load reports only for subscribers/admins
+        const currentUser = useAppStore.getState().user;
+        if (currentUser && (currentUser.role === 'admin' || (currentUser as any).user_type === 'subscriber')) {
+          await fetchReports(user.id);
         }
-      } catch (err) {
-        logger.error('❌ Error running DAILY_CHECK trigger', err);
-      } finally {
-        if (!cancelled) {
-          localStorage.setItem(todayKey, todayStr);
-          setLastDailyCheckDate(todayStr);
-        }
+        
+        logger.log('✅ Data fetched successfully');
+        setDataLoaded(true);
+      } catch (error) {
+        logger.error('❌ Error loading user data:', error);
       }
     };
 
-    runDailyCheck();
+    // Only load data if user is authenticated and view allows it
+    if (user?.id && (view === 'DASHBOARD' || view === 'DISCLAIMER') && !dataLoaded) {
+      loadUserData();
+    }
+  }, [user?.id, view]); // Removed dataLoaded from dependencies to avoid circular updates
 
-    return () => { cancelled = true; };
-  }, [user?.id, lastDailyCheckDate]); // Removed lastPeriodDate and cycleLength from deps to reduce triggers
+  // Reset dataLoaded flag when user logs out
+  useEffect(() => {
+    if (!user) {
+      setDataLoaded(false);
+    }
+  }, [user]);
 
-  const checkUser = async () => {
-    setLoading(true);
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
+  // Note: checkUser function removed - using hook's checkUser instead
 
-      if (session?.user) {
-        const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-
-        if (error && error.code === '42P01') { setLoading(false); return; }
-
-        if (error && (error.code === 'PGRST116' || !profile)) {
-          // CREATE NEW PROFILE WITH NAME FROM METADATA OR EMAIL
-          const metaName = session.user.user_metadata?.full_name;
-          const emailName = session.user.email?.split('@')[0] || 'Usuario';
-          const displayName = metaName || (emailName.charAt(0).toUpperCase() + emailName.slice(1));
-
-          const { error: createError } = await supabase.from('profiles').insert({
-            id: session.user.id,
-            email: session.user.email,
-            name: displayName,
-            age: 30,
-            disclaimer_accepted: false
-          });
-
-          if (createError) {
-
-            logger.error("Profile creation failed:", createError);
-          } else {
-            // RECURSIVELY CALL CHECKUSER TO LOAD STATE WITHOUT RELOAD
-            return checkUser();
-          }
-          setLoading(false); return;
-        }
-
-        if (profile) {
-          setUser({
-            id: session.user.id, email: session.user.email, joinedAt: profile.created_at,
-            methodStartDate: profile.method_start_date,
-            name: profile.name, age: profile.age, weight: profile.weight, height: profile.height, timeTrying: profile.time_trying,
-            diagnoses: profile.diagnoses || [], treatments: [], disclaimerAccepted: profile.disclaimer_accepted, isOnboarded: true,
-            mainObjective: profile.main_objective, partnerStatus: profile.partner_status,
-            role: profile.role || 'user',
-            // Add cycle and fertility fields
-            cycleRegularity: profile.cycle_regularity,
-            cycleLength: profile.cycle_length,
-            lastPeriodDate: profile.last_period_date,
-            fertilityTreatments: profile.fertility_treatments,
-            supplements: profile.supplements,
-            alcoholConsumption: profile.alcohol_consumption
-          });
-
-          // Determine phase
-          let phase = 0;
-          if (profile.method_start_date) {
-            const start = new Date(profile.method_start_date);
-            start.setHours(0, 0, 0, 0);
-            const now = new Date();
-            now.setHours(0, 0, 0, 0);
-            const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
-            const week = Math.ceil(days / 7) || 1;
-            if (week >= 1 && week <= 4) phase = 1;
-            else if (week >= 5 && week <= 8) phase = 2;
-            else if (week >= 9) phase = 3;
-          }
-          setCurrentPhase(phase);
-
-          // Show Phase Modal only once per phase
-          const seenKey = `fertyfit_phase_seen_${session.user.id}_${phase}`;
-          if (!localStorage.getItem(seenKey)) {
-            setShowPhaseModal(true);
-          }
-
-          // Fetch data CRITICAL: Wait for data before showing dashboard
-          logger.log('🔄 Fetching user data...');
-          const fetchedLogs = await fetchLogs(session.user.id);
-          const fetchedForms = await fetchUserForms(session.user.id); // Assuming we might need this too, but for now logs is enough
-
-          // RULE ENGINE: PERIODIC CHECK
-          // We construct the user object same as above
-          const currentUser = {
-            id: session.user.id, email: session.user.email, joinedAt: profile.created_at,
-            methodStartDate: profile.method_start_date,
-            name: profile.name, age: profile.age, weight: profile.weight, height: profile.height, timeTrying: profile.time_trying,
-            diagnoses: profile.diagnoses || [], treatments: [], disclaimerAccepted: profile.disclaimer_accepted, isOnboarded: true,
-            mainObjective: profile.main_objective, partnerStatus: profile.partner_status,
-            role: profile.role || 'user',
-            // Add other fields if needed by rules
-            cycleRegularity: profile.cycle_regularity,
-            cycleLength: profile.cycle_length,
-            lastPeriodDate: profile.last_period_date,
-            fertilityTreatments: profile.fertility_treatments,
-            supplements: profile.supplements,
-            alcoholConsumption: profile.alcohol_consumption
-          };
-
-          // Note: DAILY_CHECK trigger is implemented in useEffect (line ~368)
-          // This evaluates rules daily when user data changes, not on initial load
-          // to avoid duplicate notifications on login
-
-          await fetchNotifications(session.user.id);
-          await fetchEducation(session.user.id, profile.method_start_date);
-
-          if (profile.user_type === 'subscriber' || profile.role === 'admin') {
-            await fetchReports(session.user.id);
-          }
-
-          logger.log('✅ Data fetched successfully');
-
-          if (!profile.disclaimer_accepted) setView('DISCLAIMER');
-          else setView('DASHBOARD');
-        }
-      } else {
-        setView('ONBOARDING');
-      }
-    } catch (err) {
-      logger.error('❌ Error in checkUser:', err);
-      setAuthError('Error al cargar perfil: ' + (err as any).message);
-      setView('ONBOARDING');
-    } finally { setLoading(false); }
-  };
-
+  // Handle authentication using hook
   const handleAuth = async () => {
     setAuthError('');
-    setLoading(true);
-    try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: name } } // Save Name to Metadata
-        });
-        if (error) setAuthError(error.message);
-        else { showNotif("¡Registro exitoso! Revisa tu email.", 'success'); setIsSignUp(false); }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            setAuthError("Usuario no registrado o contraseña incorrecta.");
-          } else {
-            setAuthError(error.message);
-          }
-        } else {
-          await checkUser();
-        }
-      }
-    } catch (e: any) { setAuthError(e.message); } finally { setLoading(false); }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setLogs([]);
-    setView('ONBOARDING');
+    const success = await authHandleAuth(email, password, name, isSignUp);
+    
+    if (isSignUp && success) {
+      showNotif("¡Registro exitoso! Revisa tu email.", 'success');
+      setIsSignUp(false);
+    }
+    // Data loading will be handled by useEffect when user is set
   };
 
   const markNotificationRead = async (notifId: number) => {
@@ -769,38 +471,7 @@ function AppContent() {
     }
   };
 
-  const refreshUserProfile = async (userId: string) => {
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        logger.error('Error refreshing user profile:', error);
-        return;
-      }
-
-      if (profile) {
-        // Usar función de actualización de estado para obtener el estado más reciente
-        setUser(prevUser => {
-          if (!prevUser) return prevUser;
-          return {
-            ...prevUser,
-            lastPeriodDate: profile.last_period_date,
-            cycleLength: profile.cycle_length,
-            cycleRegularity: profile.cycle_regularity,
-          };
-        });
-        
-        // También recargar los formularios para sincronizar F0 con el perfil actualizado
-        await fetchUserForms(userId);
-      }
-    } catch (error) {
-      logger.error('Error in refreshUserProfile:', error);
-    }
-  };
+  // refreshUserProfile is now provided by useAuth hook
 
   const handleNotificationAction = async (notification: AppNotification, action: NotificationAction) => {
     if (!user?.id) return;

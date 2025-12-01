@@ -1,41 +1,23 @@
 /**
  * Custom hook for user data fetching
- * Separates data fetching logic from UI components
+ * Now delegates to centralized services for consistency
  */
 
 import { DailyLog, ConsultationForm, AppNotification, AdminReport, CourseModule } from '../types';
-import { supabase } from '../services/supabase';
 import { formatDateForDB } from '../services/dataService';
+import {
+  fetchLogsForUser,
+  fetchAllLogsForUser,
+  fetchNotificationsForUser,
+  fetchUserFormsForUser,
+  fetchReportsForUser,
+  fetchEducationForUser
+} from '../services/userDataService';
 import { logger } from '../lib/logger';
 
 /**
- * Maps database log format to application log format
- */
-const mapLogFromDB = (dbLog: any): DailyLog => ({
-  id: dbLog.id,
-  user_id: dbLog.user_id,
-  date: dbLog.date,
-  cycleDay: dbLog.cycle_day,
-  bbt: dbLog.bbt,
-  mucus: dbLog.mucus || '',
-  cervixHeight: dbLog.cervix_height || '',
-  cervixFirmness: dbLog.cervix_firmness || '',
-  cervixOpenness: dbLog.cervix_openness || '',
-  lhTest: dbLog.lh_test || 'No realizado',
-  symptoms: dbLog.symptoms || [],
-  sex: dbLog.sex,
-  sleepQuality: dbLog.sleep_quality,
-  sleepHours: dbLog.sleep_hours,
-  stressLevel: dbLog.stress_level,
-  activityMinutes: dbLog.activity_minutes || 0,
-  sunMinutes: dbLog.sun_minutes || 0,
-  waterGlasses: dbLog.water_glasses,
-  veggieServings: dbLog.veggie_servings,
-  alcohol: dbLog.alcohol
-});
-
-/**
  * Hook for fetching user logs with pagination (default: last 90 days)
+ * Now uses centralized service with retry logic
  */
 export const useFetchLogs = () => {
   const fetchLogs = async (
@@ -44,32 +26,15 @@ export const useFetchLogs = () => {
     onSuccess?: (logs: DailyLog[]) => void,
     onError?: (error: string) => void
   ): Promise<DailyLog[]> => {
-    // Calculate cutoff date (default: last 90 days)
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
-    const cutoffDateStr = formatDateForDB(cutoffDate);
-
-    const { data, error } = await supabase
-      .from('daily_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('date', cutoffDateStr)
-      .order('date', { ascending: false })
-      .limit(daysLimit);
-
-    if (error) {
-      logger.error('❌ Error fetching logs:', error);
-      onError?.('Error cargando registros: ' + error.message);
+    try {
+      const logs = await fetchLogsForUser(userId, daysLimit);
+      onSuccess?.(logs);
+      return logs;
+    } catch (error: any) {
+      logger.error('❌ Error in fetchLogs hook:', error);
+      onError?.('Error cargando registros: ' + (error?.message || 'Error desconocido'));
       return [];
     }
-
-    if (data) {
-      const mappedLogs = data.map(mapLogFromDB);
-      onSuccess?.(mappedLogs);
-      return mappedLogs;
-    }
-
-    return [];
   };
 
   const fetchAllLogs = async (
@@ -77,25 +42,15 @@ export const useFetchLogs = () => {
     onSuccess?: (logs: DailyLog[]) => void,
     onError?: (error: string) => void
   ): Promise<DailyLog[]> => {
-    const { data, error } = await supabase
-      .from('daily_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-
-    if (error) {
-      logger.error('❌ Error fetching all logs:', error);
-      onError?.('Error cargando historial completo: ' + error.message);
+    try {
+      const logs = await fetchAllLogsForUser(userId);
+      onSuccess?.(logs);
+      return logs;
+    } catch (error: any) {
+      logger.error('❌ Error in fetchAllLogs hook:', error);
+      onError?.('Error cargando historial completo: ' + (error?.message || 'Error desconocido'));
       return [];
     }
-
-    if (data) {
-      const mappedLogs = data.map(mapLogFromDB);
-      onSuccess?.(mappedLogs);
-      return mappedLogs;
-    }
-
-    return [];
   };
 
   return { fetchLogs, fetchAllLogs };
@@ -103,31 +58,21 @@ export const useFetchLogs = () => {
 
 /**
  * Hook for fetching user notifications
+ * Now uses centralized service with retry logic
  */
 export const useFetchNotifications = () => {
   const fetchNotifications = async (
     userId: string,
     onSuccess?: (notifications: AppNotification[]) => void
   ): Promise<AppNotification[]> => {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      logger.error('❌ Error fetching notifications:', error);
+    try {
+      const notifications = await fetchNotificationsForUser(userId);
+      onSuccess?.(notifications);
+      return notifications;
+    } catch (error) {
+      logger.error('❌ Error in fetchNotifications hook:', error);
       return [];
     }
-
-    if (data) {
-      // Filter out soft-deleted notifications (metadata.deleted === true)
-      const activeNotifications = data.filter(n => !n.metadata?.deleted);
-      onSuccess?.(activeNotifications);
-      return activeNotifications;
-    }
-
-    return [];
   };
 
   return { fetchNotifications };
@@ -135,6 +80,7 @@ export const useFetchNotifications = () => {
 
 /**
  * Hook for fetching user forms
+ * Now uses centralized service with retry logic
  */
 export const useFetchUserForms = () => {
   const fetchUserForms = async (
@@ -142,23 +88,15 @@ export const useFetchUserForms = () => {
     onSuccess?: (forms: ConsultationForm[]) => void,
     onError?: (error: string) => void
   ): Promise<ConsultationForm[]> => {
-    const { data, error } = await supabase
-      .from('consultation_forms')
-      .select('*')
-      .eq('user_id', userId);
-
-    if (error) {
-      logger.error('❌ Error fetching forms:', error);
-      onError?.('Error cargando formularios: ' + error.message);
+    try {
+      const forms = await fetchUserFormsForUser(userId);
+      onSuccess?.(forms);
+      return forms;
+    } catch (error: any) {
+      logger.error('❌ Error in fetchUserForms hook:', error);
+      onError?.('Error cargando formularios: ' + (error?.message || 'Error desconocido'));
       return [];
     }
-
-    if (data) {
-      onSuccess?.(data);
-      return data;
-    }
-
-    return [];
   };
 
   return { fetchUserForms };
@@ -166,29 +104,21 @@ export const useFetchUserForms = () => {
 
 /**
  * Hook for fetching admin reports
+ * Now uses centralized service
  */
 export const useFetchReports = () => {
   const fetchReports = async (
     userId: string,
     onSuccess?: (reports: AdminReport[]) => void
   ): Promise<AdminReport[]> => {
-    const { data, error } = await supabase
-      .from('admin_reports')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      logger.error('❌ Error fetching reports:', error);
+    try {
+      const reports = await fetchReportsForUser(userId);
+      onSuccess?.(reports);
+      return reports;
+    } catch (error) {
+      logger.error('❌ Error in fetchReports hook:', error);
       return [];
     }
-
-    if (data) {
-      onSuccess?.(data);
-      return data;
-    }
-
-    return [];
   };
 
   return { fetchReports };
@@ -196,6 +126,7 @@ export const useFetchReports = () => {
 
 /**
  * Hook for fetching education content
+ * Now uses centralized service
  */
 export const useFetchEducation = () => {
   const fetchEducation = async (
@@ -203,52 +134,14 @@ export const useFetchEducation = () => {
     methodStart?: string,
     onSuccess?: (modules: CourseModule[]) => void
   ): Promise<CourseModule[]> => {
-    const { data: modulesData } = await supabase
-      .from('content_modules')
-      .select(`*, content_lessons (*)`)
-      .order('order_index');
-
-    const { data: progressData } = await supabase
-      .from('user_progress')
-      .select('lesson_id')
-      .eq('user_id', userId);
-
-    const completedSet = new Set(progressData?.map(p => p.lesson_id) || []);
-
-    let currentWeek = 0;
-    if (methodStart) {
-      const start = new Date(methodStart);
-      start.setHours(0, 0, 0, 0);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      currentWeek = Math.ceil(days / 7) || 1;
-    }
-
-    if (modulesData) {
-      const modules: CourseModule[] = modulesData.map(m => ({
-        id: m.id,
-        title: m.title,
-        description: m.description,
-        order_index: m.order_index,
-        phase: m.phase as any,
-        lessons: m.content_lessons?.sort((a: any, b: any) => {
-          if (a.type === 'video' && b.type !== 'video') return -1;
-          if (a.type !== 'video' && b.type === 'video') return 1;
-          return 0;
-        }) || [],
-        completedLessons: Array.from(completedSet).filter(id =>
-          m.content_lessons?.some((l: any) => l.id === id)
-        ) as number[],
-        isCompleted: false,
-        isLocked: m.phase > 0 && (!methodStart || m.order_index > currentWeek)
-      }));
-
+    try {
+      const modules = await fetchEducationForUser(userId, methodStart);
       onSuccess?.(modules);
       return modules;
+    } catch (error) {
+      logger.error('❌ Error in fetchEducation hook:', error);
+      return [];
     }
-
-    return [];
   };
 
   return { fetchEducation };
