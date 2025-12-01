@@ -85,43 +85,20 @@ function setCORSHeaders(res: VercelResponse, origin: string): string {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Content-Type', 'application/json');
   
   return allowedOrigin;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS FIRST - before anything else, even before try-catch
+  // Handle CORS FIRST - before anything else
   const origin = req.headers.origin || '';
-  
-  // Set CORS headers immediately
-  const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0');
-  const allowedOrigins = [
-    'https://method.fertyfit.com',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5173',
-  ];
-  
-  let allowedOrigin: string;
-  if (origin && allowedOrigins.includes(origin)) {
-    allowedOrigin = origin;
-  } else if (isLocalhost) {
-    allowedOrigin = origin;
-  } else {
-    allowedOrigin = 'https://method.fertyfit.com';
-  }
-  
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Vary', 'Origin');
+  const allowedOrigin = setCORSHeaders(res, origin);
 
-  // Handle preflight OPTIONS - return immediately with CORS headers
+  // Handle preflight OPTIONS - return immediately with CORS headers ONLY
   if (req.method === 'OPTIONS') {
     res.status(200);
     res.setHeader('Content-Length', '0');
+    res.setHeader('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
     return res.end();
   }
 
@@ -129,15 +106,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     logger.log('CORS Debug:', { origin, allowedOrigin, method: req.method });
 
-    // Apply security headers AFTER CORS (security headers don't include CORS)
+    // Apply security headers AFTER CORS
     applySecurityHeaders(res);
     
     // Re-assert CORS headers after security headers to ensure they're not overwritten
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
+    setCORSHeaders(res, origin);
 
     // Only allow POST
     if (req.method !== 'POST') {
@@ -307,11 +280,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     
     // Ensure CORS headers are set before sending error response
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
+    const origin = req.headers.origin || '';
+    setCORSHeaders(res, origin);
     
     sendErrorResponse(res, error, req);
   }
