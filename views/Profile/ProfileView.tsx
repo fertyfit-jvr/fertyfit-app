@@ -9,6 +9,7 @@ import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo } from '../../services/RuleEngine';
 import { calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate } from '../../services/utils';
+import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -20,16 +21,11 @@ interface ProfileHeaderProps {
 
 const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: ProfileHeaderProps) => {
   const daysActive = useMemo(() => {
-    if (!user.methodStartDate) return 0;
-    const start = new Date(user.methodStartDate);
-    start.setHours(0, 0, 0, 0);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return Math.floor((now.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+    return calculateDaysOnMethod(user.methodStartDate);
   }, [user.methodStartDate]);
 
   const level = logsCount > 30 ? 'Experta' : logsCount > 7 ? 'Comprometida' : 'Iniciada';
-  const currentWeek = daysActive > 0 ? Math.ceil(daysActive / 7) : 0;
+  const currentWeek = calculateCurrentWeek(daysActive);
 
   // Calculate months trying dynamically: initial value + months since F0 was submitted
   const monthsTrying = useMemo(() => {

@@ -10,7 +10,7 @@ import { UserProfile, DailyLog, ViewState, CourseModule, MucusType, AdminReport,
 import { MedicalReport } from './components/MedicalReport';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { FORM_DEFINITIONS } from './constants/formDefinitions';
-import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus } from './services/dataService';
+import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus, calculateDaysOnMethod, calculateCurrentWeek } from './services/dataService';
 import { calculateFertyScore } from './services/fertyscoreService';
 import { supabase } from './services/supabase';
 import { calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from './services/RuleEngine';
@@ -200,9 +200,7 @@ function AppContent() {
 
   const emptyScores = { total: 0, function: 0, food: 0, flora: 0, flow: 0 };
   const dashboardScores = user ? calculateFertyScore(user, logs) : emptyScores;
-  const dashboardDaysActive = user?.methodStartDate
-    ? Math.floor((new Date().getTime() - new Date(user.methodStartDate).getTime()) / (1000 * 3600 * 24)) + 1
-    : 0;
+  const dashboardDaysActive = calculateDaysOnMethod(user?.methodStartDate);
   const dashboardProgress = Math.min(100, dashboardDaysActive > 0 ? (dashboardDaysActive / 90) * 100 : 0);
 
   const showNotif = (msg: string, type: 'success' | 'error') => {

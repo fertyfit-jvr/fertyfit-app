@@ -78,9 +78,24 @@ const DashboardView = ({
           <h1 className="text-2xl font-bold text-[#4A4A4A]">Hola, {user.name.split(' ')[0]}</h1>
           <div className="flex items-center gap-2 mt-1">
             <span className={`w-2 h-2 rounded-full ${user.methodStartDate ? 'bg-[#C7958E] animate-pulse' : 'bg-stone-300'}`}></span>
-            <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
-              {user.methodStartDate ? `Día ${daysActive} del Método` : 'Método no iniciado'}
-            </p>
+            <div className="flex flex-col gap-0.5">
+              {user.methodStartDate ? (
+                <>
+                  <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
+                    Día: {Math.min(daysActive, 90)} - Semana: {Math.ceil(Math.min(daysActive, 90) / 7)}
+                  </p>
+                  {daysActive >= 90 && (
+                    <p className="text-[10px] text-emerald-600 font-semibold">
+                      Método Finalizado
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
+                  Método no iniciado
+                </p>
+              )}
+            </div>
           </div>
         </div>
         <button
@@ -142,7 +157,7 @@ const DashboardView = ({
               <div className="h-full bg-[#9ECCB4] rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
             </div>
             <div className="flex justify-between text-[10px] text-[#5D7180] mt-1">
-              <span>{daysActive}/90 días</span>
+              <span>{Math.min(daysActive, 90)}/90 días</span>
             </div>
           </div>
         </div>
