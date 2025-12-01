@@ -101,7 +101,9 @@ const FOOD_QUESTIONS = [
   { id: 'food_digestivo', text: 'Sintomatología digestiva', type: 'textarea', optional: true },
   { id: 'food_bristol', text: 'Escala de Bristol', type: 'segmented', min: 1, max: 7, defaultValue: 4 },
   { id: 'food_entrenamiento', text: 'Entrenamiento semanal', type: 'buttons', options: ['0', '1-2', '3-4', '5+'], defaultValue: '3-4' },
-  { id: 'food_cintura', text: 'Perímetro cintura (cm)', type: 'number', min: 50, max: 140, step: 1, unit: 'cm', control: 'slider', defaultValue: 75 }
+  { id: 'food_cintura', text: 'Perímetro cintura (cm)', type: 'number', min: 50, max: 140, step: 1, unit: 'cm', control: 'slider', defaultValue: 75 },
+  { id: 'food_alcohol', text: '¿Consumo de alcohol?', type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'], defaultValue: 'No' },
+  { id: 'food_supplements', text: '¿Tomas suplementos actualmente?', type: 'yesno', defaultValue: 'No' }
 ];
 
 const FLORA_QUESTIONS = [
@@ -116,6 +118,9 @@ const FLORA_QUESTIONS = [
 ];
 
 const FLOW_QUESTIONS = [
+  { id: 'flow_stress_level', text: 'Nivel de estrés:', type: 'segmented', min: 1, max: 5, defaultValue: 3 },
+  { id: 'flow_sleep_hours_avg', text: 'Horas de sueño promedio:', type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h', defaultValue: 7 },
+  { id: 'flow_smoker', text: '¿Fumas?', type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'], defaultValue: 'No' },
   { id: 'flow_carga_mental', text: 'Sobrecarga mental (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 2 },
   { id: 'flow_rumiacion', text: 'Rumiación mental (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
   { id: 'flow_ansiedad', text: 'Ansiedad física', type: 'yesno', defaultValue: 'No' },
@@ -145,19 +150,14 @@ export const FORM_DEFINITIONS = {
     description:
       'Esta información es la base de tu protocolo personalizado. Tus datos de ciclo son vitales para calcular tus predicciones de fertilidad.',
     questions: [
-      { id: 'q6_cycle', text: 'Duración ciclo promedio:', type: 'stepper', min: 21, max: 40, unit: 'días' },
-      { id: 'q7_regularity', text: '¿Ciclos regulares?', type: 'buttons', options: ['Regulares', 'Irregulares'] },
       { id: 'q1_birthdate', text: 'Tu fecha de nacimiento:', type: 'date' },
       { id: 'q2_height', text: 'Altura:', type: 'slider', min: 140, max: 200, unit: 'cm' },
       { id: 'q2_weight', text: 'Peso:', type: 'slider', min: 40, max: 150, unit: 'kg' },
+      { id: 'q6_cycle', text: 'Duración ciclo promedio:', type: 'stepper', min: 21, max: 40, unit: 'días' },
+      { id: 'q7_regularity', text: '¿Ciclos regulares?', type: 'buttons', options: ['Regulares', 'Irregulares'] },
       { id: 'q3_time_trying', text: 'Tiempo buscando embarazo:', type: 'stepper', min: 0, max: 60, unit: 'meses' },
       { id: 'q4_objective', text: 'Objetivo principal:', type: 'buttons', options: ['Concepción natural', 'Reproducción Asistida'] },
       { id: 'q5_partner', text: '¿Buscas en pareja o solitario?', type: 'buttons', options: ['Pareja', 'Solitario'] },
-      { id: 'q15_stress', text: 'Nivel de estrés:', type: 'segmented', min: 1, max: 5 },
-      { id: 'q16_sleep', text: 'Horas de sueño promedio:', type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h' },
-      { id: 'q17_smoker', text: '¿Fumas?', type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'] },
-      { id: 'q18_alcohol', text: '¿Consumo de alcohol?', type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'] },
-      { id: 'q19_supplements', text: '¿Tomas suplementos actualmente?', type: 'yesno' },
       { id: 'q20_fertility_treatments', text: 'Tratamientos de fertilidad previos:', type: 'buttons', options: ['Ninguno', 'FIV', 'Inseminación', 'Ovodonación'] },
       { id: 'q9_diagnoses', text: 'Diagnósticos / Breve Historia Médica:', type: 'textarea', optional: true },
       { id: 'q21_family_history', text: 'Antecedentes familiares relevantes:', type: 'textarea', optional: true }

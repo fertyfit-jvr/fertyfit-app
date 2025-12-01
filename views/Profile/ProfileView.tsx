@@ -10,6 +10,7 @@ import { calcularDiaDelCiclo } from '../../services/RuleEngine';
 import { calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate } from '../../services/utils';
 import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
+import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -27,28 +28,11 @@ const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: Profil
   const level = logsCount > 30 ? 'Experta' : logsCount > 7 ? 'Comprometida' : 'Iniciada';
   const currentWeek = calculateCurrentWeek(daysActive);
 
-  // Calculate months trying dynamically: initial value + months since F0 was submitted
+  // Calculate months trying dynamically using new service
   const monthsTrying = useMemo(() => {
-    const f0Form = submittedForms.find(f => f.form_type === 'F0');
-    if (!f0Form) return null;
-    
-    const answer = f0Form.answers?.find(a => a.questionId === 'q3_time_trying');
-    if (!answer?.answer) return null;
-    
-    const initialMonths = parseInt(answer.answer as string);
-    if (isNaN(initialMonths)) return null;
-    
-    // Calculate months since F0 was submitted
-    const submittedDate = f0Form.submitted_at ? new Date(f0Form.submitted_at) : null;
-    if (!submittedDate || isNaN(submittedDate.getTime())) return initialMonths;
-    
-    const today = new Date();
-    const monthsDiff = (today.getFullYear() - submittedDate.getFullYear()) * 12 + 
-                       (today.getMonth() - submittedDate.getMonth());
-    
-    // Add months since submission to initial value
-    return initialMonths + monthsDiff;
-  }, [submittedForms]);
+    if (!user.timeTryingStartDate) return null;
+    return calculateCurrentMonthsTrying(user.timeTryingStartDate, user.timeTryingInitialMonths || 0);
+  }, [user.timeTryingStartDate, user.timeTryingInitialMonths]);
 
   return (
     <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] pt-10 pb-8 px-6 rounded-b-[2.5rem] shadow-lg mb-6 text-white relative overflow-hidden">
@@ -256,14 +240,28 @@ const ProfileView = ({
     // Nota: lastPeriodDate ya no se guarda en F0, se maneja desde TrackerView
     if (f0Answers['q6_cycle']) updates.cycleLength = parseFloat(f0Answers['q6_cycle']) || parseInt(f0Answers['q6_cycle']);
 
+    // Set time_trying fields if q3_time_trying is present
+    if (f0Answers['q3_time_trying']) {
+      const initialMonths = parseInt(String(f0Answers['q3_time_trying']).replace(/\D/g, '')) || 0;
+      const submissionDate = f0Form.submitted_at || new Date().toISOString();
+      const startDate = submissionDate.split('T')[0]; // Get YYYY-MM-DD format
+      
+      const success = await setTimeTryingStart(user.id, initialMonths, startDate);
+      if (success) {
+        updates.timeTryingStartDate = startDate;
+        updates.timeTryingInitialMonths = initialMonths;
+        updates.timeTrying = calculateCurrentMonthsTrying(startDate, initialMonths) || undefined;
+      }
+    }
+
     if (Object.keys(updates).length > 0) {
-      await supabase.from('profiles').update({
-        weight: updates.weight,
-        height: updates.height,
-        main_objective: updates.mainObjective,
-        // Nota: last_period_date ya no se actualiza desde F0, se maneja desde TrackerView
-        cycle_length: updates.cycleLength
-      }).eq('id', user.id);
+      const profileUpdates: any = {};
+      if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
+      if (updates.height !== undefined) profileUpdates.height = updates.height;
+      if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
+      if (updates.cycleLength !== undefined) profileUpdates.cycle_length = updates.cycleLength;
+      
+      await supabase.from('profiles').update(profileUpdates).eq('id', user.id);
       setUser({ ...user, ...updates });
     }
 

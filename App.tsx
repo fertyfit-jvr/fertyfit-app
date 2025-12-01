@@ -11,7 +11,7 @@ import { MedicalReport } from './components/MedicalReport';
 import { SYMPTOM_OPTIONS, MUCUS_OPTIONS, CERVIX_HEIGHT_OPTIONS, CERVIX_FIRM_OPTIONS, CERVIX_OPEN_OPTIONS, BRAND_ASSETS, LH_OPTIONS } from './constants';
 import { FORM_DEFINITIONS } from './constants/formDefinitions';
 import { calculateAverages, calculateAlcoholFreeStreak, getLastLogDetails, formatDateForDB, calculateBMI, calculateVitalityStats, getBMIStatus, calculateDaysOnMethod, calculateCurrentWeek } from './services/dataService';
-import { calculateFertyScore } from './services/fertyscoreService';
+import { getDashboardScores, emptyDashboardScores } from './services/dashboardScoreService';
 import { supabase } from './services/supabase';
 import { calcularDiaDelCiclo, handlePeriodConfirmed, handlePeriodDelayed } from './services/RuleEngine';
 import { getCycleDay } from './hooks/useCycleDay';
@@ -193,8 +193,7 @@ function AppContent() {
   const visibleNotifications = safeNotifications.filter(n => !deletedNotificationIds.includes(n.id));
   const unreadNotifications = visibleNotifications.filter(n => !n.is_read);
 
-  const emptyScores = { total: 0, function: 0, food: 0, flora: 0, flow: 0 };
-  const dashboardScores = user ? calculateFertyScore(user, logs) : emptyScores;
+  const [dashboardScores, setDashboardScores] = useState(emptyDashboardScores);
   const dashboardDaysActive = calculateDaysOnMethod(user?.methodStartDate);
   const dashboardProgress = Math.min(100, dashboardDaysActive > 0 ? (dashboardDaysActive / 90) * 100 : 0);
 
@@ -251,6 +250,15 @@ function AppContent() {
         const diff = Math.ceil(Math.abs(new Date().getTime() - new Date(last.date).getTime()) / (1000 * 60 * 60 * 24));
         setTodayLog(p => ({ ...p, date: todayStr, cycleDay: (last.cycleDay + diff) || 1, symptoms: [], alcohol: false, lhTest: 'No realizado', activityMinutes: 0, sunMinutes: 0 }));
       }
+      // Recalcular FertyScore cuando tengamos logs frescos
+      if (useAppStore.getState().user) {
+        try {
+          const scores = await getDashboardScores(useAppStore.getState().user as UserProfile, mappedLogs);
+          setDashboardScores(scores);
+        } catch (err) {
+          logger.error('❌ Error calculating dashboard scores after fetchLogs:', err);
+        }
+      }
       return mappedLogs;
     } catch (error) {
       logger.error('❌ Error fetching logs:', error);
@@ -263,6 +271,15 @@ function AppContent() {
     try {
       const mappedLogs = await fetchAllLogsForUser(userId);
       setLogs(mappedLogs);
+      // También podemos refrescar el score al cargar todo el historial
+      if (useAppStore.getState().user) {
+        try {
+          const scores = await getDashboardScores(useAppStore.getState().user as UserProfile, mappedLogs);
+          setDashboardScores(scores);
+        } catch (err) {
+          logger.error('❌ Error calculating dashboard scores after fetchAllLogs:', err);
+        }
+      }
       return mappedLogs;
     } catch (error) {
       logger.error('❌ Error fetching all logs:', error);

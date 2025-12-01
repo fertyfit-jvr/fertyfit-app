@@ -7,6 +7,7 @@ import { calculateAverages } from '../../services/dataService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
 import { formatDate } from '../../services/utils';
 import { PILLAR_ICONS } from '../../constants/api';
+import { savePillarForm } from '../../services/pillarService';
 
 interface ConsultationsViewProps {
   user: UserProfile;
@@ -282,20 +283,14 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       };
     });
 
-    // Always insert a new record to keep all submissions
-    const { error } = await supabase.from('consultation_forms').insert({
-        user_id: user.id,
-        form_type: formType,
-        answers: formattedAnswers,
-        status: 'pending',
-        snapshot_stats: calculateAverages(logs)
-      });
+    // Use dual saving: pillar table (current state) + consultation_forms (history)
+    const result = await savePillarForm(user.id, formType, answers, logs, formattedAnswers);
 
-    if (!error) {
+    if (result.success) {
       showNotif('Formulario guardado correctamente.', 'success');
       fetchUserForms(user.id);
     } else {
-      showNotif(error.message, 'error');
+      showNotif(result.error || 'Error al guardar el formulario', 'error');
     }
   };
 

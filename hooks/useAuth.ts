@@ -9,6 +9,7 @@ import { supabase } from '../services/supabase';
 import { fetchProfileForUser } from '../services/userDataService';
 import { logger } from '../lib/logger';
 import { useAppStore } from '../store/useAppStore';
+import { calculateCurrentMonthsTrying } from '../services/timeTryingService';
 
 export function useAuth() {
   const { setUser, setView, setLoading, setAuthError } = useAppStore();
@@ -54,6 +55,11 @@ export function useAuth() {
         }
 
         if (profile) {
+          // Calculate timeTrying dynamically
+          const calculatedTimeTrying = profile.time_trying_start_date
+            ? calculateCurrentMonthsTrying(profile.time_trying_start_date, profile.time_trying_initial_months || null)
+            : null;
+
           // Map profile to UserProfile type
           const userProfile: UserProfile = {
             id: session.user.id,
@@ -64,12 +70,9 @@ export function useAuth() {
             age: profile.age,
             weight: profile.weight,
             height: profile.height,
-            timeTrying: typeof profile.time_trying === 'number' 
-              ? profile.time_trying 
-              : (typeof profile.time_trying === 'string' 
-                  ? parseInt(profile.time_trying) || 0 
-                  : 0),
-            diagnoses: profile.diagnoses || [],
+            timeTrying: calculatedTimeTrying ?? undefined,
+            timeTryingStartDate: profile.time_trying_start_date || undefined,
+            timeTryingInitialMonths: profile.time_trying_initial_months || undefined,
             treatments: [],
             disclaimerAccepted: profile.disclaimer_accepted,
             isOnboarded: true,
@@ -80,6 +83,8 @@ export function useAuth() {
             cycleLength: profile.cycle_length,
             lastPeriodDate: profile.last_period_date,
             periodHistory: profile.period_history || [],
+            // DEPRECATED: Keep for backward compatibility during migration
+            diagnoses: profile.diagnoses || [],
             fertilityTreatments: profile.fertility_treatments,
             supplements: profile.supplements,
             alcoholConsumption: profile.alcohol_consumption

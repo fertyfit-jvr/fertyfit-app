@@ -274,8 +274,8 @@ interface SupabaseProfile {
   age: number;
   weight: number;
   height: number;
-  time_trying?: number | string | null; // Puede ser número o string en BD
-  diagnoses?: string[] | null;
+  time_trying_start_date?: string | null; // Date when user started trying (YYYY-MM-DD)
+  time_trying_initial_months?: number | null; // Initial months value
   disclaimer_accepted: boolean;
   main_objective?: string | null;
   partner_status?: string | null;
@@ -284,6 +284,9 @@ interface SupabaseProfile {
   cycle_length?: number | null;
   last_period_date?: string | null;
   period_history?: string[] | null;
+  // DEPRECATED: These fields moved to pillar tables (kept for backward compatibility)
+  time_trying?: number | string | null;
+  diagnoses?: string[] | null;
   fertility_treatments?: string | null;
   supplements?: string | null;
   alcohol_consumption?: string | null;

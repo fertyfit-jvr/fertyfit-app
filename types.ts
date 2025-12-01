@@ -9,14 +9,15 @@ export interface UserProfile {
   age: number;
   weight: number;
   height: number;
-  timeTrying: number; // meses intentando embarazo
-  diagnoses: string[];
+  timeTrying?: number; // Calculated dynamically from timeTryingStartDate and timeTryingInitialMonths
+  timeTryingStartDate?: string; // Date when user first registered time trying (YYYY-MM-DD)
+  timeTryingInitialMonths?: number; // Initial months value at registration
   treatments: string[];
   disclaimerAccepted: boolean;
   isOnboarded: boolean;
   role?: 'user'; // User role only - admin/specialist managed in separate app
 
-  // New fields from PDF
+  // Basic profile fields
   mainObjective?: string; // Concepción natural vs RA
   partnerStatus?: string; // Pareja vs Solitario
   cycleLength?: number;
@@ -25,11 +26,15 @@ export interface UserProfile {
   periodHistory?: string[]; // Historial de fechas de períodos para auto-cálculo del ciclo promedio
   surgicalHistory?: string;
   obstetricHistory?: string;
+  recentBloodwork?: boolean;
+  
+  // DEPRECATED: These fields have been moved to pillar tables
+  // Keep for backward compatibility during migration
+  diagnoses?: string[];
   fertilityTreatments?: string;
   supplements?: string;
-  smoker?: string; // "No" or quantity
-  alcoholConsumption?: string; // "No" or quantity
-  recentBloodwork?: boolean;
+  smoker?: string;
+  alcoholConsumption?: string;
 }
 
 export type MucusType = 'Seco' | 'Pegajoso' | 'Cremoso' | 'Clara de huevo' | 'Acuoso';
