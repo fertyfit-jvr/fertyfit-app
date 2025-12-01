@@ -2,8 +2,8 @@
 export default {
   content: [
     "./index.html",
-    "./App.tsx",
     "./index.tsx",
+    "./App.tsx",
     "./components/**/*.{js,ts,jsx,tsx}",
     "./views/**/*.{js,ts,jsx,tsx}",
     "./hooks/**/*.{js,ts,jsx,tsx}",
@@ -12,6 +12,7 @@ export default {
     "./store/**/*.{js,ts,jsx,tsx}",
     "./types/**/*.{js,ts,jsx,tsx}",
     "./constants/**/*.{js,ts,jsx,tsx}",
+    "./constants.ts",
   ],
   theme: {
     extend: {
