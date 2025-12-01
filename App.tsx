@@ -1076,9 +1076,9 @@ function AppContent() {
                     // Preservar todos los campos del usuario actual al actualizar
                     // Esto asegura que methodStartDate y otros campos estáticos no se pierdan
                     setUser(prevUser => prevUser ? { ...prevUser, ...updatedUser } : updatedUser);
-                    // Refrescar perfil completo y formularios para sincronizar todas las vistas
+                    // Solo refrescar formularios - los datos del perfil ya vienen actualizados desde TrackerView
+                    // Esto evita una query redundante a Supabase (optimización)
                     if (updatedUser?.id) {
-                      await refreshUserProfile(updatedUser.id);
                       await fetchUserForms(updatedUser.id);
                     }
                   }}

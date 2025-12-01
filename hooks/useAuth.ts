@@ -180,15 +180,27 @@ export function useAuth() {
    * Refreshes user profile from database
    * Solo actualiza campos dinámicos del ciclo menstrual
    * PRESERVA todos los demás campos estáticos (methodStartDate, name, email, etc.)
+   * Optimizado: verifica usuario antes de query y protege contra pérdida de datos
    */
   const refreshUserProfile = async (userId: string) => {
+    // Verificar usuario existe antes de hacer query (ahorro de recursos)
+    const currentUser = useAppStore.getState().user;
+    if (!currentUser?.id || currentUser.id !== userId) {
+      logger.warn('refreshUserProfile: No user in store or ID mismatch, skipping');
+      return;
+    }
+
     try {
       const profile = await fetchProfileForUser(userId);
       if (profile) {
         setUser(prevUser => {
-          if (!prevUser) return prevUser;
+          // Protección crítica: si prevUser es null, no hacer nada para evitar pérdida de datos
+          if (!prevUser) {
+            logger.warn('refreshUserProfile: prevUser is null, skipping update to preserve data');
+            return currentUser; // Mantener el usuario actual
+          }
+          
           // Solo actualizar campos dinámicos del ciclo menstrual
-          // methodStartDate y otros campos estáticos se preservan automáticamente del prevUser
           return {
             ...prevUser,
             lastPeriodDate: profile.last_period_date,
@@ -200,6 +212,7 @@ export function useAuth() {
       }
     } catch (error) {
       logger.error('Error in refreshUserProfile:', error);
+      // En caso de error, no hacer nada - preserva el estado actual del usuario
     }
   };
 

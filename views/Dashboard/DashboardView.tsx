@@ -2,6 +2,7 @@ import { Activity, BookOpen, Plus } from 'lucide-react';
 import { NotificationList } from '../../components/NotificationSystem';
 import { MedicalReport } from '../../components/MedicalReport';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
+import FertyScoreCircular from '../../components/common/FertyScoreCircular';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import {
   AppNotification,
@@ -65,11 +66,6 @@ const DashboardView = ({
     }
   };
 
-  const getScoreColor = (value: number) => {
-    if (value < 40) return 'text-rose-500';
-    if (value < 70) return 'text-amber-500';
-    return 'text-emerald-500';
-  };
 
   return (
     <div className="space-y-6 pb-24 pt-4">
@@ -131,24 +127,16 @@ const DashboardView = ({
         )}
 
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] relative overflow-hidden">
-          <div className="flex flex-col items-center justify-center mb-8">
-            <h3 className="font-bold text-[#4A4A4A] text-lg mb-2">Tu FertyScore</h3>
-            <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] text-white w-24 h-24 rounded-full flex items-center justify-center font-bold text-4xl shadow-xl shadow-rose-200 border-4 border-white">
-              {scores.total}
-            </div>
-            <p className="text-xs text-[#5D7180] mt-2">Puntuación Global</p>
-          </div>
+          <FertyScoreCircular
+            totalScore={scores.total}
+            functionScore={scores.function}
+            foodScore={scores.food}
+            floraScore={scores.flora}
+            flowScore={scores.flow}
+            size={320}
+          />
 
-          <div className="flex justify-between items-center bg-[#F4F0ED]/50 p-4 rounded-2xl mb-6">
-            {(['function', 'food', 'flora', 'flow'] as const).map(key => (
-              <div className="text-center" key={key}>
-                <span className={`block text-lg font-bold text-[#4A4A4A] ${getScoreColor(scores[key])}`}>{scores[key]}</span>
-                <span className="text-[10px] text-[#95706B] font-bold uppercase">{key}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-[#F9F6F4] p-4 rounded-xl border border-[#F4F0ED]">
+          <div className="mt-8 bg-[#F9F6F4] p-4 rounded-xl border border-[#F4F0ED]">
             <div className="flex justify-between text-xs text-[#95706B] font-bold mb-2 uppercase tracking-wide">
               <span>Progreso del Método</span>
               <span>{Math.round(progressPercent)}%</span>

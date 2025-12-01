@@ -634,15 +634,9 @@ const ProfileView = ({
                     </p>
                     <button
                       onClick={() => {
-                        handleEditF0Click();
-                        // Scroll al campo de fecha última regla después de un pequeño delay
-                        setTimeout(() => {
-                          const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
-                          if (dateInput) {
-                            dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            dateInput.focus();
-                          }
-                        }, 100);
+                        // Navegar a TrackerView para actualizar el ciclo menstrual
+                        // La fecha de última regla se actualiza desde el registro diario
+                        setView('TRACKER');
                       }}
                       className="mt-2 text-[10px] font-bold text-amber-700 hover:text-amber-900 underline"
                     >
