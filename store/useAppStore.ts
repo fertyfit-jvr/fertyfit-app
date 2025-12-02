@@ -491,8 +491,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     if (!error) {
       showNotif('Registro guardado con éxito', 'success');
-      await fetchLogs(user.id);
-      await fetchNotifications(user.id);
+      // Refrescar datos en paralelo para mejor rendimiento
+      await Promise.allSettled([
+        fetchLogs(user.id),
+        fetchNotifications(user.id)
+      ]);
       setView('DASHBOARD');
     } else {
       showNotif('Error al guardar: ' + error.message, 'error');

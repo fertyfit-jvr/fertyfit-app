@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Calendar, Heart, Activity } from 'lucide-react';
 import { MedicalReportData } from '../services/MedicalReportHelpers';
 import { UserProfile, DailyLog } from '../types';
@@ -34,8 +34,8 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
         );
     }
 
-    // Calcular fechas de ventana fértil
-    const calcularFechasVentana = () => {
+    // Calcular fechas de ventana fértil (memoizado)
+    const fechasVentana = useMemo(() => {
         if (!user.lastPeriodDate || !user.cycleLength) return null;
 
         const lastPeriod = parseLocalDate(user.lastPeriodDate);
@@ -59,15 +59,15 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
             inicio: fechaInicio.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
             fin: fechaFin.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
         };
-    };
+    }, [user.lastPeriodDate, user.cycleLength, data.ventanaFertil.inicio, data.ventanaFertil.fin]);
 
-    const fechasVentana = calcularFechasVentana();
-
-    // Obtener fecha del último registro
-    const ultimoLog = logs.length > 0 ? logs[0] : null;
-    const fechaUltimoRegistro = ultimoLog
-        ? (parseLocalDate(ultimoLog.date) ?? new Date()).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-        : null;
+    // Obtener fecha del último registro (memoizado)
+    const fechaUltimoRegistro = useMemo(() => {
+        const ultimoLog = logs.length > 0 ? logs[0] : null;
+        if (!ultimoLog) return null;
+        const d = parseLocalDate(ultimoLog.date) ?? new Date();
+        return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    }, [logs]);
 
     // Determinar si está en días fértiles
     const enDiasFertiles = data.diasHastaOvulacion >= -5 && data.diasHastaOvulacion <= 1;
