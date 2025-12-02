@@ -5,17 +5,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "cap:sync": "npx cap sync",
-    "cap:copy": "npx cap copy",
-    "cap:open:android": "npx cap open android",
-    "cap:open:ios": "npx cap open ios"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/android": "^7.4.4",
-    "@capacitor/cli": "^7.4.4",
-    "@capacitor/core": "^7.4.4",
-    "@capacitor/ios": "^7.4.4",
     "@google-cloud/vision": "^4.2.0",
     "@supabase/supabase-js": "^2.39.7",
     "@vercel/node": "^3.0.0",

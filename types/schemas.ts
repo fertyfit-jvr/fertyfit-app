@@ -25,22 +25,7 @@ export const DailyLogSchema = z.object({
   waterGlasses: z.number().int().min(0).optional(),
   veggieServings: z.number().int().min(0).optional(),
   alcohol: z.boolean().optional(),
-  alcoholUnits: z.number().optional().nullable(),
-
-  // Campos opcionales adicionales (wearable)
-  dataSource: z.enum(['manual', 'wearable', 'hybrid']).optional(),
-  sleepPhases: z
-    .object({
-      deep: z.number(),
-      rem: z.number(),
-      light: z.number()
-    })
-    .optional(),
-  heartRateVariability: z.number().optional(),
-  restingHeartRate: z.number().optional(),
-  steps: z.number().optional(),
-  activeCalories: z.number().optional(),
-  oxygenSaturation: z.number().optional()
+  alcoholUnits: z.number().optional().nullable()
 });
 
 // Tipo validado basado en el schema

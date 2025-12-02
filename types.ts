@@ -66,25 +66,6 @@ export interface DailyLog {
   veggieServings: number;
   alcohol: boolean;
   alcoholUnits?: number;
-  dataSource?: 'manual' | 'wearable' | 'hybrid';
-  
-  // Enhanced fields (retrocompatible)
-  sleepPhases?: { // Sleep phase breakdown
-    deep: number; // minutes
-    rem: number; // minutes
-    light: number; // minutes
-  };
-  
-  // Cardiovascular metrics (FUNCTION pillar)
-  heartRateVariability?: number; // HRV in ms - stress indicator
-  restingHeartRate?: number; // bpm
-  
-  // Activity metrics (FOOD pillar)
-  steps?: number;
-  activeCalories?: number;
-  
-  // Respiratory metrics (FUNCTION pillar)
-  oxygenSaturation?: number; // SpO2 percentage
 }
 
 export interface Lesson {
