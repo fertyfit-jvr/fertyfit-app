@@ -1026,6 +1026,305 @@ const ProfileView = ({
                 </div>
               )}
 
+              <div className="flex justify-between items-end mb-3">
+                <div>
+                  <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
+                  <p className="text-[10px] text-[#5D7180] mt-0.5">
+                    Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
+                  </p>
+                  {f0Form.pdf_generated_at && (
+                    <p className="text-[10px] text-[#5D7180] mt-0.5">
+                      Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {isEditingF0 && (
+                    <button
+                      onClick={handleF0Cancel}
+                      className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                      title="Cancelar"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                <button
+                  onClick={() => {
+                    if (isEditingF0) {
+                      handleF0Save(f0Form);
+                    } else {
+                      handleEditF0Click();
+                    }
+                  }}
+                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                    title={isEditingF0 ? "Guardar" : "Editar"}
+                >
+                  {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
+                </button>
+                </div>
+              </div>
+
+              {isEditingF0 ? (
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+                  <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                  <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">{FORM_DEFINITIONS.F0.description}</p>
+                  <div className="space-y-6">
+                    {FORM_DEFINITIONS.F0.questions.map(q => {
+                      const updateAnswer = (id: string, value: any) => {
+                        setF0Answers({ ...f0Answers, [id]: value });
+                      };
+
+                      const renderNumberControl = (question: any) => {
+                        const step = question.step ?? 1;
+                        const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
+                        const rawValue = f0Answers[question.id];
+                        const numericValue =
+                          typeof rawValue === 'number'
+                            ? rawValue
+                            : rawValue !== undefined && rawValue !== ''
+                            ? Number(rawValue)
+                            : undefined;
+
+                        const clampValue = (value: number) => {
+                          let next = value;
+                          if (typeof question.min === 'number') next = Math.max(question.min, next);
+                          if (typeof question.max === 'number') next = Math.min(question.max, next);
+                          const precision = decimals > 2 ? 2 : decimals;
+                          return Number(next.toFixed(precision));
+                        };
+
+                        const handleAdjust = (direction: 1 | -1) => {
+                          const base = numericValue ?? question.defaultValue ?? question.min ?? 0;
+                          const adjusted = clampValue(base + direction * step);
+                          updateAnswer(question.id, adjusted);
+                        };
+
+                        return (
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => handleAdjust(-1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
+                              -
+                            </button>
+                            <div className="flex-1 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl py-2">
+                              <p className="text-lg font-bold text-[#4A4A4A]">{numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}</p>
+                              {question.unit && <p className="text-[11px] text-[#95706B] font-semibold">{question.unit}</p>}
+                            </div>
+                            <button onClick={() => handleAdjust(1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
+                              +
+                            </button>
+                          </div>
+                        );
+                      };
+
+                      const renderSliderControl = (question: any) => {
+                        const min = question.min ?? 0;
+                        const max = question.max ?? 100;
+                        const step = question.step ?? 1;
+                        const rawValue = f0Answers[question.id];
+                        const currentValue =
+                          typeof rawValue === 'number'
+                            ? rawValue
+                            : rawValue !== undefined && rawValue !== ''
+                            ? Number(rawValue)
+                            : question.defaultValue ?? min;
+                        const safeValue = Number.isFinite(currentValue) ? currentValue : min;
+
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-[#95706B]">
+                              <span>
+                                {safeValue}
+                                {question.unit ? ` ${question.unit}` : ''}
+                              </span>
+                              <span className="text-[#BBA49E]">
+                                {min}
+                                {question.unit ? ` ${question.unit}` : ''} – {max}
+                                {question.unit ? ` ${question.unit}` : ''}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={min}
+                              max={max}
+                              step={step}
+                              value={safeValue}
+                              className="w-full accent-[#C7958E]"
+                              onChange={event => updateAnswer(question.id, Number(event.target.value))}
+                            />
+                          </div>
+                        );
+                      };
+
+                      const renderSegmentedControl = (question: any) => {
+                        const min = question.min ?? 1;
+                        const max = question.max ?? 5;
+                        const values = question.options || Array.from({ length: max - min + 1 }, (_, index) => min + index);
+                        return (
+                          <div className="flex flex-wrap gap-2">
+                            {values.map((option: any) => {
+                              const optionValue = option;
+                              const isActive = f0Answers[question.id] === optionValue;
+                              return (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  onClick={() => updateAnswer(question.id, optionValue)}
+                                  className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
+                                    isActive ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+                                  }`}
+                                >
+                                  {option}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      };
+
+                      const renderButtons = (question: any, options: string[]) => (
+                        <div className="flex flex-wrap gap-2">
+                          {options.map(option => {
+                            const isActive = f0Answers[question.id] === option;
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => updateAnswer(question.id, option)}
+                                className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
+                                  isActive ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+
+                      const controlType = (q as any).control ?? q.type;
+
+                      return (
+                        <div key={q.id}>
+                          <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
+                          {q.type === 'textarea' ? (
+                            <textarea
+                              value={f0Answers[q.id] || ''}
+                              className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
+                              onChange={e => updateAnswer(q.id, e.target.value)}
+                            />
+                          ) : q.type === 'yesno' ? (
+                            renderButtons(q, ['Sí', 'No'])
+                          ) : q.type === 'buttons' && Array.isArray(q.options) ? (
+                            renderButtons(q, q.options)
+                          ) : q.type === 'segmented' ? (
+                            renderSegmentedControl(q)
+                          ) : q.type === 'date' ? (
+                            <input
+                              type="date"
+                              value={f0Answers[q.id] || ''}
+                              className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                              onChange={e => updateAnswer(q.id, e.target.value)}
+                            />
+                          ) : controlType === 'slider' || q.type === 'slider' ? (
+                            renderSliderControl(q)
+                          ) : controlType === 'stepper' || q.type === 'stepper' ? (
+                            renderNumberControl(q)
+                          ) : (
+                            <input
+                              type={q.type === 'number' ? 'number' : 'text'}
+                              value={f0Answers[q.id] || ''}
+                              className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                              onChange={e => updateAnswer(q.id, e.target.value)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => handleF0Save(f0Form)}
+                    className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2"
+                  >
+                    Guardar cambios
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED]">
+                  {/* Campos en dos columnas: Altura/Peso, Nivel estrés/Horas sueño, Consumo alcohol */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {['q2_height', 'q2_weight', 'q15_stress', 'q16_sleep', 'q18_alcohol'].map(questionId => {
+                      const answer = f0Form.answers.find(a => a.questionId === questionId);
+                      if (!answer) return null;
+                      const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
+                      if (!question) return null;
+
+                      let displayValue = answer.answer;
+                      
+                      if (question.type === 'date' && typeof displayValue === 'string') {
+                        displayValue = formatDate(displayValue, 'long');
+                      }
+                      
+                      if (Array.isArray(displayValue)) {
+                        displayValue = displayValue.join(', ');
+                      }
+
+                      // Formatear valores numéricos con unidades
+                      if (questionId === 'q2_height' && typeof displayValue === 'number') {
+                        displayValue = `${displayValue} cm`;
+                      } else if (questionId === 'q2_weight' && typeof displayValue === 'number') {
+                        displayValue = `${displayValue} kg`;
+                      } else if (questionId === 'q16_sleep' && typeof displayValue === 'number') {
+                        displayValue = `${displayValue} h`;
+                      }
+
+                      return (
+                        <div key={questionId} className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{question.text}</p>
+                          <p className="text-sm text-[#4A4A4A]">{displayValue || '-'}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Resto de campos en una columna */}
+                  <div className="space-y-4">
+                    {f0Form.answers
+                      .filter(answer => !['q2_height', 'q2_weight', 'q15_stress', 'q16_sleep', 'q18_alcohol'].includes(answer.questionId))
+                      .map((answer, idx) => {
+                        const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
+                        if (!question) return null;
+
+                        let displayValue = answer.answer;
+                        
+                        // Special handling for "Tiempo buscando embarazo" - show calculated value
+                        if (answer.questionId === 'q3_time_trying') {
+                          const initialMonths = parseInt(answer.answer as string);
+                          if (!isNaN(initialMonths) && f0Form.submitted_at) {
+                            const submittedDate = new Date(f0Form.submitted_at);
+                            if (!isNaN(submittedDate.getTime())) {
+                              const today = new Date();
+                              const monthsDiff = (today.getFullYear() - submittedDate.getFullYear()) * 12 + 
+                                               (today.getMonth() - submittedDate.getMonth());
+                              displayValue = `${initialMonths + monthsDiff} meses`;
+                            }
+                          }
+                        } else if (question.type === 'date' && typeof displayValue === 'string') {
+                          displayValue = formatDate(displayValue, 'long');
+                        }
+                        
+                        if (Array.isArray(displayValue)) {
+                          displayValue = displayValue.join(', ');
+                        }
+
+                        return (
+                          <div key={answer.questionId} className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                            <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{question.text}</p>
+                            <p className="text-sm text-[#4A4A4A] whitespace-pre-line">{displayValue || '-'}</p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}

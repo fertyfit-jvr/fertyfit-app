@@ -57,13 +57,7 @@ const DashboardView = ({
   const medicalData = generarDatosInformeMedico(user, logs, todayLog.cycleDay);
 
   const handleQuickAccess = () => {
-    const hasF0 = submittedForms.some(f => f.form_type === 'F0');
-    if (!hasF0) {
-      showNotif('Debes completar el F0 antes de registrar datos diarios', 'error');
-      onNavigate('CONSULTATIONS');
-    } else {
-      onNavigate('TRACKER');
-    }
+    onNavigate('TRACKER');
   };
 
 

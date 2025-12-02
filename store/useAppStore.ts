@@ -449,26 +449,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
   saveDailyLog: async () => {
     const { user, logs, courseModules, todayLog, showNotif, fetchLogs, fetchNotifications, setView } = get();
     if (!user?.id) return;
+<<<<<<< HEAD
 
     if (!todayLog.date) {
       showNotif('La fecha es obligatoria', 'error');
       return;
     }
 
-    // Solo obligamos BBT y moco en el primer registro del día;
-    // a partir de ahí, se puede ir completando el resto.
-    const isFirstLogOfDay = !logs.some((l) => l.date === todayLog.date);
-    if (isFirstLogOfDay) {
-      if (todayLog.bbt === undefined || todayLog.bbt === null || Number.isNaN(todayLog.bbt as any)) {
-        showNotif('La temperatura (BBT) es obligatoria en el primer registro del día', 'error');
-        return;
-      }
-      if (!todayLog.mucus) {
-        showNotif('El registro de moco cervical es obligatorio en el primer registro del día', 'error');
-        return;
-      }
+    // Solo obligamos la fecha; el resto de campos son opcionales
+    if (!todayLog.date) {
+      showNotif('La fecha es obligatoria', 'error');
+      return;
     }
-
     const validDate = formatDateForDB(new Date(todayLog.date)); // normaliza formato
 
     let correctCycleDay = todayLog.cycleDay || 1;
@@ -476,7 +468,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
       correctCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
     }
 
-    const formattedLog = { ...todayLog, date: validDate, cycleDay: correctCycleDay };
+    // Proporcionar valores por defecto para campos opcionales antes de validar
+    const formattedLog = { 
+      ...todayLog, 
+      date: validDate, 
+      cycleDay: correctCycleDay,
+      // Solo BBT y mucus son obligatorios, el resto son opcionales
+      sleepQuality: todayLog.sleepQuality,
+      veggieServings: todayLog.veggieServings,
+      activityMinutes: todayLog.activityMinutes,
+      sunMinutes: todayLog.sunMinutes,
+      waterGlasses: todayLog.waterGlasses,
+      alcohol: todayLog.alcohol,
+      sex: todayLog.sex,
+      symptoms: todayLog.symptoms,
+      lhTest: todayLog.lhTest,
+      sleepHours: todayLog.sleepHours,
+      stressLevel: todayLog.stressLevel,
+    };
 
     // Normalizar valores opcionales para que el schema no falle por undefined
     const normalizedLog = {
