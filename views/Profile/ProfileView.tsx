@@ -230,6 +230,10 @@ const ProfileView = ({
     }
 
     const updates: Partial<UserProfile> = {};
+    // También permitimos actualizar el nombre desde la edición de F0
+    if (editName && editName !== user.name) {
+      updates.name = editName;
+    }
     if (f0Answers['q2_weight']) updates.weight = parseFloat(f0Answers['q2_weight']);
     if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
     if (f0Answers['q4_objective']) updates.mainObjective = f0Answers['q4_objective'];
@@ -252,6 +256,7 @@ const ProfileView = ({
 
     if (Object.keys(updates).length > 0) {
       const profileUpdates: any = {};
+      if (updates.name !== undefined) profileUpdates.name = updates.name;
       if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
       if (updates.height !== undefined) profileUpdates.height = updates.height;
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
@@ -371,119 +376,435 @@ const ProfileView = ({
         </div>
 
         {profileTab === 'PROFILE' && (() => {
-          const medicalData = generarDatosInformeMedico(user, logs);
-          
+          const f0Form = submittedForms.find(f => f.form_type === 'F0');
+
           return (
           <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex justify-between items-end mb-3">
-                <div>
-                  <h3 className="font-bold text-[#4A4A4A] text-sm">Datos Personales</h3>
-                  <p className="text-[10px] text-[#5D7180] mt-0.5">
-                    Miembro desde: {new Date(user.joinedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
+            {/* (Cabecera superior eliminada a petición: solo mostramos directamente la ficha F0) */}
+
+            {/* Ficha personal (F0) movida a Mi Perfil, integrada con Datos Personales */}
+              {!f0Form ? (
+                <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
+                  <FileText size={48} className="mx-auto text-stone-300 mb-4" />
+                  <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
+                  <button
+                    onClick={() => setView('CONSULTATIONS')}
+                    className="mt-4 bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#95706B] transition-colors"
+                  >
+                    Completar F0
+                  </button>
                 </div>
-                  <div className="flex items-center gap-2">
-                    {isEditingProfile && (
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end mb-1">
+                    <div>
+                      <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
+                      <p className="text-[10px] text-[#5D7180] mt-0.5">
+                        Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
+                      </p>
+                      {f0Form.pdf_generated_at && (
+                        <p className="text-[10px] text-[#5D7180] mt-0.5">
+                          Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isEditingF0 && (
+                        <button
+                          onClick={() => {
+                            setF0Answers(JSON.parse(JSON.stringify(originalF0Answers.current)));
+                            setIsEditingF0(false);
+                            if (autoSaveTimeoutRef.current) {
+                              clearTimeout(autoSaveTimeoutRef.current);
+                              autoSaveTimeoutRef.current = null;
+                            }
+                          }}
+                          className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                          title="Cancelar"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
                       <button
-                        onClick={handleProfileCancel}
-                        className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                        title="Cancelar"
+                        onClick={() => {
+                          if (isEditingF0) {
+                            handleF0Save(f0Form);
+                          } else {
+                            const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
+                            if (!currentF0Form) return;
+
+                            const initialAnswers: Record<string, any> = {};
+                            currentF0Form.answers.forEach((a: any) => {
+                              initialAnswers[a.questionId] = a.answer;
+                            });
+
+                            if (user?.cycleLength) {
+                              initialAnswers['q6_cycle'] = user.cycleLength;
+                            }
+
+                            originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers));
+                            setF0Answers(initialAnswers);
+                            setIsEditingF0(true);
+                          }
+                        }}
+                        className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                        title={isEditingF0 ? 'Guardar' : 'Editar'}
                       >
-                        <X size={16} />
+                        {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
                       </button>
-                    )}
-                <button
-                  onClick={handleProfileEditClick}
-                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                      title={isEditingProfile ? "Guardar" : "Editar"}
-                >
-                  {isEditingProfile ? <Check size={16} /> : <Edit2 size={16} />}
-                </button>
+                    </div>
                   </div>
-              </div>
 
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
-                <div className="border-b border-[#F4F0ED] pb-3">
-                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
-                  {isEditingProfile ? (
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
-                      className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1"
-                    />
+                  {isEditingF0 ? (
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+                      <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                      <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">
+                        {FORM_DEFINITIONS.F0.description}
+                      </p>
+                      {/* Bloque superior para editar nombre (email solo lectura) */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1 bg-transparent"
+                          />
+                        </div>
+                        <div className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
+                          <p className="text-sm text-[#4A4A4A] opacity-70">
+                            {user.email} <span className="text-[10px] italic">(No editable)</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        {FORM_DEFINITIONS.F0.questions.map(q => {
+                          const updateAnswer = (id: string, value: any) => {
+                            setF0Answers({ ...f0Answers, [id]: value });
+                          };
+
+                          const renderNumberControl = (question: any) => {
+                            const step = question.step ?? 1;
+                            const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
+                            const rawValue = f0Answers[question.id];
+                            const numericValue =
+                              typeof rawValue === 'number'
+                                ? rawValue
+                                : rawValue !== undefined && rawValue !== ''
+                                ? Number(rawValue)
+                                : undefined;
+
+                            const clampValue = (value: number) => {
+                              let next = value;
+                              if (typeof question.min === 'number') next = Math.max(question.min, next);
+                              if (typeof question.max === 'number') next = Math.min(question.max, next);
+                              const precision = decimals > 2 ? 2 : decimals;
+                              return Number(next.toFixed(precision));
+                            };
+
+                            const handleAdjust = (direction: 1 | -1) => {
+                              const base = numericValue ?? question.defaultValue ?? question.min ?? 0;
+                              const adjusted = clampValue(base + direction * step);
+                              updateAnswer(question.id, adjusted);
+                            };
+
+                            return (
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => handleAdjust(-1)}
+                                  className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]"
+                                  type="button"
+                                >
+                                  -
+                                </button>
+                                <div className="flex-1 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl py-2">
+                                  <p className="text-lg font-bold text-[#4A4A4A]">
+                                    {numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}
+                                  </p>
+                                  {question.unit && (
+                                    <p className="text-[11px] text-[#95706B] font-semibold">{question.unit}</p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleAdjust(1)}
+                                  className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]"
+                                  type="button"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            );
+                          };
+
+                          const renderSliderControl = (question: any) => {
+                            const min = question.min ?? 0;
+                            const max = question.max ?? 100;
+                            const step = question.step ?? 1;
+                            const rawValue = f0Answers[question.id];
+                            const currentValue =
+                              typeof rawValue === 'number'
+                                ? rawValue
+                                : rawValue !== undefined && rawValue !== ''
+                                ? Number(rawValue)
+                                : question.defaultValue ?? min;
+                            const safeValue = Number.isFinite(currentValue) ? currentValue : min;
+
+                            return (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-[11px] font-semibold text-[#95706B]">
+                                  <span>
+                                    {safeValue}
+                                    {question.unit ? ` ${question.unit}` : ''}
+                                  </span>
+                                  <span className="text-[#BBA49E]">
+                                    {min}
+                                    {question.unit ? ` ${question.unit}` : ''} – {max}
+                                    {question.unit ? ` ${question.unit}` : ''}
+                                  </span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={min}
+                                  max={max}
+                                  step={step}
+                                  value={safeValue}
+                                  className="w-full accent-[#C7958E]"
+                                  onChange={event => updateAnswer(question.id, Number(event.target.value))}
+                                />
+                              </div>
+                            );
+                          };
+
+                          const renderSegmentedControl = (question: any) => {
+                            const min = question.min ?? 1;
+                            const max = question.max ?? 5;
+                            const values =
+                              question.options || Array.from({ length: max - min + 1 }, (_, index) => min + index);
+                            return (
+                              <div className="flex flex-wrap gap-2">
+                                {values.map((option: any) => {
+                                  const optionValue = option;
+                                  const isActive = f0Answers[question.id] === optionValue;
+                                  return (
+                                    <button
+                                      key={option}
+                                      type="button"
+                                      onClick={() => updateAnswer(question.id, optionValue)}
+                                      className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
+                                        isActive
+                                          ? 'bg-[#C7958E] text-white border-[#C7958E]'
+                                          : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+                                      }`}
+                                    >
+                                      {option}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            );
+                          };
+
+                          const renderButtons = (question: any, options: string[]) => (
+                            <div className="flex flex-wrap gap-2">
+                              {options.map(option => {
+                                const isActive = f0Answers[question.id] === option;
+                                return (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => updateAnswer(question.id, option)}
+                                    className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
+                                      isActive
+                                        ? 'bg-[#C7958E] text-white border-[#C7958E]'
+                                        : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+                                    }`}
+                                  >
+                                    {option}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+
+                          return (
+                            <div key={q.id}>
+                              <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">
+                                {q.text}
+                              </label>
+                              {q.type === 'textarea' ? (
+                                <textarea
+                                  value={f0Answers[q.id] || ''}
+                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
+                                  onChange={e => updateAnswer(q.id, e.target.value)}
+                                  maxLength={
+                                    q.id === 'q9_diagnoses' || q.id === 'q21_family_history' ? 280 : undefined
+                                  }
+                                />
+                              ) : q.type === 'yesno' ? (
+                                renderButtons(q, ['Sí', 'No'])
+                              ) : q.type === 'buttons' && Array.isArray(q.options) ? (
+                                renderButtons(q, q.options)
+                              ) : q.type === 'segmented' ? (
+                                renderSegmentedControl(q)
+                              ) : q.type === 'date' ? (
+                                <input
+                                  type="date"
+                                  value={f0Answers[q.id] || ''}
+                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                                  onChange={e => updateAnswer(q.id, e.target.value)}
+                                />
+                              ) : q.type === 'slider' ? (
+                                renderSliderControl(q)
+                              ) : q.type === 'stepper' ? (
+                                renderNumberControl(q)
+                              ) : (
+                                <input
+                                  type={q.type === 'number' ? 'number' : 'text'}
+                                  value={f0Answers[q.id] || ''}
+                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                                  onChange={e => updateAnswer(q.id, e.target.value)}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => handleF0Save(f0Form)}
+                        className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2"
+                      >
+                        Guardar cambios
+                      </button>
+                    </div>
                   ) : (
-                    <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-6">
+                      {(() => {
+                        const getAnswer = (id: string) =>
+                          f0Form.answers.find(a => a.questionId === id)?.answer ?? null;
+
+                        // Fecha de nacimiento formateada
+                        let birthdate = getAnswer('q1_birthdate');
+                        if (typeof birthdate === 'string' && birthdate) {
+                          birthdate = formatDate(birthdate, 'long');
+                        }
+
+                        // Altura / peso / ciclo / tiempo buscando con unidades
+                        const height = getAnswer('q2_height');
+                        const weight = getAnswer('q2_weight');
+                        const cycleLength = getAnswer('q6_cycle');
+                        const regularity = getAnswer('q7_regularity');
+                        const objective = getAnswer('q4_objective');
+                        const partner = getAnswer('q5_partner');
+
+                        // Tiempo buscando embarazo calculado desde la fecha de envío
+                        let timeTryingDisplay: string | null = null;
+                        const rawTimeTrying = getAnswer('q3_time_trying');
+                        if ((typeof rawTimeTrying === 'string' || typeof rawTimeTrying === 'number') && f0Form.submitted_at) {
+                          const initialMonths = parseInt(String(rawTimeTrying).replace(/\D/g, ''), 10);
+                          if (!Number.isNaN(initialMonths)) {
+                            const submittedDate = new Date(f0Form.submitted_at);
+                            if (!Number.isNaN(submittedDate.getTime())) {
+                              const today = new Date();
+                              const monthsDiff =
+                                (today.getFullYear() - submittedDate.getFullYear()) * 12 +
+                                (today.getMonth() - submittedDate.getMonth());
+                              timeTryingDisplay = `${initialMonths + monthsDiff} meses`;
+                            }
+                          }
+                        }
+
+                        const treatments = getAnswer('q20_fertility_treatments');
+                        const diagnoses = getAnswer('q9_diagnoses');
+                        const familyHistory = getAnswer('q21_family_history');
+
+                        const toSingleLine = (value: any, maxLength: number = 160) => {
+                          if (value == null) return null;
+                          let text = String(value).replace(/\s+/g, ' ').trim();
+                          if (!text) return null;
+                          if (text.length > maxLength) {
+                            text = text.slice(0, maxLength - 1) + '…';
+                          }
+                          return text;
+                        };
+
+                        const renderField = (label: string, value: any) => (
+                          <div className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                            <p className="text-[11px] text-[#5D7180] mb-0.5">{label}</p>
+                            <p className="text-sm font-semibold text-[#4A4A4A]">
+                              {value ?? '—'}
+                            </p>
+                          </div>
+                        );
+
+                        return (
+                          <>
+                            {/* Grupo 1: Datos básicos */}
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-bold text-[#95706B] uppercase tracking-wider">
+                                DATOS BÁSICOS
+                              </p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {renderField(
+                                  'Nombre y email',
+                                  `${isEditingF0 ? editName : user.name} · ${user.email}`
+                                )}
+                                {renderField('Fecha de nacimiento', birthdate)}
+                                {renderField(
+                                  'Altura',
+                                  typeof height === 'number' ? `${height} cm` : height
+                                )}
+                                {renderField(
+                                  'Peso',
+                                  typeof weight === 'number' ? `${weight} kg` : weight
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Grupo 2: Ciclo y objetivo */}
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-bold text-[#95706B] uppercase tracking-wider">
+                                CICLO Y OBJETIVO
+                              </p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {renderField(
+                                  'Duración ciclo promedio',
+                                  typeof cycleLength === 'number' ? `${cycleLength} días` : cycleLength
+                                )}
+                                {renderField('¿Ciclos regulares?', regularity)}
+                                {renderField('Tiempo buscando embarazo', timeTryingDisplay)}
+                                {renderField('Objetivo principal', objective)}
+                                {renderField('Pareja o solitario', partner)}
+                              </div>
+                            </div>
+
+                            {/* Grupo 3: Historial y diagnósticos */}
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-bold text-[#95706B] uppercase tracking-wider">
+                                HISTORIAL Y DIAGNÓSTICOS
+                              </p>
+                              <div className="grid grid-cols-1 gap-4">
+                                {renderField('Tratamientos de fertilidad previos', treatments)}
+                                {renderField(
+                                  'Diagnósticos e historia familiar',
+                                  toSingleLine(
+                                    [diagnoses, familyHistory]
+                                      .map(v => toSingleLine(v))
+                                      .filter(Boolean)
+                                      .join(' · ')
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
                   )}
                 </div>
-                <div className="border-b border-[#F4F0ED] pb-3">
-                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
-                  <p className="text-sm text-[#4A4A4A] opacity-70">{user.email} <span className="text-[10px] italic">(No editable)</span></p>
-                  </div>
-                  
-                  {/* Salud General */}
-                  {medicalData && (
-                    <>
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Salud General</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Edad</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.edad} años</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">IMC</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.imc.valor} ({medicalData.imc.categoria})</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Peso actual</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoActual} kg</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Peso ideal</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoIdeal.minimo}-{medicalData.pesoIdeal.maximo} kg</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Hábitos (últimos 7 días) */}
-                      <div className="border-b border-[#F4F0ED] pb-3">
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Hábitos (últimos 7 días)</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Sueño</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.sueno}h</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Estrés</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.estres}/5</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Agua</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.agua} vasos</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Vegetales</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.vegetales} porcs</p>
-                          </div>
-                          <div className="col-span-2">
-                            <p className="text-[10px] text-[#5D7180] mb-0.5">Días con alcohol</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.diasConAlcohol}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Análisis de Edad */}
-                      <div>
-                        <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Análisis de Edad</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A] mb-1">{medicalData.analisisEdad.categoria} - {medicalData.analisisEdad.probabilidad}</p>
-                        <p className="text-[10px] text-[#5D7180]">{medicalData.analisisEdad.mensaje}</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+              )}
 
             {shouldShowLoadHistoryButton && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
@@ -563,55 +884,72 @@ const ProfileView = ({
 
         {profileTab === 'HISTORIA' && (() => {
           const f0Form = submittedForms.find(f => f.form_type === 'F0');
-          if (!f0Form) {
-            return (
-              <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
-                <FileText size={48} className="mx-auto text-stone-300 mb-4" />
-                <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
-                <button
-                  onClick={() => setView('CONSULTATIONS')}
-                  className="mt-4 bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#95706B] transition-colors"
-                >
-                  Completar F0
-                </button>
-              </div>
-            );
-          }
-
-          // formatDate is now imported from services/utils
-
-          const handleEditF0Click = () => {
-            // Buscar el f0Form más reciente en el momento del clic (no en el render)
-            const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
-            if (!currentF0Form) return;
-            
-            const initialAnswers: Record<string, any> = {};
-            currentF0Form.answers.forEach((a: any) => { 
-              initialAnswers[a.questionId] = a.answer; 
-            });
-            
-            // Actualizar cycleLength si está disponible en user
-            // Nota: lastPeriodDate ya no se edita desde F0, se maneja desde TrackerView
-            if (user?.cycleLength) {
-              initialAnswers['q6_cycle'] = user.cycleLength;
-            }
-            
-            originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers)); // Deep copy
-            setF0Answers(initialAnswers);
-            setIsEditingF0(true);
-          };
-
-          const handleF0Cancel = () => {
-            setF0Answers(JSON.parse(JSON.stringify(originalF0Answers.current))); // Restore original
-            setIsEditingF0(false);
-            if (autoSaveTimeoutRef.current) {
-              clearTimeout(autoSaveTimeoutRef.current);
-              autoSaveTimeoutRef.current = null;
-            }
-          };
-
+          const medicalData = generarDatosInformeMedico(user, logs);
           return (
             <div className="space-y-4">
+              {/* Bloque de Salud General, Hábitos y Análisis de Edad movido desde Mi Perfil */}
+              {medicalData && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
+                  <div className="border-b border-[#F4F0ED] pb-3">
+                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Salud General</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Edad</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.edad} años</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">IMC</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.imc.valor} ({medicalData.imc.categoria})</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Peso actual</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoActual} kg</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Peso ideal</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoIdeal.minimo}-{medicalData.pesoIdeal.maximo} kg</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hábitos (últimos 7 días) */}
+                  <div className="border-b border-[#F4F0ED] pb-3">
+                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Hábitos (últimos 7 días)</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Sueño</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.sueno}h</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Estrés</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.estres}/5</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Agua</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.agua} vasos</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Vegetales</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.vegetales} porcs</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Días con alcohol</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.diasConAlcohol}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Análisis de Edad */}
+                  <div>
+                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Análisis de Edad</p>
+                    <p className="text-sm font-semibold text-[#4A4A4A] mb-1">
+                      {medicalData.analisisEdad.categoria} - {medicalData.analisisEdad.probabilidad}
+                    </p>
+                    <p className="text-[10px] text-[#5D7180]">{medicalData.analisisEdad.mensaje}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Notificación discreta si debería actualizar la regla */}
               {shouldUpdatePeriod && !isEditingF0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
@@ -640,305 +978,6 @@ const ProfileView = ({
                 </div>
               )}
 
-              <div className="flex justify-between items-end mb-3">
-                <div>
-                  <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
-                  <p className="text-[10px] text-[#5D7180] mt-0.5">
-                    Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
-                  </p>
-                  {f0Form.pdf_generated_at && (
-                    <p className="text-[10px] text-[#5D7180] mt-0.5">
-                      Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {isEditingF0 && (
-                    <button
-                      onClick={handleF0Cancel}
-                      className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                      title="Cancelar"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                <button
-                  onClick={() => {
-                    if (isEditingF0) {
-                      handleF0Save(f0Form);
-                    } else {
-                      handleEditF0Click();
-                    }
-                  }}
-                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                    title={isEditingF0 ? "Guardar" : "Editar"}
-                >
-                  {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
-                </button>
-                </div>
-              </div>
-
-              {isEditingF0 ? (
-                <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-                  <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
-                  <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">{FORM_DEFINITIONS.F0.description}</p>
-                  <div className="space-y-6">
-                    {FORM_DEFINITIONS.F0.questions.map(q => {
-                      const updateAnswer = (id: string, value: any) => {
-                        setF0Answers({ ...f0Answers, [id]: value });
-                      };
-
-                      const renderNumberControl = (question: any) => {
-                        const step = question.step ?? 1;
-                        const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
-                        const rawValue = f0Answers[question.id];
-                        const numericValue =
-                          typeof rawValue === 'number'
-                            ? rawValue
-                            : rawValue !== undefined && rawValue !== ''
-                            ? Number(rawValue)
-                            : undefined;
-
-                        const clampValue = (value: number) => {
-                          let next = value;
-                          if (typeof question.min === 'number') next = Math.max(question.min, next);
-                          if (typeof question.max === 'number') next = Math.min(question.max, next);
-                          const precision = decimals > 2 ? 2 : decimals;
-                          return Number(next.toFixed(precision));
-                        };
-
-                        const handleAdjust = (direction: 1 | -1) => {
-                          const base = numericValue ?? question.defaultValue ?? question.min ?? 0;
-                          const adjusted = clampValue(base + direction * step);
-                          updateAnswer(question.id, adjusted);
-                        };
-
-                        return (
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => handleAdjust(-1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
-                              -
-                            </button>
-                            <div className="flex-1 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl py-2">
-                              <p className="text-lg font-bold text-[#4A4A4A]">{numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}</p>
-                              {question.unit && <p className="text-[11px] text-[#95706B] font-semibold">{question.unit}</p>}
-                            </div>
-                            <button onClick={() => handleAdjust(1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
-                              +
-                            </button>
-                          </div>
-                        );
-                      };
-
-                      const renderSliderControl = (question: any) => {
-                        const min = question.min ?? 0;
-                        const max = question.max ?? 100;
-                        const step = question.step ?? 1;
-                        const rawValue = f0Answers[question.id];
-                        const currentValue =
-                          typeof rawValue === 'number'
-                            ? rawValue
-                            : rawValue !== undefined && rawValue !== ''
-                            ? Number(rawValue)
-                            : question.defaultValue ?? min;
-                        const safeValue = Number.isFinite(currentValue) ? currentValue : min;
-
-                        return (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-[11px] font-semibold text-[#95706B]">
-                              <span>
-                                {safeValue}
-                                {question.unit ? ` ${question.unit}` : ''}
-                              </span>
-                              <span className="text-[#BBA49E]">
-                                {min}
-                                {question.unit ? ` ${question.unit}` : ''} – {max}
-                                {question.unit ? ` ${question.unit}` : ''}
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min={min}
-                              max={max}
-                              step={step}
-                              value={safeValue}
-                              className="w-full accent-[#C7958E]"
-                              onChange={event => updateAnswer(question.id, Number(event.target.value))}
-                            />
-                          </div>
-                        );
-                      };
-
-                      const renderSegmentedControl = (question: any) => {
-                        const min = question.min ?? 1;
-                        const max = question.max ?? 5;
-                        const values = question.options || Array.from({ length: max - min + 1 }, (_, index) => min + index);
-                        return (
-                          <div className="flex flex-wrap gap-2">
-                            {values.map((option: any) => {
-                              const optionValue = option;
-                              const isActive = f0Answers[question.id] === optionValue;
-                              return (
-                                <button
-                                  key={option}
-                                  type="button"
-                                  onClick={() => updateAnswer(question.id, optionValue)}
-                                  className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
-                                    isActive ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
-                                  }`}
-                                >
-                                  {option}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        );
-                      };
-
-                      const renderButtons = (question: any, options: string[]) => (
-                        <div className="flex flex-wrap gap-2">
-                          {options.map(option => {
-                            const isActive = f0Answers[question.id] === option;
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => updateAnswer(question.id, option)}
-                                className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-                                  isActive ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
-                                }`}
-                              >
-                                {option}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      );
-
-                      const controlType = q.control ?? q.type;
-
-                      return (
-                        <div key={q.id}>
-                          <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
-                          {q.type === 'textarea' ? (
-                            <textarea
-                              value={f0Answers[q.id] || ''}
-                              className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
-                              onChange={e => updateAnswer(q.id, e.target.value)}
-                            />
-                          ) : q.type === 'yesno' ? (
-                            renderButtons(q, ['Sí', 'No'])
-                          ) : q.type === 'buttons' && Array.isArray(q.options) ? (
-                            renderButtons(q, q.options)
-                          ) : q.type === 'segmented' ? (
-                            renderSegmentedControl(q)
-                          ) : q.type === 'date' ? (
-                            <input
-                              type="date"
-                              value={f0Answers[q.id] || ''}
-                              className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
-                              onChange={e => updateAnswer(q.id, e.target.value)}
-                            />
-                          ) : controlType === 'slider' || q.type === 'slider' ? (
-                            renderSliderControl(q)
-                          ) : controlType === 'stepper' || q.type === 'stepper' ? (
-                            renderNumberControl(q)
-                          ) : (
-                            <input
-                              type={q.type === 'number' ? 'number' : 'text'}
-                              value={f0Answers[q.id] || ''}
-                              className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
-                              onChange={e => updateAnswer(q.id, e.target.value)}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <button
-                    onClick={() => handleF0Save(f0Form)}
-                    className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2"
-                  >
-                    Guardar cambios
-                  </button>
-                </div>
-              ) : (
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED]">
-                  {/* Campos en dos columnas: Altura/Peso, Nivel estrés/Horas sueño, Consumo alcohol */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {['q2_height', 'q2_weight', 'q15_stress', 'q16_sleep', 'q18_alcohol'].map(questionId => {
-                      const answer = f0Form.answers.find(a => a.questionId === questionId);
-                      if (!answer) return null;
-                      const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
-                      if (!question) return null;
-
-                      let displayValue = answer.answer;
-                      
-                      if (question.type === 'date' && typeof displayValue === 'string') {
-                        displayValue = formatDate(displayValue, 'long');
-                      }
-                      
-                      if (Array.isArray(displayValue)) {
-                        displayValue = displayValue.join(', ');
-                      }
-
-                      // Formatear valores numéricos con unidades
-                      if (questionId === 'q2_height' && typeof displayValue === 'number') {
-                        displayValue = `${displayValue} cm`;
-                      } else if (questionId === 'q2_weight' && typeof displayValue === 'number') {
-                        displayValue = `${displayValue} kg`;
-                      } else if (questionId === 'q16_sleep' && typeof displayValue === 'number') {
-                        displayValue = `${displayValue} h`;
-                      }
-
-                      return (
-                        <div key={questionId} className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{question.text}</p>
-                          <p className="text-sm text-[#4A4A4A]">{displayValue || '-'}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Resto de campos en una columna */}
-                  <div className="space-y-4">
-                    {f0Form.answers
-                      .filter(answer => !['q2_height', 'q2_weight', 'q15_stress', 'q16_sleep', 'q18_alcohol'].includes(answer.questionId))
-                      .map((answer, idx) => {
-                        const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
-                        if (!question) return null;
-
-                        let displayValue = answer.answer;
-                        
-                        // Special handling for "Tiempo buscando embarazo" - show calculated value
-                        if (answer.questionId === 'q3_time_trying') {
-                          const initialMonths = parseInt(answer.answer as string);
-                          if (!isNaN(initialMonths) && f0Form.submitted_at) {
-                            const submittedDate = new Date(f0Form.submitted_at);
-                            if (!isNaN(submittedDate.getTime())) {
-                              const today = new Date();
-                              const monthsDiff = (today.getFullYear() - submittedDate.getFullYear()) * 12 + 
-                                               (today.getMonth() - submittedDate.getMonth());
-                              displayValue = `${initialMonths + monthsDiff} meses`;
-                            }
-                          }
-                        } else if (question.type === 'date' && typeof displayValue === 'string') {
-                          displayValue = formatDate(displayValue, 'long');
-                        }
-                        
-                        if (Array.isArray(displayValue)) {
-                          displayValue = displayValue.join(', ');
-                        }
-
-                        return (
-                          <div key={answer.questionId} className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                            <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{question.text}</p>
-                            <p className="text-sm text-[#4A4A4A] whitespace-pre-line">{displayValue || '-'}</p>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}
