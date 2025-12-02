@@ -61,7 +61,17 @@ const FUNCTION_SECTIONS = [
       { id: 'function_afc_derecho', label: 'AFC derecho', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
       { id: 'function_afc_izquierdo', label: 'AFC izquierdo', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
       { id: 'function_endometrio', label: 'Grosor endometrial', type: 'number', unit: 'mm', min: 1, max: 20, step: 0.1, control: 'slider', optional: true },
-      { id: 'function_patron', label: 'Patrón endometrial', type: 'text', optional: true }
+      {
+        id: 'function_patron',
+        label: 'Patrón endometrial (0-20 mm)',
+        type: 'number',
+        unit: 'mm',
+        min: 0,
+        max: 20,
+        step: 0.1,
+        control: 'slider',
+        optional: true
+      }
     ]
   },
   {
@@ -98,7 +108,14 @@ const FOOD_QUESTIONS = [
   { id: 'food_ultraprocesados', text: 'Consumo de ultraprocesados', type: 'buttons', options: ['Nunca', '1-2', '3-4', '5+ veces'], defaultValue: 'Nunca' },
   { id: 'food_omega', text: 'Omega-3 en dieta', type: 'buttons', options: ['Bajo', 'Moderado', 'Alto'], defaultValue: 'Moderado' },
   { id: 'food_horarios', text: 'Horarios de comida', type: 'buttons', options: ['Regulares', 'Irregulares'], defaultValue: 'Regulares' },
-  { id: 'food_digestivo', text: 'Sintomatología digestiva', type: 'textarea', optional: true },
+  {
+    id: 'food_digestivo',
+    text: 'Sintomatología digestiva',
+    type: 'buttons',
+    options: ['Dolor abdominal', 'Hinchazón', 'Diarrea', 'Estreñimiento', 'Acidez', 'Ninguno'],
+    defaultValue: 'Ninguno',
+    optional: true
+  },
   { id: 'food_bristol', text: 'Escala de Bristol', type: 'segmented', min: 1, max: 7, defaultValue: 4 },
   { id: 'food_entrenamiento', text: 'Entrenamiento semanal', type: 'buttons', options: ['0', '1-2', '3-4', '5+'], defaultValue: '3-4' },
   { id: 'food_cintura', text: 'Perímetro cintura (cm)', type: 'number', min: 50, max: 140, step: 1, unit: 'cm', control: 'slider', defaultValue: 75 },
