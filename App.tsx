@@ -122,7 +122,7 @@ function AppContent() {
     loading,
     view, setView,
     user, setUser,
-    logs,
+    logs, setLogs,
     dashboardScores,
     notifications,
     submittedForms,
