@@ -5,6 +5,11 @@ build
 .env
 private_docs/
 
-# Archivos de documentación de Make.com (no subir a producción)
+# Archivos de documentación interna (no subir a producción)
 MAKE_*.md
 MAKE_*.txt
+*_TROUBLESHOOTING.md
+*_NOTES.md
+*_REPORT.md
+*_SETUP.md
+NOTIFICATION_SYSTEM.md
