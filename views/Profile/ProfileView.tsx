@@ -7,6 +7,7 @@ import ReportCard from '../../components/common/ReportCard';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
+import { supabase } from '../../services/supabase';
 import { formatDate } from '../../services/utils';
 import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
@@ -210,7 +211,7 @@ const ProfileView = ({
     return logs.length >= 90 && !hasLoadedAllHistory && fetchAllLogs && setLogs;
   }, [logs.length, hasLoadedAllHistory, fetchAllLogs, setLogs]);
 
-  const handleF0Save = async (f0Form: ConsultationForm) => {
+  const handleF0Save = async (f0Form?: ConsultationForm) => {
     if (!user?.id) return;
 
     const formattedAnswers = FORM_DEFINITIONS.F0.questions.map(q => ({
@@ -219,14 +220,35 @@ const ProfileView = ({
       answer: f0Answers[q.id] || ''
     }));
 
-    try {
-      await updateConsultationFormById(f0Form.id, {
-        answers: formattedAnswers,
-        status: 'pending'
-      });
-    } catch (error: any) {
-      showNotif(error?.message || 'Error al guardar F0', 'error');
-      return;
+    // Si no existe el F0, crearlo primero
+    let currentF0Form = f0Form;
+    if (!currentF0Form) {
+      const { data: newForm, error: createError } = await supabase
+        .from('consultation_forms')
+        .insert({
+          user_id: user.id,
+          form_type: 'F0',
+          answers: formattedAnswers,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (createError || !newForm) {
+        showNotif('Error al crear el formulario F0', 'error');
+        return;
+      }
+      currentF0Form = newForm as ConsultationForm;
+    } else {
+      try {
+        await updateConsultationFormById(currentF0Form.id, {
+          answers: formattedAnswers,
+          status: 'pending'
+        });
+      } catch (error: any) {
+        showNotif(error?.message || 'Error al guardar F0', 'error');
+        return;
+      }
     }
 
     const updates: Partial<UserProfile> = {};
@@ -243,7 +265,7 @@ const ProfileView = ({
     // Set time_trying fields if q3_time_trying is present
     if (f0Answers['q3_time_trying']) {
       const initialMonths = parseInt(String(f0Answers['q3_time_trying']).replace(/\D/g, '')) || 0;
-      const submissionDate = f0Form.submitted_at || new Date().toISOString();
+      const submissionDate = currentF0Form.submitted_at || new Date().toISOString();
       const startDate = submissionDate.split('T')[0]; // Get YYYY-MM-DD format
       
       const success = await setTimeTryingStart(user.id, initialMonths, startDate);
@@ -272,7 +294,8 @@ const ProfileView = ({
 
     showNotif('Ficha Personal actualizada correctamente', 'success');
     setIsEditingF0(false);
-    fetchUserForms(user.id);
+    // Recargar formularios para que aparezca el F0 en modo lectura
+    await fetchUserForms(user.id);
   };
 
   // Calcular si debería haber venido la regla
@@ -384,30 +407,45 @@ const ProfileView = ({
 
           return (
           <div className="space-y-6">
-            {/* Ficha personal (F0) */}
-              {!f0Form ? (
-                <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
-                  <FileText size={48} className="mx-auto text-stone-300 mb-4" />
-                  <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
-                  <button
-                    onClick={() => setView('CONSULTATIONS')}
-                    className="mt-4 bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#95706B] transition-colors"
-                  >
-                    Completar F0
-                  </button>
-                </div>
-              ) : (
+            {/* Ficha personal (F0) - SIEMPRE mostrar si existe o si está editando */}
+            {!f0Form && !isEditingF0 ? (
+              <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
+                <FileText size={48} className="mx-auto text-stone-300 mb-4" />
+                <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
+                <button
+                  onClick={() => {
+                    setIsEditingF0(true);
+                    // Inicializar con valores por defecto si no existe
+                    const defaults: Record<string, any> = {};
+                    FORM_DEFINITIONS.F0.questions.forEach(question => {
+                      if ((question as any).defaultValue !== undefined) {
+                        defaults[question.id] = (question as any).defaultValue;
+                      }
+                    });
+                    setF0Answers(defaults);
+                    originalF0Answers.current = JSON.parse(JSON.stringify(defaults));
+                  }}
+                  className="mt-4 bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#95706B] transition-colors"
+                >
+                  Completar F0
+                </button>
+              </div>
+            ) : (f0Form || isEditingF0) ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-end mb-1">
                     <div>
                       <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
-                      <p className="text-[10px] text-[#5D7180] mt-0.5">
-                        Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
-                      </p>
-                      {f0Form.pdf_generated_at && (
-                        <p className="text-[10px] text-[#5D7180] mt-0.5">
-                          Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
-                        </p>
+                      {f0Form && (
+                        <>
+                          <p className="text-[10px] text-[#5D7180] mt-0.5">
+                            Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
+                          </p>
+                          {f0Form.pdf_generated_at && (
+                            <p className="text-[10px] text-[#5D7180] mt-0.5">
+                              Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -430,7 +468,8 @@ const ProfileView = ({
                       <button
                         onClick={() => {
                           if (isEditingF0) {
-                            handleF0Save(f0Form);
+                            const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
+                            handleF0Save(currentF0Form);
                           } else {
                             const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
                             if (!currentF0Form) return;
@@ -689,92 +728,86 @@ const ProfileView = ({
                         })}
                       </div>
                       <button
-                        onClick={() => handleF0Save(f0Form)}
+                        onClick={() => {
+                          const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
+                          handleF0Save(currentF0Form);
+                        }}
                         className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2"
                       >
                         Guardar cambios
                       </button>
                     </div>
-                  ) : (
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-6">
-                      {(() => {
-                        const getAnswer = (id: string) =>
-                          f0Form.answers.find(a => a.questionId === id)?.answer ?? null;
+                  ) : f0Form ? (
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
+                      <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                      <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">
+                        {FORM_DEFINITIONS.F0.description}
+                      </p>
+                      
+                      {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento */}
+                      <div className="space-y-4 mb-6">
+                        <div className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
+                          <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                        </div>
+                        <div className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
+                          <p className="text-sm text-[#4A4A4A] opacity-70">
+                            {user.email} <span className="text-[10px] italic">(No editable)</span>
+                          </p>
+                        </div>
+                        <div className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                            Fecha de nacimiento
+                          </p>
+                          <p className="text-sm text-[#4A4A4A]">
+                            {(() => {
+                              const birthdateAnswer = f0Form.answers?.find(a => a.questionId === 'q1_birthdate')?.answer;
+                              return birthdateAnswer 
+                                ? formatDate(birthdateAnswer as string, 'long')
+                                : '—';
+                            })()}
+                          </p>
+                        </div>
+                      </div>
 
-                        // Fecha de nacimiento formateada
-                        let birthdate = getAnswer('q1_birthdate');
-                        if (typeof birthdate === 'string' && birthdate) {
-                          birthdate = formatDate(birthdate, 'long');
-                        }
+                      {/* Mostrar todos los campos del formulario F0 en modo lectura */}
+                      <div className="space-y-6">
+                        {FORM_DEFINITIONS.F0.questions.map(q => {
+                          // La fecha de nacimiento se gestiona en el bloque superior
+                          if (q.id === 'q1_birthdate') return null;
 
-                        // Altura / peso / ciclo / tiempo buscando con unidades
-                        const height = getAnswer('q2_height');
-                        const weight = getAnswer('q2_weight');
-                        const cycleLength = getAnswer('q6_cycle');
-                        const regularity = getAnswer('q7_regularity');
-                        const objective = getAnswer('q4_objective');
-                        const partner = getAnswer('q5_partner');
+                          const answer = f0Form.answers?.find(a => a.questionId === q.id);
+                          const value = answer?.answer ?? null;
 
-                        // Tiempo buscando embarazo calculado desde la fecha de envío
-                        let timeTryingDisplay: string | null = null;
-                        const rawTimeTrying = getAnswer('q3_time_trying');
-                        if ((typeof rawTimeTrying === 'string' || typeof rawTimeTrying === 'number') && f0Form.submitted_at) {
-                          const initialMonths = parseInt(String(rawTimeTrying).replace(/\D/g, ''), 10);
-                          if (!Number.isNaN(initialMonths)) {
-                            const submittedDate = new Date(f0Form.submitted_at);
-                            if (!Number.isNaN(submittedDate.getTime())) {
-                              const today = new Date();
-                              const monthsDiff =
-                                (today.getFullYear() - submittedDate.getFullYear()) * 12 +
-                                (today.getMonth() - submittedDate.getMonth());
-                              timeTryingDisplay = `${initialMonths + monthsDiff} meses`;
+                          // Formatear el valor para mostrar
+                          let displayValue: string | null = null;
+                          if (value !== null && value !== undefined && value !== '') {
+                            if (q.type === 'date' && typeof value === 'string') {
+                              displayValue = formatDate(value, 'long');
+                            } else if (Array.isArray(value)) {
+                              displayValue = value.join(', ');
+                            } else if (typeof value === 'number' && (q as any).unit) {
+                              displayValue = `${value} ${(q as any).unit}`;
+                            } else {
+                              displayValue = String(value);
                             }
                           }
-                        }
 
-                        const treatments = getAnswer('q20_fertility_treatments');
-                        const diagnoses = getAnswer('q9_diagnoses');
-                        const familyHistory = getAnswer('q21_family_history');
-
-                        const toSingleLine = (value: any, maxLength: number = 160) => {
-                          if (value == null) return null;
-                          let text = String(value).replace(/\s+/g, ' ').trim();
-                          if (!text) return null;
-                          if (text.length > maxLength) {
-                            text = text.slice(0, maxLength - 1) + '…';
-                          }
-                          return text;
-                        };
-
-                        const renderField = (label: string, value: any) => (
-                          <div className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                            <p className="text-[11px] text-[#5D7180] mb-0.5">{label}</p>
-                            <p className="text-sm font-semibold text-[#4A4A4A]">
-                              {value ?? '—'}
-                            </p>
-                          </div>
-                        );
-
-                        return (
-                          <>
-                            {/* Grupo 1: Datos básicos (solo se muestran aquí en la ficha, el resto se ve en la pestaña Historia) */}
-                            <div className="space-y-3">
-                              <p className="text-[10px] font-bold text-[#95706B] uppercase tracking-wider">
-                                DATOS BÁSICOS
+                          return (
+                            <div key={q.id} className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{q.text}</p>
+                              <p className="text-sm text-[#4A4A4A] whitespace-pre-line">
+                                {displayValue ?? '—'}
                               </p>
-                              <div className="space-y-2">
-                                {renderField('Nombre', user.name)}
-                                {renderField('Email', user.email)}
-                                {renderField('Fecha de nacimiento', birthdate)}
-                              </div>
                             </div>
-                          </>
-                        );
-                      })()}
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
-              )}
+              ) : null}
 
             {shouldShowLoadHistoryButton && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">

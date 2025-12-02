@@ -586,15 +586,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   startMethod: async () => {
-    const { user, submittedForms, showNotif, setView, fetchEducation, setUser, setCurrentPhase, setShowPhaseModal } = get();
+    const { user, showNotif, setView, fetchEducation, setUser, setCurrentPhase, setShowPhaseModal } = get();
     if (!user?.id) return;
-
-    const hasF0 = submittedForms.some((f) => f.form_type === 'F0');
-    if (!hasF0) {
-      showNotif('Debes completar el formulario F0 antes de iniciar el método.', 'error');
-      setView('CONSULTATIONS');
-      return;
-    }
 
     const startDate = new Date().toISOString();
     const { error } = await supabase

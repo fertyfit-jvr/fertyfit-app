@@ -1,15 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, FileText, X } from 'lucide-react';
+import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, X } from 'lucide-react';
 import { ConsultationForm, DailyLog, UserProfile } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
-import { supabase } from '../../services/supabase';
 import { calculateAverages } from '../../services/dataService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
 import { formatDate } from '../../services/utils';
 import { PILLAR_ICONS } from '../../constants/api';
 import { savePillarForm } from '../../services/pillarService';
-import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
-import { setTimeTryingStart, calculateCurrentMonthsTrying } from '../../services/timeTryingService';
 
 interface ConsultationsViewProps {
   user: UserProfile;
@@ -53,13 +50,6 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const [isScanningAll, setIsScanningAll] = useState(false); // Nuevo estado para escaneo universal
   const originalAnswers = useRef<Record<string, any>>({});
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Estados para F0
-  const [isEditingF0, setIsEditingF0] = useState(false);
-  const [f0Answers, setF0Answers] = useState<Record<string, any>>({});
-  const originalF0Answers = useRef<Record<string, any>>({});
-  
-  const f0Form = submittedForms.find(f => f.form_type === 'F0');
 
   // Mapeo de secciones a tipos de examen
   const SECTION_TO_EXAM_TYPE: Record<string, 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'> = {
@@ -298,115 +288,6 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   };
 
   const updateAnswer = (id: string, value: any) => setAnswers(prev => ({ ...prev, [id]: value }));
-
-  // Función para guardar F0
-  const handleF0Save = async () => {
-    if (!user?.id) return;
-
-    // Si no existe el F0, crearlo primero
-    let currentF0Form = f0Form;
-    if (!currentF0Form) {
-      const formattedAnswers = FORM_DEFINITIONS.F0.questions.map(q => ({
-        questionId: q.id,
-        question: q.text,
-        answer: f0Answers[q.id] || ''
-      }));
-
-      const { data: newForm, error: createError } = await supabase
-        .from('consultation_forms')
-        .insert({
-          user_id: user.id,
-          form_type: 'F0',
-          answers: formattedAnswers,
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (createError || !newForm) {
-        showNotif('Error al crear el formulario F0', 'error');
-        return;
-      }
-      currentF0Form = newForm as ConsultationForm;
-    } else {
-      const formattedAnswers = FORM_DEFINITIONS.F0.questions.map(q => ({
-        questionId: q.id,
-        question: q.text,
-        answer: f0Answers[q.id] || ''
-      }));
-
-      try {
-        await updateConsultationFormById(currentF0Form.id!, {
-          answers: formattedAnswers,
-          status: 'pending'
-        });
-      } catch (error: any) {
-        showNotif(error?.message || 'Error al guardar F0', 'error');
-        return;
-      }
-    }
-
-    // Actualizar perfil con datos del F0
-    const updates: Partial<UserProfile> = {};
-    if (f0Answers['q2_weight']) updates.weight = parseFloat(f0Answers['q2_weight']);
-    if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
-    if (f0Answers['q4_objective']) updates.mainObjective = f0Answers['q4_objective'];
-    if (f0Answers['q6_cycle']) updates.cycleLength = parseFloat(f0Answers['q6_cycle']) || parseInt(f0Answers['q6_cycle']);
-
-    // Set time_trying fields if q3_time_trying is present
-    if (f0Answers['q3_time_trying']) {
-      const initialMonths = parseInt(String(f0Answers['q3_time_trying']).replace(/\D/g, '')) || 0;
-      const submissionDate = currentF0Form.submitted_at || new Date().toISOString();
-      const startDate = submissionDate.split('T')[0];
-      
-      const success = await setTimeTryingStart(user.id, initialMonths, startDate);
-      if (success) {
-        updates.timeTryingStartDate = startDate;
-        updates.timeTryingInitialMonths = initialMonths;
-        updates.timeTrying = calculateCurrentMonthsTrying(startDate, initialMonths) || undefined;
-      }
-    }
-
-    if (Object.keys(updates).length > 0) {
-      const profileUpdates: any = {};
-      if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
-      if (updates.height !== undefined) profileUpdates.height = updates.height;
-      if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
-      if (updates.cycleLength !== undefined) profileUpdates.cycle_length = updates.cycleLength;
-      
-      const updateResult = await updateProfileForUser(user.id, profileUpdates);
-      if (updateResult.success === false) {
-        showNotif(updateResult.error || 'No pudimos actualizar tu perfil', 'error');
-        return;
-      }
-    }
-
-    showNotif('Ficha Personal guardada correctamente', 'success');
-    setIsEditingF0(false);
-    fetchUserForms(user.id);
-  };
-
-  // Sincronizar f0Answers cuando cambie el f0Form
-  useEffect(() => {
-    if (isEditingF0) return;
-    
-    if (f0Form && f0Form.answers) {
-      const syncedAnswers: Record<string, any> = {};
-      f0Form.answers.forEach((a: any) => { 
-        syncedAnswers[a.questionId] = a.answer; 
-      });
-      setF0Answers(syncedAnswers);
-    } else {
-      // Inicializar con valores por defecto
-      const defaults: Record<string, any> = {};
-      FORM_DEFINITIONS.F0.questions.forEach(question => {
-        if (question.defaultValue !== undefined) {
-          defaults[question.id] = question.defaultValue;
-        }
-      });
-      setF0Answers(defaults);
-    }
-  }, [f0Form, isEditingF0]);
 
   const toggleSection = (sectionId: string) => {
     setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
@@ -988,240 +869,12 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   );
   };
 
-
-  // Renderizar sección F0
-  const renderF0Section = () => {
-    if (!f0Form && !isEditingF0) {
-      return (
-        <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-6 rounded-3xl shadow-xl text-white">
-          <div className="flex items-center gap-3 mb-4">
-            <FileText size={32} className="text-white" />
-            <div>
-              <h3 className="text-xl font-bold">Ficha Personal (F0)</h3>
-              <p className="text-sm opacity-90">Completa tu información básica para comenzar</p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setIsEditingF0(true);
-              originalF0Answers.current = JSON.parse(JSON.stringify(f0Answers));
-            }}
-            className="w-full bg-white text-[#C7958E] py-3 rounded-xl font-bold shadow-lg hover:bg-[#F4F0ED] transition-colors"
-          >
-            Completar F0
-          </button>
-        </div>
-      );
-    }
-
-    if (f0Form && !isEditingF0) {
-      return (
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FileText size={24} className="text-[#C7958E]" />
-            <div>
-              <h3 className="text-sm font-bold text-[#4A4A4A]">Ficha Personal (F0)</h3>
-              <p className="text-xs text-[#5D7180]">Completada</p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setIsEditingF0(true);
-              originalF0Answers.current = JSON.parse(JSON.stringify(f0Answers));
-            }}
-            className="text-[#C7958E] hover:bg-[#F4F0ED] p-2 rounded-lg transition-colors"
-            title="Editar F0"
-          >
-            <Edit2 size={18} />
-          </button>
-        </div>
-      );
-    }
-
-    if (isEditingF0 || !f0Form) {
-      const updateF0Answer = (id: string, value: any) => {
-        setF0Answers({ ...f0Answers, [id]: value });
-      };
-
-      const renderF0NumberControl = (question: any) => {
-        const step = question.step ?? 1;
-        const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
-        const rawValue = f0Answers[question.id];
-        const numericValue =
-          typeof rawValue === 'number'
-            ? rawValue
-            : rawValue !== undefined && rawValue !== ''
-            ? Number(rawValue)
-            : undefined;
-
-        const clampValue = (value: number) => {
-          let next = value;
-          if (typeof question.min === 'number') next = Math.max(question.min, next);
-          if (typeof question.max === 'number') next = Math.min(question.max, next);
-          const precision = decimals > 2 ? 2 : decimals;
-          return Number(next.toFixed(precision));
-        };
-
-        const handleAdjust = (direction: 1 | -1) => {
-          const base = numericValue ?? question.defaultValue ?? question.min ?? 0;
-          const adjusted = clampValue(base + direction * step);
-          updateF0Answer(question.id, adjusted);
-        };
-
-        return (
-          <div className="flex items-center gap-3">
-            <button onClick={() => handleAdjust(-1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
-              -
-            </button>
-            <div className="flex-1 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl py-2">
-              <p className="text-lg font-bold text-[#4A4A4A]">{numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}</p>
-              {question.unit && <p className="text-[11px] text-[#95706B] font-semibold">{question.unit}</p>}
-            </div>
-            <button onClick={() => handleAdjust(1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
-              +
-            </button>
-          </div>
-        );
-      };
-
-      const renderF0SliderControl = (question: any) => {
-        const min = question.min ?? 0;
-        const max = question.max ?? 100;
-        const step = question.step ?? 1;
-        const rawValue = f0Answers[question.id];
-        const currentValue =
-          typeof rawValue === 'number'
-            ? rawValue
-            : rawValue !== undefined && rawValue !== ''
-            ? Number(rawValue)
-            : question.defaultValue ?? min;
-        const safeValue = Number.isFinite(currentValue) ? currentValue : min;
-
-        return (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-[#95706B]">
-              <span>
-                {safeValue}
-                {question.unit ? ` ${question.unit}` : ''}
-              </span>
-              <span className="text-[#BBA49E]">
-                {min}
-                {question.unit ? ` ${question.unit}` : ''} – {max}
-                {question.unit ? ` ${question.unit}` : ''}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={min}
-              max={max}
-              step={step}
-              value={safeValue}
-              className="w-full accent-[#C7958E]"
-              onChange={event => updateF0Answer(question.id, Number(event.target.value))}
-            />
-          </div>
-        );
-      };
-
-      const renderF0Buttons = (question: any, options: string[]) => (
-        <div className="flex flex-wrap gap-2">
-          {options.map(option => {
-            const isActive = f0Answers[question.id] === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                onClick={() => updateF0Answer(question.id, option)}
-                className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-                  isActive ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
-                }`}
-              >
-                {option}
-              </button>
-            );
-          })}
-        </div>
-      );
-
-      return (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-          <div className="flex items-center justify-between mb-6 border-b border-[#F4F0ED] pb-4">
-            <div>
-              <h3 className="text-lg font-bold text-[#4A4A4A]">{FORM_DEFINITIONS.F0.title}</h3>
-              <p className="text-xs text-[#5D7180] mt-1">{FORM_DEFINITIONS.F0.description}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setF0Answers(JSON.parse(JSON.stringify(originalF0Answers.current)));
-                  setIsEditingF0(false);
-                }}
-                className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                title="Cancelar"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-          <div className="space-y-6">
-            {FORM_DEFINITIONS.F0.questions.map(q => {
-              const controlType = (q as any).control ?? q.type;
-              return (
-                <div key={q.id}>
-                  <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">{q.text}</label>
-                  {q.type === 'textarea' ? (
-                    <textarea
-                      value={f0Answers[q.id] || ''}
-                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
-                      onChange={e => updateF0Answer(q.id, e.target.value)}
-                    />
-                  ) : q.type === 'buttons' && Array.isArray(q.options) ? (
-                    renderF0Buttons(q, q.options)
-                  ) : q.type === 'date' ? (
-                    <input
-                      type="date"
-                      value={f0Answers[q.id] || ''}
-                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
-                      onChange={e => updateF0Answer(q.id, e.target.value)}
-                    />
-                  ) : controlType === 'slider' || q.type === 'slider' ? (
-                    renderF0SliderControl(q)
-                  ) : controlType === 'stepper' || q.type === 'stepper' ? (
-                    renderF0NumberControl(q)
-                  ) : (
-                    <input
-                      type={q.type === 'number' ? 'number' : 'text'}
-                      value={f0Answers[q.id] || ''}
-                      className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
-                      onChange={e => updateF0Answer(q.id, e.target.value)}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <button
-            onClick={handleF0Save}
-            className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2"
-          >
-            Guardar F0
-          </button>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
   return (
     <div className="pb-24 space-y-6">
       <div>
         <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
         <p className="text-sm text-[#5D7180]">Puedes actualizarlos durante todo el método.</p>
       </div>
-
-      {/* Sección F0 */}
-      {renderF0Section()}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {PILLAR_TABS.map(tab => {
