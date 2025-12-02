@@ -107,10 +107,6 @@ const getEmbedUrl = (url: string) => {
   return embedUrl;
 };
 
-// calculateFertyScore and calculateStandardDeviation are now in services/fertyscoreService
-
-
-
 
 
 // --- Components ---
@@ -230,7 +226,6 @@ function AppContent() {
       showNotif("¡Registro exitoso! Revisa tu email.", 'success');
       setIsSignUp(false);
     }
-    // Data loading will be handled by useEffect when user is set
   };
 
   const handleNotificationAction = async (notification: AppNotification, action: NotificationAction) => {
@@ -520,11 +515,7 @@ function AppContent() {
                 saveDailyLog={saveDailyLog}
                   user={user}
                   onUserUpdate={async (updatedUser) => {
-                    // Preservar todos los campos del usuario actual al actualizar
-                    // Esto asegura que methodStartDate y otros campos estáticos no se pierdan
                     setUser(prevUser => prevUser ? { ...prevUser, ...updatedUser } : updatedUser);
-                    // Solo refrescar formularios - los datos del perfil ya vienen actualizados desde TrackerView
-                    // Esto evita una query redundante a Supabase (optimización)
                     if (updatedUser?.id) {
                       await fetchUserForms(updatedUser.id);
                     }

@@ -130,9 +130,6 @@ export const calculateDaysOnMethod = (startDateStr: string | undefined | null): 
     const utc2 = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
     
     const diffDays = Math.floor((utc2 - utc1) / (1000 * 60 * 60 * 24));
-    
-    // If method is started (startDateStr exists), it's at least Day 1
-    // Even if started 1 second ago.
     return Math.max(1, diffDays + 1);
 };
 

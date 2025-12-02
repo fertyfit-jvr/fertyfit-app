@@ -380,9 +380,7 @@ const ProfileView = ({
 
           return (
           <div className="space-y-6">
-            {/* (Cabecera superior eliminada a petición: solo mostramos directamente la ficha F0) */}
-
-            {/* Ficha personal (F0) movida a Mi Perfil, integrada con Datos Personales */}
+            {/* Ficha personal (F0) */}
               {!f0Form ? (
                 <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
                   <FileText size={48} className="mx-auto text-stone-300 mb-4" />

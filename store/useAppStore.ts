@@ -25,8 +25,6 @@ import { getCycleDay } from '../hooks/useCycleDay';
 import { DailyLogSchema } from '../types/schemas';
 import { evaluateRules } from '../services/RuleEngine';
 import { buildRuleContext } from '../services/buildRuleContext';
-import { evaluateRules } from '../services/RuleEngine';
-import { buildRuleContext } from '../services/buildRuleContext';
 
 type ToastState = { msg: string; type: 'success' | 'error' } | null;
 

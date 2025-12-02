@@ -6,8 +6,7 @@ import {
     calcularIMC,
     debeEnviarNotificacionFertilidad,
     DISCLAIMERS,
-    calcularCicloPromedio,
-    calcularDiaDelCiclo
+    calcularCicloPromedio
 } from './CycleCalculations';
 import { parseLocalDate } from './dateUtils';
 import {
@@ -44,7 +43,6 @@ export interface RuleContext {
     // Resúmenes
     lastWeeklySummaryAt?: string | null;
     lastMonthlySummaryAt?: string | null;
-    // Legacy
     previousWeight?: number;
 }
 
@@ -673,7 +671,6 @@ export const evaluateRules = async (
 
     for (const rule of rulesForTrigger) {
         try {
-            // Verificar requiresCycle
             if (rule.requiresCycle) {
                 if (!context.currentCycleDay || !context.cycleLength || !context.ventanaFertil) {
                     continue;
@@ -683,7 +680,6 @@ export const evaluateRules = async (
             const conditionMet = rule.condition(context);
             if (!conditionMet) continue;
 
-            // Check Cooldown
             const inCooldown = await checkCooldown(rule.id, userId, rule.cooldownDays);
             if (inCooldown) {
                 logger.log(`  ⏳ Rule ${rule.id} in cooldown`);
@@ -706,17 +702,11 @@ export const evaluateRules = async (
         return;
     }
 
-    // 1) Filtrar notificaciones de formularios (solo 1 por día)
     let filtered = filterFormNotifications(preCandidates);
-
-    // 2) Ordenar por prioridad
     filtered.sort((a, b) => a.priority - b.priority);
-
-    // 3) Límite final por trigger
+    
     const max = TRIGGER_MAX[trigger];
     const finalNotifs = filtered.slice(0, max);
-
-    // 4) Convertir a AppNotification y guardar
     const notifications: AppNotification[] = finalNotifs.map(notif => ({
         id: 0,
         user_id: userId,
@@ -760,7 +750,6 @@ const checkCooldown = async (ruleId: string, userId: string, days: number): Prom
 export const saveNotifications = async (userId: string, notifications: AppNotification[]) => {
     if (notifications.length === 0) return;
 
-    // Check how many sent today
     const today = new Date().toISOString().split('T')[0];
     const { count } = await supabase
         .from('notifications')
@@ -796,7 +785,6 @@ export const saveNotifications = async (userId: string, notifications: AppNotifi
  * Actualiza la fecha de última menstruación del perfil
  */
 export const handlePeriodConfirmed = async (userId: string, newPeriodDate: string) => {
-    // 1. Obtener perfil actual con historial (incluir period_history en la misma query)
     const { data: profileData, error: fetchError } = await supabase
         .from('profiles')
         .select('last_period_date, cycle_length, period_history')
@@ -807,37 +795,21 @@ export const handlePeriodConfirmed = async (userId: string, newPeriodDate: strin
         throw new Error(`handlePeriodConfirmed fetch failed: ${fetchError.message}`);
     }
 
-    // 2. Actualizar historial de períodos
     const currentHistory = (profileData?.period_history as string[]) || [];
-    let updatedHistory: string[];
-    
-    // Si ya existe la fecha, no duplicarla; si no, agregarla al inicio (más reciente primero)
-    if (currentHistory.includes(newPeriodDate)) {
-        updatedHistory = currentHistory;
-    } else {
-        // Agregar nueva fecha al inicio y mantener solo últimas 12 (para calcular promedio)
-        updatedHistory = [newPeriodDate, ...currentHistory].slice(0, 12);
-    }
+    const updatedHistory = currentHistory.includes(newPeriodDate)
+        ? currentHistory
+        : [newPeriodDate, ...currentHistory].slice(0, 12);
 
-    // 3. Calcular nuevo ciclo promedio solo si hay suficientes períodos (2+)
-    // Si hay pocos datos, preservar el cycleLength existente (probablemente de F0)
-    // La BD es la fuente de verdad única para cycleLength
-    let newCycleLength = profileData?.cycle_length || 28; // Preservar valor existente (puede venir de F0)
+    let newCycleLength = profileData?.cycle_length || 28;
     if (updatedHistory.length >= 2) {
-        // Ordenar fechas de más antigua a más reciente para el cálculo
         const sortedHistory = [...updatedHistory].sort((a, b) => 
             new Date(a).getTime() - new Date(b).getTime()
         );
         const cicloCalculado = calcularCicloPromedio(sortedHistory);
-        // Solo actualizar si el cálculo es válido (rango 21-45 días)
-        // Esto permite que el auto-cálculo actualice el ciclo cuando hay suficientes datos
         if (cicloCalculado >= 21 && cicloCalculado <= 45) {
             newCycleLength = cicloCalculado;
         }
-        // Si el cálculo no es válido, mantener el cycleLength existente (de F0 o valor previo)
     }
-
-    // 4. Actualizar perfil con nueva fecha, historial y ciclo promedio
     const { error: updateError } = await supabase
         .from('profiles')
         .update({

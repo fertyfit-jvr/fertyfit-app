@@ -317,7 +317,7 @@ interface SupabaseProfile {
   cycle_length?: number | null;
   last_period_date?: string | null;
   period_history?: string[] | null;
-  // DEPRECATED: These fields moved to pillar tables (kept for backward compatibility)
+  // Legacy fields (migrated to pillar tables, kept for backward compatibility)
   time_trying?: number | string | null;
   diagnoses?: string[] | null;
   fertility_treatments?: string | null;

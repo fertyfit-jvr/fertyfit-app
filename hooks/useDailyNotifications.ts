@@ -28,8 +28,6 @@ export function useDailyNotifications() {
 
     const todayKey = `fertyfit_daily_check_${user.id}`;
     const todayStr = formatDateForDB(new Date());
-    
-    // Check both localStorage and state to avoid redundant checks
     const storedCheckDate = localStorage.getItem(todayKey);
     if (storedCheckDate === todayStr || lastDailyCheckDate === todayStr) {
       return; // Already checked today
@@ -39,14 +37,10 @@ export function useDailyNotifications() {
 
     const runDailyCheck = async () => {
       try {
-        // Construir contexto completo
         const context = await buildRuleContext(user, logs, courseModules);
-
-        // Evaluar reglas (ahora guarda automáticamente)
         await evaluateRules('DAILY_CHECK', context, user.id!);
 
         if (!cancelled) {
-          // Fetch notifications after saving
           const result = await fetchNotificationsForUser(user.id);
           if (result.success) {
             setNotifications(result.data);

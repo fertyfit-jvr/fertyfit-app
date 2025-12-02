@@ -83,7 +83,7 @@ export function useAuth() {
             cycleLength: profile.cycle_length,
             lastPeriodDate: profile.last_period_date,
             periodHistory: profile.period_history || [],
-            // DEPRECATED: Keep for backward compatibility during migration
+            // Legacy fields (migrated to pillar tables)
             diagnoses: profile.diagnoses || [],
             fertilityTreatments: profile.fertility_treatments,
             supplements: profile.supplements,
@@ -183,12 +183,9 @@ export function useAuth() {
 
   /**
    * Refreshes user profile from database
-   * Solo actualiza campos dinámicos del ciclo menstrual
-   * PRESERVA todos los demás campos estáticos (methodStartDate, name, email, etc.)
-   * Optimizado: verifica usuario antes de query y protege contra pérdida de datos
+   * Updates only dynamic cycle fields, preserves static fields
    */
   const refreshUserProfile = async (userId: string) => {
-    // Verificar usuario existe antes de hacer query (ahorro de recursos)
     const currentUser = useAppStore.getState().user;
     if (!currentUser?.id || currentUser.id !== userId) {
       logger.warn('refreshUserProfile: No user in store or ID mismatch, skipping');
@@ -199,13 +196,11 @@ export function useAuth() {
       const profile = await fetchProfileForUser(userId);
       if (profile) {
         setUser(prevUser => {
-          // Protección crítica: si prevUser es null, no hacer nada para evitar pérdida de datos
           if (!prevUser) {
-            logger.warn('refreshUserProfile: prevUser is null, skipping update to preserve data');
-            return currentUser; // Mantener el usuario actual
+            logger.warn('refreshUserProfile: prevUser is null, skipping update');
+            return currentUser;
           }
           
-          // Solo actualizar campos dinámicos del ciclo menstrual
           return {
             ...prevUser,
             lastPeriodDate: profile.last_period_date,
@@ -217,11 +212,8 @@ export function useAuth() {
       }
     } catch (error) {
       logger.error('Error in refreshUserProfile:', error);
-      // En caso de error, no hacer nada - preserva el estado actual del usuario
     }
   };
-
-  // Note: checkUser should be called explicitly from App.tsx, not automatically here
 
   return {
     checkUser,

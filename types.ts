@@ -1,5 +1,3 @@
-// HealthData removed - wearable integration temporarily disabled
-
 export interface UserProfile {
   id?: string; // Supabase Auth ID
   email?: string;
@@ -28,8 +26,7 @@ export interface UserProfile {
   obstetricHistory?: string;
   recentBloodwork?: boolean;
   
-  // DEPRECATED: These fields have been moved to pillar tables
-  // Keep for backward compatibility during migration
+  // Legacy fields (migrated to pillar tables, kept for backward compatibility)
   diagnoses?: string[];
   fertilityTreatments?: string;
   supplements?: string;
@@ -69,10 +66,7 @@ export interface DailyLog {
   veggieServings: number;
   alcohol: boolean;
   alcoholUnits?: number;
-
-  // Wearable/Health Data Integration (temporarily disabled)
-  // healthData?: HealthData; // Full health data from wearable
-  dataSource?: 'manual' | 'wearable' | 'hybrid'; // Tracking of data origin
+  dataSource?: 'manual' | 'wearable' | 'hybrid';
   
   // Enhanced fields (retrocompatible)
   sleepPhases?: { // Sleep phase breakdown
