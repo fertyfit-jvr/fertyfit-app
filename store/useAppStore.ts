@@ -186,7 +186,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   fetchLogs: async (userId: string, daysLimit: number = 90) => {
     const { user, setLogs, setTodayLog, showNotif, setDashboardScores } = get();
     try {
-      const mappedLogs = await fetchLogsForUser(userId, daysLimit);
+      const result = await fetchLogsForUser(userId, daysLimit);
+      if (!result.success) {
+        showNotif(result.error, 'error');
+        return [];
+      }
+      const mappedLogs = result.data;
       setLogs(mappedLogs);
       const todayStr = formatDateForDB(new Date());
       const existingToday = mappedLogs.find((l) => l.date === todayStr);
@@ -246,7 +251,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   fetchAllLogs: async (userId: string) => {
     const { setLogs, showNotif, setDashboardScores } = get();
     try {
-      const mappedLogs = await fetchAllLogsForUser(userId);
+      const result = await fetchAllLogsForUser(userId);
+      if (!result.success) {
+        showNotif(result.error, 'error');
+        return [];
+      }
+      const mappedLogs = result.data;
       setLogs(mappedLogs);
       if (get().user) {
         try {
@@ -265,10 +275,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   fetchNotifications: async (userId: string) => {
-    const { setNotifications } = get();
+    const { setNotifications, showNotif } = get();
     try {
-      const activeNotifications = await fetchNotificationsForUser(userId);
-      setNotifications(activeNotifications);
+      const result = await fetchNotificationsForUser(userId);
+      if (!result.success) {
+        showNotif(result.error, 'error');
+        setNotifications([]);
+        return;
+      }
+      setNotifications(result.data);
     } catch (error) {
       logger.error('❌ Error fetching notifications:', error);
       setNotifications([]);
@@ -276,10 +291,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   fetchReports: async (userId: string) => {
-    const { setReports } = get();
+    const { setReports, showNotif } = get();
     try {
-      const reports = await fetchReportsForUser(userId);
-      setReports(reports);
+      const result = await fetchReportsForUser(userId);
+      if (!result.success) {
+        showNotif(result.error, 'error');
+        return;
+      }
+      setReports(result.data);
     } catch (error) {
       logger.error('❌ Error fetching reports:', error);
     }
@@ -288,8 +307,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   fetchUserForms: async (userId: string) => {
     const { setSubmittedForms, showNotif } = get();
     try {
-      const forms = await fetchUserFormsForUser(userId);
-      setSubmittedForms(forms);
+      const result = await fetchUserFormsForUser(userId);
+      if (!result.success) {
+        showNotif(result.error, 'error');
+        return;
+      }
+      setSubmittedForms(result.data);
     } catch (error) {
       logger.error('❌ Error fetching forms:', error);
       showNotif('Error cargando formularios. Intenta recargar la página.', 'error');
@@ -297,10 +320,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   fetchEducation: async (userId: string, methodStart?: string) => {
-    const { setCourseModules } = get();
+    const { setCourseModules, showNotif } = get();
     try {
-      const modules = await fetchEducationForUser(userId, methodStart);
-      setCourseModules(modules);
+      const result = await fetchEducationForUser(userId, methodStart);
+      if (!result.success) {
+        showNotif(result.error, 'error');
+        setCourseModules([]);
+        return;
+      }
+      setCourseModules(result.data);
     } catch (error) {
       logger.error('❌ Error fetching education:', error);
       setCourseModules([]);

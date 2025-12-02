@@ -9,6 +9,11 @@ import { formatDateForDB } from './dataService';
 import { withRetry } from './utils';
 import { logger } from '../lib/logger';
 
+// Generic Result type for safe data fetching
+export type Result<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
 /**
  * Maps database log format to application log format
  */
@@ -39,12 +44,12 @@ export const mapLogFromDB = (dbLog: any): DailyLog => ({
  * Fetches user logs with retry logic and exponential backoff
  * @param userId - User ID
  * @param daysLimit - Number of days to fetch (default: 90)
- * @returns Array of DailyLog objects
+ * @returns Result with DailyLog array or error message
  */
 export async function fetchLogsForUser(
   userId: string,
   daysLimit: number = 90
-): Promise<DailyLog[]> {
+): Promise<Result<DailyLog[]>> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
@@ -66,21 +71,27 @@ export async function fetchLogsForUser(
     });
 
     if (data) {
-      return data.map(mapLogFromDB);
+      return { success: true, data: data.map(mapLogFromDB) };
     }
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tus registros. Intenta recargar la página.'
+    };
   } catch (error) {
     logger.error('❌ Error fetching logs after retries:', error);
-    throw error;
+    return {
+      success: false,
+      error: 'No pudimos cargar tus registros. Intenta recargar la página.'
+    };
   }
 }
 
 /**
  * Fetches all user logs (no date limit)
  * @param userId - User ID
- * @returns Array of DailyLog objects
+ * @returns Result with DailyLog array or error message
  */
-export async function fetchAllLogsForUser(userId: string): Promise<DailyLog[]> {
+export async function fetchAllLogsForUser(userId: string): Promise<Result<DailyLog[]>> {
   try {
     const { data, error } = await withRetry(async () => {
       const result = await supabase
@@ -96,21 +107,27 @@ export async function fetchAllLogsForUser(userId: string): Promise<DailyLog[]> {
     });
 
     if (data) {
-      return data.map(mapLogFromDB);
+      return { success: true, data: data.map(mapLogFromDB) };
     }
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tu historial completo. Intenta recargar la página.'
+    };
   } catch (error) {
     logger.error('❌ Error fetching all logs after retries:', error);
-    throw error;
+    return {
+      success: false,
+      error: 'No pudimos cargar tu historial completo. Intenta recargar la página.'
+    };
   }
 }
 
 /**
  * Fetches user notifications with retry logic
  * @param userId - User ID
- * @returns Array of AppNotification objects (excluding soft-deleted)
+ * @returns Result with notifications (excluding soft-deleted) or error message
  */
-export async function fetchNotificationsForUser(userId: string): Promise<AppNotification[]> {
+export async function fetchNotificationsForUser(userId: string): Promise<Result<AppNotification[]>> {
   try {
     const { data, error } = await withRetry(async () => {
       const result = await supabase
@@ -125,28 +142,30 @@ export async function fetchNotificationsForUser(userId: string): Promise<AppNoti
       return result;
     });
 
-    if (error) {
-      logger.error('❌ Error fetching notifications:', error);
-      return [];
-    }
-
     if (data) {
       // Filter out soft-deleted notifications (metadata.deleted === true)
-      return Array.isArray(data) ? data.filter(n => !n.metadata?.deleted) : [];
+      const filtered = Array.isArray(data) ? data.filter(n => !n.metadata?.deleted) : [];
+      return { success: true, data: filtered };
     }
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tus notificaciones. Intenta recargar la página.'
+    };
   } catch (error) {
     logger.error('❌ Error fetching notifications after retries:', error);
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tus notificaciones. Intenta recargar la página.'
+    };
   }
 }
 
 /**
  * Fetches user forms with retry logic
  * @param userId - User ID
- * @returns Array of ConsultationForm objects
+ * @returns Result with ConsultationForm array or error message
  */
-export async function fetchUserFormsForUser(userId: string): Promise<ConsultationForm[]> {
+export async function fetchUserFormsForUser(userId: string): Promise<Result<ConsultationForm[]>> {
   try {
     const { data, error } = await withRetry(async () => {
       const result = await supabase
@@ -161,21 +180,27 @@ export async function fetchUserFormsForUser(userId: string): Promise<Consultatio
     });
 
     if (data) {
-      return data;
+      return { success: true, data };
     }
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tus formularios. Intenta recargar la página.'
+    };
   } catch (error) {
     logger.error('❌ Error fetching forms after retries:', error);
-    throw error;
+    return {
+      success: false,
+      error: 'No pudimos cargar tus formularios. Intenta recargar la página.'
+    };
   }
 }
 
 /**
  * Fetches admin reports for user
  * @param userId - User ID
- * @returns Array of AdminReport objects
+ * @returns Result with AdminReport array or error message
  */
-export async function fetchReportsForUser(userId: string): Promise<AdminReport[]> {
+export async function fetchReportsForUser(userId: string): Promise<Result<AdminReport[]>> {
   try {
     const { data, error } = await supabase
       .from('admin_reports')
@@ -183,18 +208,19 @@ export async function fetchReportsForUser(userId: string): Promise<AdminReport[]
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      logger.error('❌ Error fetching reports:', error);
-      return [];
-    }
-
     if (data) {
-      return data;
+      return { success: true, data };
     }
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tus informes. Intenta recargar la página.'
+    };
   } catch (error) {
     logger.error('❌ Error fetching reports:', error);
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tus informes. Intenta recargar la página.'
+    };
   }
 }
 
@@ -202,12 +228,12 @@ export async function fetchReportsForUser(userId: string): Promise<AdminReport[]
  * Fetches education content for user
  * @param userId - User ID
  * @param methodStart - Method start date (optional)
- * @returns Array of CourseModule objects
+ * @returns Result with CourseModule array or error message
  */
 export async function fetchEducationForUser(
   userId: string,
   methodStart?: string
-): Promise<CourseModule[]> {
+): Promise<Result<CourseModule[]>> {
   try {
     const { data: modulesData } = await supabase
       .from('content_modules')
@@ -232,7 +258,7 @@ export async function fetchEducationForUser(
     }
 
     if (modulesData && Array.isArray(modulesData)) {
-      return modulesData.map(m => {
+      const mapped = modulesData.map(m => {
         const safeContentLessons = Array.isArray(m.content_lessons) ? m.content_lessons : [];
         const safeCompletedSet = Array.isArray(Array.from(completedSet)) ? completedSet : new Set();
         
@@ -254,11 +280,18 @@ export async function fetchEducationForUser(
           isLocked: m.phase > 0 && (!methodStart || m.order_index > currentWeek)
         };
       });
+      return { success: true, data: mapped };
     }
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tu contenido educativo. Intenta recargar la página.'
+    };
   } catch (error) {
     logger.error('❌ Error fetching education:', error);
-    return [];
+    return {
+      success: false,
+      error: 'No pudimos cargar tu contenido educativo. Intenta recargar la página.'
+    };
   }
 }
 

@@ -52,8 +52,10 @@ export function useDailyNotifications() {
         if (!cancelled && ruleNotifications.length > 0) {
           await saveNotifications(user.id!, ruleNotifications);
           // Fetch notifications after saving
-          const updatedNotifications = await fetchNotificationsForUser(user.id);
-          setNotifications(updatedNotifications);
+          const result = await fetchNotificationsForUser(user.id);
+          if (result.success) {
+            setNotifications(result.data);
+          }
         }
       } catch (err) {
         logger.error('❌ Error running DAILY_CHECK trigger', err);
