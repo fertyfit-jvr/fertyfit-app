@@ -50,8 +50,6 @@ export const ProfileUpdateSchema = z.object({
     .optional(),
   age: z.number()
     .int('La edad debe ser un número entero')
-    .min(18, 'Edad mínima: 18 años')
-    .max(60, 'Edad máxima: 60 años')
     .optional(),
   lastPeriodDate: z.string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)')

@@ -7,22 +7,22 @@ export const DailyLogSchema = z.object({
   cycleDay: z.number().int().min(1).max(100),
 
   bbt: z.number().min(35).max(39).nullable(),
-  mucus: z.string(), // MucusType | ''
+  mucus: z.string(), // MucusType | '' - OBLIGATORIO
   cervixHeight: z.string().optional(),
   cervixFirmness: z.string().optional(),
   cervixOpenness: z.string().optional(),
-  lhTest: z.string(), // LHResult
-  symptoms: z.array(z.string()),
-  sex: z.boolean(),
+  lhTest: z.string().optional(), // LHResult
+  symptoms: z.array(z.string()).optional(),
+  sex: z.boolean().optional(),
 
-  sleepQuality: z.number().int().min(1).max(5),
-  sleepHours: z.number().min(0).max(24),
-  stressLevel: z.number().int().min(1).max(5),
-  activityMinutes: z.number().min(0),
-  sunMinutes: z.number().min(0),
-  waterGlasses: z.number().int().min(0),
-  veggieServings: z.number().int().min(0),
-  alcohol: z.boolean(),
+  sleepQuality: z.number().int().min(1).max(5).optional(),
+  sleepHours: z.number().min(0).max(24).optional(),
+  stressLevel: z.number().int().min(1).max(5).optional(),
+  activityMinutes: z.number().min(0).optional(),
+  sunMinutes: z.number().min(0).optional(),
+  waterGlasses: z.number().int().min(0).optional(),
+  veggieServings: z.number().int().min(0).optional(),
+  alcohol: z.boolean().optional(),
   alcoholUnits: z.number().optional().nullable(),
 
   // Campos opcionales adicionales (wearable)

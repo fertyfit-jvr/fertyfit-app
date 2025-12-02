@@ -53,12 +53,6 @@ const TrackerView = ({
   const [selectedPeriodSymptoms, setSelectedPeriodSymptoms] = useState<string[]>([]);
   const [isSavingPeriod, setIsSavingPeriod] = useState(false);
   
-  // Estado para popup obligatorio de primera vez (sin lastPeriodDate)
-  const [isFirstPeriodModalOpen, setIsFirstPeriodModalOpen] = useState(false);
-  const [firstPeriodDate, setFirstPeriodDate] = useState('');
-  const [selectedFirstPeriodSymptoms, setSelectedFirstPeriodSymptoms] = useState<string[]>([]);
-  const [isSavingFirstPeriod, setIsSavingFirstPeriod] = useState(false);
-  
   // Calcular ventana fértil
   const ventanaFertil = user?.cycleLength 
     ? calcularVentanaFertil(user.cycleLength)
@@ -112,22 +106,6 @@ const TrackerView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.lastPeriodDate, user?.cycleLength]);
 
-  // Mostrar popup obligatorio si no hay lastPeriodDate (primera vez)
-  // La BD es la fuente de verdad: si tiene lastPeriodDate, no mostrar el popup
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    // Si el usuario YA tiene lastPeriodDate, NO mostrar el popup
-    if (user.lastPeriodDate) {
-      setIsFirstPeriodModalOpen(false);
-      return;
-    }
-    
-    // Solo mostrar si realmente no tiene lastPeriodDate Y no está abierto ya
-    if (!user.lastPeriodDate && !isFirstPeriodModalOpen) {
-      setIsFirstPeriodModalOpen(true);
-    }
-  }, [user?.id, user?.lastPeriodDate, isFirstPeriodModalOpen]);
 
   // Inicializar datos cuando se abre el modal de ciclo
   useEffect(() => {
@@ -230,93 +208,18 @@ const TrackerView = ({
     }
   };
 
-  // Guardar primer período (obligatorio)
-  const handleSaveFirstPeriod = async () => {
-    if (!user || !user.id || !firstPeriodDate) {
-      showNotif?.('Por favor, indica la fecha de tu última regla', 'error');
-      return;
-    }
-
-    setIsSavingFirstPeriod(true);
-
-    try {
-      // 1. Actualizar perfil con lastPeriodDate y crear historial inicial
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          last_period_date: firstPeriodDate,
-          period_history: [firstPeriodDate] // Inicializar historial con primera fecha
-        })
-        .eq('id', user.id);
-
-      if (profileError) {
-        throw new Error(`Error al actualizar perfil: ${profileError.message}`);
-      }
-
-      // 2. Crear log del día con los síntomas seleccionados
-      const logDate = firstPeriodDate;
-      const { error: logError } = await supabase
-        .from('daily_logs')
-        .upsert({
-          user_id: user.id,
-          date: logDate,
-          cycle_day: 1, // Día 1 es cuando viene la regla
-          symptoms: selectedFirstPeriodSymptoms.length > 0 ? selectedFirstPeriodSymptoms : []
-        }, {
-          onConflict: 'user_id,date'
-        });
-
-      if (logError) {
-        logger.error('Error al crear log del período:', logError);
-        // No fallar si el log no se puede crear, pero loguear el error
-      }
-
-      // 3. Actualizar user en el estado
-      const updatedUser = {
-        ...user,
-        lastPeriodDate: firstPeriodDate,
-        periodHistory: [firstPeriodDate]
-      };
-
-      onUserUpdate?.(updatedUser);
-      setIsFirstPeriodModalOpen(false);
-      showNotif?.('¡Perfecto! Ya puedes comenzar a registrar tus datos diarios', 'success');
-    } catch (error: any) {
-      logger.error('Error guardando primer período:', error);
-      showNotif?.('Error al guardar. Por favor, intenta nuevamente.', 'error');
-    } finally {
-      setIsSavingFirstPeriod(false);
-    }
-  };
-
-  // Toggle síntomas del período (para ambos modales)
-  const togglePeriodSymptom = (symptom: string, isFirstModal: boolean = false) => {
-    if (isFirstModal) {
-      // Para el popup inicial
-      if (symptom === 'Sin síntomas') {
-        setSelectedFirstPeriodSymptoms(['Sin síntomas']);
-      } else {
-        setSelectedFirstPeriodSymptoms(prev => {
-          const filtered = prev.filter(s => s !== 'Sin síntomas');
-          if (filtered.includes(symptom)) {
-            return filtered.filter(s => s !== symptom);
-          }
-          return [...filtered, symptom];
-        });
-      }
+  // Toggle síntomas del período
+  const togglePeriodSymptom = (symptom: string) => {
+    if (symptom === 'Sin síntomas') {
+      setSelectedPeriodSymptoms(['Sin síntomas']);
     } else {
-      // Para el modal de edición
-      if (symptom === 'Sin síntomas') {
-        setSelectedPeriodSymptoms(['Sin síntomas']);
-      } else {
-        setSelectedPeriodSymptoms(prev => {
-          const filtered = prev.filter(s => s !== 'Sin síntomas');
-          if (filtered.includes(symptom)) {
-            return filtered.filter(s => s !== symptom);
-          }
-          return [...filtered, symptom];
-        });
-      }
+      setSelectedPeriodSymptoms(prev => {
+        const filtered = prev.filter(s => s !== 'Sin síntomas');
+        if (filtered.includes(symptom)) {
+          return filtered.filter(s => s !== symptom);
+        }
+        return [...filtered, symptom];
+      });
     }
   };
 
@@ -635,73 +538,6 @@ const TrackerView = ({
         </div>
       </div>
 
-      {/* Modal obligatorio para primera vez (sin lastPeriodDate) */}
-      {isFirstPeriodModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md mx-4 p-6 space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-[#4A4A4A] mb-2">¡Bienvenida! 👋</h3>
-              <p className="text-sm text-[#5D7180]">
-                Para comenzar a registrar tus datos diarios, necesitamos saber cuándo fue tu última regla y qué síntomas tuviste.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-2">
-                  Fecha de tu última regla *
-                </label>
-                <input
-                  type="date"
-                  value={firstPeriodDate}
-                  onChange={(e) => setFirstPeriodDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]} // No permitir fechas futuras
-                  className="w-full px-4 py-3 bg-[#F9F6F4] border border-[#F4F0ED] rounded-xl text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#C7958E]"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-3">
-                  ¿Qué síntomas tuviste?
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {PERIOD_SYMPTOM_OPTIONS.map((symptom) => {
-                    const isSelected = selectedFirstPeriodSymptoms.includes(symptom);
-                    return (
-                      <button
-                        key={symptom}
-                        type="button"
-                        onClick={() => togglePeriodSymptom(symptom, true)}
-                        className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                          isSelected
-                            ? 'bg-[#C7958E] text-white shadow-md'
-                            : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-[#E8E0DC]'
-                        }`}
-                      >
-                        {symptom}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={handleSaveFirstPeriod}
-              disabled={!firstPeriodDate || isSavingFirstPeriod}
-              className={`w-full px-4 py-3 rounded-xl font-bold transition-colors ${
-                !firstPeriodDate || isSavingFirstPeriod
-                  ? 'bg-[#E8E0DC] text-[#A0A0A0] cursor-not-allowed'
-                  : 'bg-[#C7958E] text-white hover:bg-[#B8857E] shadow-md'
-              }`}
-            >
-              {isSavingFirstPeriod ? 'Guardando...' : 'Continuar'}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Modal para actualizar última regla */}
       {isCycleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsCycleModalOpen(false)}>
@@ -745,7 +581,7 @@ const TrackerView = ({
                       <button
                         key={symptom}
                         type="button"
-                        onClick={() => togglePeriodSymptom(symptom, false)}
+                        onClick={() => togglePeriodSymptom(symptom)}
                         className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                           isSelected
                             ? 'bg-[#C7958E] text-white shadow-md'

@@ -450,10 +450,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!todayLog.date) { showNotif('La fecha es obligatoria', 'error'); return; }
     if (!todayLog.bbt) { showNotif('La temperatura (BBT) es obligatoria', 'error'); return; }
     if (!todayLog.mucus) { showNotif('El registro de moco cervical es obligatorio', 'error'); return; }
-    if (!todayLog.stressLevel) { showNotif('El nivel de estrés es obligatorio', 'error'); return; }
-    if (todayLog.sleepHours === undefined || todayLog.sleepHours === null) {
-      showNotif('Las horas de sueño son obligatorias', 'error'); return;
-    }
     const validDate = formatDateForDB(new Date(todayLog.date)); // normaliza formato
 
     let correctCycleDay = todayLog.cycleDay || 1;
@@ -461,7 +457,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
       correctCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
     }
 
-    const formattedLog = { ...todayLog, date: validDate, cycleDay: correctCycleDay };
+    // Proporcionar valores por defecto para campos opcionales antes de validar
+    const formattedLog = { 
+      ...todayLog, 
+      date: validDate, 
+      cycleDay: correctCycleDay,
+      // Solo BBT y mucus son obligatorios, el resto son opcionales
+      sleepQuality: todayLog.sleepQuality,
+      veggieServings: todayLog.veggieServings,
+      activityMinutes: todayLog.activityMinutes,
+      sunMinutes: todayLog.sunMinutes,
+      waterGlasses: todayLog.waterGlasses,
+      alcohol: todayLog.alcohol,
+      sex: todayLog.sex,
+      symptoms: todayLog.symptoms,
+      lhTest: todayLog.lhTest,
+      sleepHours: todayLog.sleepHours,
+      stressLevel: todayLog.stressLevel,
+    };
 
     // Validar el payload con Zod antes de guardar
     try {

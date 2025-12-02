@@ -560,15 +560,7 @@ function AppContent() {
         <NavButton active={view === 'DASHBOARD'} onClick={() => setView('DASHBOARD')} icon={Heart} label="Inicio" />
         <NavButton
           active={view === 'TRACKER'}
-          onClick={() => {
-            const hasF0 = submittedForms.some(f => f.form_type === 'F0');
-            if (!hasF0) {
-              showNotif('Debes completar el F0 antes de registrar datos diarios', 'error');
-              setView('CONSULTATIONS');
-            } else {
-              setView('TRACKER');
-            }
-          }}
+          onClick={() => setView('TRACKER')}
           icon={Activity}
           label="Diario"
         />

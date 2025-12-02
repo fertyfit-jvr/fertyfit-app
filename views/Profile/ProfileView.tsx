@@ -814,7 +814,7 @@ const ProfileView = ({
                         </div>
                       );
 
-                      const controlType = q.control ?? q.type;
+                      const controlType = (q as any).control ?? q.type;
 
                       return (
                         <div key={q.id}>
