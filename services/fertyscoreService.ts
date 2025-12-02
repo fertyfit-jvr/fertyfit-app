@@ -557,109 +557,116 @@ function calculateFloraScore(flora?: PillarFlora | null, logs: DailyLog[] = []):
 // 4. FLOW (estrés, ciclo, estabilidad hormonal/emocional)
 // ============================================================================
 
-function likertNegativeToScore(v?: number | null): number {
+// Helpers Likert estandarizados según especificación del equipo
+function likertNegative(v?: number | null): number {
   if (v == null) return NaN;
-  if (v === 1) return 100;
-  if (v === 2) return 85;
-  if (v === 3) return 70;
-  if (v === 4) return 55;
-  return 40;
+  // índice: 0,1,2,3,4,5  →  null,100,85,70,55,40
+  const table = [null, 100, 85, 70, 55, 40] as const;
+  const mapped = table[v as number];
+  return typeof mapped === 'number' ? mapped : NaN;
 }
 
-function likertPositiveToScore(v?: number | null): number {
+function likertPositive(v?: number | null): number {
   if (v == null) return NaN;
-  if (v === 5) return 100;
-  if (v === 4) return 85;
-  if (v === 3) return 70;
-  if (v === 2) return 55;
-  return 40;
+  // índice: 0,1,2,3,4,5  →  null,40,55,70,85,100
+  const table = [null, 40, 55, 70, 85, 100] as const;
+  const mapped = table[v as number];
+  return typeof mapped === 'number' ? mapped : NaN;
 }
 
-function calculateStressBaselineScore(flow: PillarFlow): number {
-  return clampScore(averageDefined([
-    likertNegativeToScore(flow.stress_level),
-    likertNegativeToScore(flow.mental_load),
-    likertNegativeToScore(flow.mental_rumination),
-    likertNegativeToScore(flow.frequent_conflicts ? 5 : 1),
-    likertNegativeToScore(flow.loneliness),
-  ]));
-}
+// Campos que pertenecen al baseline FLOW (según especificación)
+const NEGATIVE_FIELDS = [
+  'stress_level',
+  'mental_load',
+  'mental_rumination',
+  'nighttime_screen_use',
+  'loneliness',
+  'frequent_conflicts',
+  'fertility_anxiety_relationships',
+  'pain_dryness_relationships',
+] as const;
 
-function calculateRelationScore(flow: PillarFlow): number {
-  return clampScore(averageDefined([
-    likertPositiveToScore(flow.libido),
-    likertPositiveToScore(flow.emotional_connection_partner),
-    likertNegativeToScore(flow.pain_dryness_relationships ? 5 : 1),
-    likertNegativeToScore(flow.fertility_anxiety_relationships ? 5 : 1),
-  ]));
-}
+const POSITIVE_FIELDS = [
+  'libido',
+  'emotional_connection_partner',
+  'emotional_support',
+] as const;
 
-function calculateRecoveryHabitsScore(flow: PillarFlow): number {
-  return clampScore(averageDefined([
-    likertNegativeToScore(flow.nighttime_screen_use),
-    likertPositiveToScore(flow.emotional_support ? 5 : 1),
-  ]));
-}
-
-const FLOW_BASELINE_WEIGHTS = {
-  stress: 0.4,
-  relation: 0.3,
-  recovery: 0.3,
-} as const;
-
+// Baseline FLOW: media simple de todos los sub-scores válidos (mínimo 3)
 function calculateFlowBaseline(flow?: PillarFlow | null): number {
   if (!flow) return NaN;
 
-  const stress = calculateStressBaselineScore(flow);
-  const relation = calculateRelationScore(flow);
-  const recovery = calculateRecoveryHabitsScore(flow);
+  const scores: number[] = [];
 
-  const components = { stress, relation, recovery };
-  const valid = Object.entries(components).filter(
-    ([, v]) => !Number.isNaN(v),
-  ) as [keyof typeof FLOW_BASELINE_WEIGHTS, number][];
+  // Campos "negativos" (más alto = peor)
+  NEGATIVE_FIELDS.forEach(field => {
+    const raw = (flow as any)[field];
+    // booleans se mapean a 1/5 según el doc
+    if (typeof raw === 'boolean') {
+      const likert = raw ? 5 : 1;
+      scores.push(likertNegative(likert));
+    } else {
+      scores.push(likertNegative(raw));
+    }
+  });
 
-  if (!valid.length) return NaN;
+  // Campos "positivos" (más alto = mejor)
+  POSITIVE_FIELDS.forEach(field => {
+    const raw = (flow as any)[field];
+    if (typeof raw === 'boolean') {
+      const likert = raw ? 5 : 1;
+      scores.push(likertPositive(likert));
+    } else {
+      scores.push(likertPositive(raw));
+    }
+  });
 
-  const weighted = valid.reduce(
-    (acc, [key, value]) => acc + value * FLOW_BASELINE_WEIGHTS[key],
-    0,
-  );
-  const totalWeight = valid.reduce(
-    (acc, [key]) => acc + FLOW_BASELINE_WEIGHTS[key],
-    0,
-  );
+  const valid = scores.filter(s => !Number.isNaN(s));
 
-  return clampScore(weighted / totalWeight);
+  // Mínimo 3 sub-scores válidos para considerar FLOW baseline fiable
+  if (valid.length < 3) return NaN;
+
+  const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
+  return clampScore(avg);
 }
 
+// Estrés dinámico: solo días con dato de stressLevel (no usar ?? 0)
 function calculateStressDynamicScore(logs: DailyLog[]): number {
   const recent = takeLastDays(logs, DYNAMIC_DAYS);
   if (!recent.length) return NaN;
 
-  const avgStress = average(recent.map(l => l.stressLevel ?? 0));
-  if (Number.isNaN(avgStress) || avgStress <= 0) return NaN;
+  const values = recent
+    .map(l => l.stressLevel)
+    .filter(v => typeof v === 'number') as number[];
 
-  return clampScore(((5 - avgStress) / 4) * 100);
+  if (!values.length) return NaN;
+
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+
+  // stressLevel 1 (muy bajo) → 100, 5 (muy alto) → 0
+  return clampScore(((5 - avg) / 4) * 100);
 }
 
+// Regularidad del ciclo: undefined → NaN (no inflar con 80)
 function calculateCycleRegularityScore(user: UserProfile): number {
   if (user.cycleRegularity === 'Regular') return 100;
   if (user.cycleRegularity === 'Irregular') return 70;
-  return 80;
+  return NaN;
 }
 
+// Estabilidad BBT: usa solo valores numéricos válidos, mínimo 3
 function calculateBBTScore(logs: DailyLog[]): number {
-  const recent = takeLastDaysWithBBT(logs, DYNAMIC_DAYS);
-  if (recent.length < 3) return NaN;
+  const recent = takeLastDays(logs, DYNAMIC_DAYS);
+  if (!recent.length) return NaN;
 
-  const values = recent
+  const bbtValues = recent
     .map(l => l.bbt)
-    .filter((b): b is number => typeof b === 'number' && !Number.isNaN(b));
+    .filter(v => typeof v === 'number' && !Number.isNaN(v)) as number[];
 
-  if (values.length < 3) return NaN;
+  if (bbtValues.length < 3) return NaN;
 
-  const sd = calculateStandardDeviation(values);
+  const sd = calculateStandardDeviation(bbtValues);
+
   if (sd <= 0.15) return 100;
   if (sd >= 0.5) return 45;
 
