@@ -10,26 +10,24 @@
 // 1. CÁLCULO DE CICLO Y OVULACIÓN
 // ============================================================================
 
+import { parseLocalDate } from './dateUtils';
+
 /**
- * Calcula el día actual del ciclo basado en última regla.
- * IMPORTANTE: El día que viene la regla = día 1 del nuevo ciclo.
- * Si el día calculado supera la duración del ciclo, se avanza a ciclos siguientes
- * y se devuelve el día dentro del ciclo actual.
+ * Calcula el día actual del ciclo basado en última regla (fechas locales).
+ * Día 1 = día que viene la regla.
  */
 export function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: number): number {
     if (!lastPeriodDate) return 0;
 
-    const ultimaRegla = new Date(lastPeriodDate);
+    const ultimaRegla = parseLocalDate(lastPeriodDate) ?? new Date();
     const hoy = new Date();
     ultimaRegla.setHours(0, 0, 0, 0);
     hoy.setHours(0, 0, 0, 0);
     
     const diferencia = hoy.getTime() - ultimaRegla.getTime();
     const diasDesdeUltimaRegla = Math.floor(diferencia / (1000 * 60 * 60 * 24));
-    const diaEnCiclo = diasDesdeUltimaRegla + 1; // Día 1 = día que viene la regla
+    const diaEnCiclo = diasDesdeUltimaRegla + 1;
 
-    // Si tenemos cycleLength y el día calculado es mayor, estamos en un nuevo ciclo
-    // Calcular cuántos ciclos completos han pasado para manejar múltiples ciclos
     if (cycleLength && diaEnCiclo > cycleLength) {
         const ciclosCompletos = Math.floor((diaEnCiclo - 1) / cycleLength);
         return diaEnCiclo - (ciclosCompletos * cycleLength);
@@ -88,7 +86,8 @@ export function calcularFechaInicioCicloActual(
 ): string | null {
     if (!lastPeriodDate || !cycleLength) return null;
 
-    const lastPeriod = new Date(lastPeriodDate);
+    const lastPeriod = parseLocalDate(lastPeriodDate);
+    if (!lastPeriod) return null;
     const hoy = new Date();
     lastPeriod.setHours(0, 0, 0, 0);
     hoy.setHours(0, 0, 0, 0);
@@ -593,10 +592,11 @@ export function calcularCicloPromedio(periodDates: string[]): number {
     
     // Calcular duración entre períodos consecutivos
     for (let i = 1; i < periodDates.length; i++) {
-        const fechaAnterior = new Date(periodDates[i - 1]);
-        const fechaActual = new Date(periodDates[i]);
+        const fechaAnterior = parseLocalDate(periodDates[i - 1]);
+        const fechaActual = parseLocalDate(periodDates[i]);
         
         // Normalizar horas a medianoche para cálculo preciso
+        if (!fechaAnterior || !fechaActual) continue;
         fechaAnterior.setHours(0, 0, 0, 0);
         fechaActual.setHours(0, 0, 0, 0);
         

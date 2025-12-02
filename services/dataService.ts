@@ -1,5 +1,6 @@
 
 import { DailyLog } from '../types';
+import { parseLocalDate, formatToISO } from './dateUtils';
 
 export const calculateAverages = (logs: DailyLog[]) => {
   if (!logs || logs.length === 0) return { sleep: '0.0', veggies: '0.0', water: '0.0', stress: '0.0' };
@@ -23,7 +24,11 @@ export const calculateAlcoholFreeStreak = (logs: DailyLog[]): number => {
   if (!logs || logs.length === 0) return 0;
   
   // Sort descending (newest first) just to be safe
-  const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sortedLogs = [...logs].sort((a, b) => {
+    const db = parseLocalDate(b.date);
+    const da = parseLocalDate(a.date);
+    return (db?.getTime() || 0) - (da?.getTime() || 0);
+  });
   
   let streak = 0;
   // Strict logic: Count consecutive days from the most recent log backwards where alcohol is false.
@@ -41,9 +46,7 @@ export const calculateAlcoholFreeStreak = (logs: DailyLog[]): number => {
 export const getLastLogDetails = (logs: DailyLog[]) => {
     if (!logs || logs.length === 0) return { date: '-', cycleDay: '-' };
     const last = logs[0]; 
-    // Parse date carefully avoiding timezone issues
-    const [y, m, d] = last.date.split('-');
-    const dateObj = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+    const dateObj = parseLocalDate(last.date) ?? new Date();
     return {
         date: dateObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
         cycleDay: last.cycleDay
@@ -58,16 +61,14 @@ export const getLastLogDetails = (logs: DailyLog[]) => {
  * @returns Formatted date string (YYYY-MM-DD) in local timezone
  */
 export const formatDateForDB = (date: Date | string): string => {
-    if (!date) date = new Date();
-    const d = new Date(date);
-    
-    // Force local format without UTC conversion to avoid timezone issues
-    // This ensures a user in Madrid (UTC+1) at 23:00 saves as the same day
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+    if (!date) {
+      return formatToISO(new Date());
+    }
+    if (typeof date === 'string') {
+      const parsed = parseLocalDate(date);
+      return formatToISO(parsed ?? new Date());
+    }
+    return formatToISO(date);
 };
 
 // --- NEW FUNCTIONS FOR DASHBOARD PRO ---
@@ -121,7 +122,7 @@ export const calculateVitalityStats = (logs: DailyLog[]): string => {
 export const calculateDaysOnMethod = (startDateStr: string | undefined | null): number => {
     if (!startDateStr) return 0; // Returns 0 if not started
     
-    const start = new Date(startDateStr);
+    const start = parseLocalDate(startDateStr) ?? new Date();
     const now = new Date();
     
     // Force strict day calculation ignoring hours to fix timezone issues

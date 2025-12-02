@@ -13,6 +13,7 @@ import {
     analizarEdadFertilidad,
     calcularDiaDelCiclo
 } from './CycleCalculations';
+import { parseLocalDate } from './dateUtils';
 
 export interface MedicalReportData {
     // Datos básicos
@@ -73,7 +74,7 @@ function calcularFechaProximaMenstruacion(
     lastPeriodDate: string,
     cycleLength: number
 ): string {
-    const fecha = new Date(lastPeriodDate);
+    const fecha = parseLocalDate(lastPeriodDate) ?? new Date();
     fecha.setDate(fecha.getDate() + cycleLength);
 
     return fecha.toLocaleDateString('es-ES', {

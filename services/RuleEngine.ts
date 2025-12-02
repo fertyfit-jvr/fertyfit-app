@@ -9,6 +9,7 @@ import {
     calcularCicloPromedio,
     calcularDiaDelCiclo
 } from './CycleCalculations';
+import { parseLocalDate } from './dateUtils';
 
 // --- Types ---
 
@@ -36,7 +37,7 @@ export interface Rule {
  * Calcula fecha esperada de próxima menstruación
  */
 function calcularProximaMenstruacion(lastPeriodDate: string, cycleLength: number): Date {
-    const fecha = new Date(lastPeriodDate);
+    const fecha = parseLocalDate(lastPeriodDate) ?? new Date();
     fecha.setDate(fecha.getDate() + cycleLength);
     return fecha;
 }

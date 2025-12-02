@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Heart, Activity } from 'lucide-react';
 import { MedicalReportData } from '../services/MedicalReportHelpers';
 import { UserProfile, DailyLog } from '../types';
+import { parseLocalDate } from '../services/dateUtils';
 
 interface MedicalReportProps {
     data: MedicalReportData | null;
@@ -37,7 +38,8 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
     const calcularFechasVentana = () => {
         if (!user.lastPeriodDate || !user.cycleLength) return null;
 
-        const lastPeriod = new Date(user.lastPeriodDate);
+        const lastPeriod = parseLocalDate(user.lastPeriodDate);
+        if (!lastPeriod) return null;
         const cycleLength = Number(user.cycleLength);
 
         const hoy = new Date();
@@ -64,7 +66,7 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
     // Obtener fecha del último registro
     const ultimoLog = logs.length > 0 ? logs[0] : null;
     const fechaUltimoRegistro = ultimoLog
-        ? new Date(ultimoLog.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+        ? (parseLocalDate(ultimoLog.date) ?? new Date()).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
         : null;
 
     // Determinar si está en días fértiles
@@ -122,7 +124,15 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                                 {/* Line 2 & 3: Period Dates (No badges) */}
                                 <div className="flex flex-col gap-0.5">
                                     <p className="text-[10px] text-[#5D7180]">
-                                        <span className="font-bold">Fecha Última Regla:</span> {data.fechaInicioCicloActual !== "Pendiente" ? data.fechaInicioCicloActual : (user.lastPeriodDate ? new Date(user.lastPeriodDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '--')}
+                                        <span className="font-bold">Fecha Última Regla:</span>{' '}
+                                        {data.fechaInicioCicloActual !== 'Pendiente'
+                                            ? data.fechaInicioCicloActual
+                                            : user.lastPeriodDate
+                                            ? (parseLocalDate(user.lastPeriodDate) ?? new Date()).toLocaleDateString(
+                                                  'es-ES',
+                                                  { day: 'numeric', month: 'short' }
+                                              )
+                                            : '--'}
                                     </p>
                                     <p className="text-[10px] text-[#5D7180]">
                                         <span className="font-bold">Fecha próxima regla (aprox):</span> {data.fechaProximaMenstruacion}

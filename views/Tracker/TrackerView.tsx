@@ -14,6 +14,7 @@ import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '..
 import { supabase } from '../../services/supabase';
 import { handlePeriodConfirmed } from '../../services/RuleEngine';
 import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../services/CycleCalculations';
+import { parseLocalDateOrToday } from '../../services/dateUtils';
 import { calcularVentanaFertil, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate, formatCurrentDate } from '../../services/utils';
 import { logger } from '../../lib/logger';
@@ -195,8 +196,8 @@ const TrackerView = ({
 
         // Recalcular día del ciclo para el log actual
         const logDate = todayLog.date || new Date().toISOString().split('T')[0];
-        const lastPeriod = new Date(refreshedProfile.last_period_date || lastPeriodDate);
-        const logDateObj = new Date(logDate);
+        const lastPeriod = parseLocalDateOrToday(refreshedProfile.last_period_date || lastPeriodDate || undefined);
+        const logDateObj = parseLocalDateOrToday(logDate);
         lastPeriod.setHours(0, 0, 0, 0);
         logDateObj.setHours(0, 0, 0, 0);
         
