@@ -36,7 +36,14 @@ const FUNCTION_SECTIONS = [
     fields: [
       { id: 'function_glucosa', label: 'Glucosa', type: 'number', unit: 'mg/dL', min: 40, max: 300, step: 1, control: 'slider', recommendedValue: '70-100', defaultValue: 85 },
       { id: 'function_insulina', label: 'Insulina', type: 'number', unit: 'µUI/mL', min: 0, max: 100, step: 0.5, control: 'slider', recommendedValue: '2-25', defaultValue: 13.5 },
-      { id: 'function_hemograma', label: 'Hemograma completo', type: 'text', optional: true },
+      {
+        id: 'function_hemograma',
+        label: 'Hemograma completo',
+        type: 'buttons',
+        options: ['Normal', 'Alterado', 'No lo sé'],
+        defaultValue: 'Normal',
+        optional: true
+      },
       { id: 'function_ferritina', label: 'Ferritina', type: 'number', unit: 'ng/mL', min: 1, max: 500, step: 1, control: 'slider', recommendedValue: '40-150', defaultValue: 95 },
       { id: 'function_hierro', label: 'Hierro', type: 'number', unit: 'µg/dL', min: 0, max: 300, step: 1, control: 'slider', recommendedValue: '50-170', defaultValue: 110 },
       { id: 'function_transferrina', label: 'Transferrina', type: 'number', unit: 'mg/dL', min: 0, max: 600, step: 1, optional: true },
@@ -81,9 +88,30 @@ const FUNCTION_SECTIONS = [
     fields: [
       { id: 'function_hsg_derecha', label: 'Permeabilidad derecha', type: 'buttons', options: ['Sí', 'No'], optional: true },
       { id: 'function_hsg_izquierda', label: 'Permeabilidad izquierda', type: 'buttons', options: ['Sí', 'No'], optional: true },
-      { id: 'function_hsg_contorno', label: 'Contorno uterino', type: 'text', optional: true },
-      { id: 'function_hsg_defectos', label: 'Defectos', type: 'text', optional: true },
-      { id: 'function_hsg_observaciones', label: 'Observaciones', type: 'text', optional: true }
+      {
+        id: 'function_hsg_contorno',
+        label: 'Contorno uterino',
+        type: 'buttons',
+        options: ['Normal', 'Arcuato', 'Septado', 'Bicorne', 'Otro', 'No lo sé'],
+        defaultValue: 'Normal',
+        optional: true
+      },
+      {
+        id: 'function_hsg_defectos',
+        label: 'Defectos',
+        type: 'buttons',
+        options: ['Ninguno', 'Pólipo', 'Mioma', 'Sinequias', 'Otro'],
+        defaultValue: 'Ninguno',
+        optional: true
+      },
+      {
+        id: 'function_hsg_observaciones',
+        label: 'Observaciones',
+        type: 'buttons',
+        options: ['Sin hallazgos relevantes', 'Hallazgos leves', 'Hallazgos significativos', 'Otro'],
+        defaultValue: 'Sin hallazgos relevantes',
+        optional: true
+      }
     ]
   },
   {
