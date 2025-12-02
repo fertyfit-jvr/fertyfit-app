@@ -22,24 +22,23 @@ export interface OCRResponse {
 }
 
 /**
- * Procesa una imagen con OCR a través de Make/n8n webhook o API route de Vercel
- * Prioriza Make webhook si está configurado, sino usa Vercel API
+ * Procesa una imagen con OCR a través de una API HTTP (por ejemplo, API route de Vercel).
+ * No depende ya de Make/n8n; toda la configuración se hace vía URL de API.
  */
 export async function processImageOCR(request: OCRRequest): Promise<OCRResponse> {
   try {
-    // Priorizar Make webhook si está configurado
-    const makeWebhookUrl = import.meta.env.VITE_MAKE_WEBHOOK_URL;
-    const useMake = !!makeWebhookUrl;
-    
-    // Si no hay Make, usar Vercel API (fallback)
-    const apiUrl = useMake 
-      ? makeWebhookUrl 
-      : '/api/ocr/process';
+    // 1) Permitir URL personalizada para entorno local/producción (por ejemplo, Vercel deploy o API proxy)
+    //    Ejemplo en .env(.local):
+    //    VITE_OCR_API_URL="https://tu-app.vercel.app/api/ocr/process"
+    const customApiUrl = import.meta.env.VITE_OCR_API_URL;
+
+    // 2) Fallback final: ruta relativa /api/ocr/process (solo funcionará si tienes API route montada)
+    const apiUrl = customApiUrl || '/api/ocr/process';
     
     logger.log('🔍 Calling OCR API:', { 
-      url: useMake ? 'Make Webhook' : apiUrl, 
+      url: apiUrl, 
       examType: request.examType,
-      useMake 
+      hasCustomApiUrl: !!customApiUrl
     });
     
     const response = await fetch(apiUrl, {
