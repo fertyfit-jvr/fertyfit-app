@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { UserProfile } from '../types';
 import { supabase } from '../services/supabase';
-import { fetchProfileForUser } from '../services/userDataService';
+import { fetchProfileForUser, createProfileForUser } from '../services/userDataService';
 import { logger } from '../lib/logger';
 import { useAppStore } from '../store/useAppStore';
 import { calculateCurrentMonthsTrying } from '../services/timeTryingService';
@@ -35,16 +35,16 @@ export function useAuth() {
           const emailName = session.user.email?.split('@')[0] || 'Usuario';
           const displayName = metaName || (emailName.charAt(0).toUpperCase() + emailName.slice(1));
 
-          const { error: createError } = await supabase.from('profiles').insert({
-            id: session.user.id,
-            email: session.user.email,
-            name: displayName,
-            age: 30,
-            disclaimer_accepted: false
-          });
-
-          if (createError) {
-            logger.error("Profile creation failed:", createError);
+          try {
+            await createProfileForUser({
+              id: session.user.id,
+              email: session.user.email,
+              name: displayName,
+              age: 30,
+              disclaimer_accepted: false
+            });
+          } catch (createError) {
+            logger.error('Profile creation failed:', createError);
             setLoading(false);
             setAuthLoading(false);
             return;

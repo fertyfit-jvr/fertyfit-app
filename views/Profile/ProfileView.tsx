@@ -4,9 +4,9 @@ import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, 
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
 import ReportCard from '../../components/common/ReportCard';
-import { supabase } from '../../services/supabase';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
+import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
 import { formatDate } from '../../services/utils';
 import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
@@ -154,15 +154,12 @@ const ProfileView = ({
   const handleSaveProfile = async () => {
     if (!user?.id) return;
 
-    const { error } = await supabase.from('profiles').update({
-      name: editName
-    }).eq('id', user.id);
-
-    if (!error) {
+    try {
+      await updateProfileForUser(user.id, { name: editName });
       setUser({ ...user, name: editName });
       setIsEditingProfile(false);
       showNotif('Perfil actualizado correctamente', 'success');
-    } else {
+    } catch {
       showNotif('Error al actualizar perfil', 'error');
     }
   };
@@ -222,13 +219,13 @@ const ProfileView = ({
       answer: f0Answers[q.id] || ''
     }));
 
-    const { error } = await supabase
-      .from('consultation_forms')
-      .update({ answers: formattedAnswers, status: 'pending' })
-      .eq('id', f0Form.id);
-
-    if (error) {
-      showNotif(error.message, 'error');
+    try {
+      await updateConsultationFormById(f0Form.id, {
+        answers: formattedAnswers,
+        status: 'pending'
+      });
+    } catch (error: any) {
+      showNotif(error?.message || 'Error al guardar F0', 'error');
       return;
     }
 
@@ -260,7 +257,7 @@ const ProfileView = ({
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
       if (updates.cycleLength !== undefined) profileUpdates.cycle_length = updates.cycleLength;
       
-      await supabase.from('profiles').update(profileUpdates).eq('id', user.id);
+      await updateProfileForUser(user.id, profileUpdates);
       setUser({ ...user, ...updates });
     }
 

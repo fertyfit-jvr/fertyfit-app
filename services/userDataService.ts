@@ -321,3 +321,103 @@ export async function fetchProfileForUser(userId: string): Promise<SupabaseProfi
   }
 }
 
+// -----------------------------------------------------------------------------
+// Profile mutations (centralized writes to `profiles`)
+// -----------------------------------------------------------------------------
+
+type ProfileInsertPayload = {
+  id: string;
+  email?: string | null;
+  name: string;
+  age?: number;
+  disclaimer_accepted?: boolean;
+};
+
+type ProfileUpdatePayload = Partial<{
+  name: string;
+  age: number;
+  weight: number;
+  height: number;
+  main_objective: string | null;
+  partner_status: string | null;
+  cycle_regularity: string | null;
+  cycle_length: number | null;
+  last_period_date: string | null;
+  period_history: string[] | null;
+  time_trying_start_date: string | null;
+  time_trying_initial_months: number | null;
+  time_trying: number | string | null;
+  diagnoses: string[] | null;
+  fertility_treatments: string | null;
+  supplements: string | null;
+  alcohol_consumption: string | null;
+}>;
+
+/**
+ * Creates a new profile row in `profiles`
+ */
+export async function createProfileForUser(payload: ProfileInsertPayload): Promise<void> {
+  const { id, email, name, age = 30, disclaimer_accepted = false } = payload;
+
+  const { error } = await supabase.from('profiles').insert({
+    id,
+    email,
+    name,
+    age,
+    disclaimer_accepted
+  });
+
+  if (error) {
+    logger.error('❌ Profile creation failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates an existing profile row in `profiles`
+ */
+export async function updateProfileForUser(
+  userId: string,
+  updates: ProfileUpdatePayload
+): Promise<void> {
+  if (!userId) return;
+  if (!updates || Object.keys(updates).length === 0) return;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId);
+
+  if (error) {
+    logger.error('❌ Error updating profile:', error);
+    throw error;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Consultation form mutations
+// -----------------------------------------------------------------------------
+
+type ConsultationFormUpdatePayload = Partial<{
+  answers: any;
+  status: string;
+}>;
+
+export async function updateConsultationFormById(
+  formId: number,
+  updates: ConsultationFormUpdatePayload
+): Promise<void> {
+  if (!formId) return;
+  if (!updates || Object.keys(updates).length === 0) return;
+
+  const { error } = await supabase
+    .from('consultation_forms')
+    .update(updates)
+    .eq('id', formId);
+
+  if (error) {
+    logger.error('❌ Error updating consultation form:', error);
+    throw error;
+  }
+}
+
