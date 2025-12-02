@@ -22,6 +22,7 @@ import {
 } from '../services/userDataService';
 import { logger } from '../lib/logger';
 import { getCycleDay } from '../hooks/useCycleDay';
+import { DailyLogSchema } from '../types/schemas';
 
 type ToastState = { msg: string; type: 'success' | 'error' } | null;
 
@@ -461,6 +462,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
 
     const formattedLog = { ...todayLog, date: validDate, cycleDay: correctCycleDay };
+
+    // Validar el payload con Zod antes de guardar
+    try {
+      DailyLogSchema.parse(formattedLog);
+    } catch (validationError: any) {
+      logger.warn('❌ DailyLog validation failed:', validationError);
+      const message =
+        validationError?.errors?.[0]?.message ||
+        'Algunos valores del registro diario no son válidos. Revisa los campos e inténtalo de nuevo.';
+      showNotif(message, 'error');
+      return;
+    }
 
     const { error } = await supabase
       .from('daily_logs')
