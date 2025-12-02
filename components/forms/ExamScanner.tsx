@@ -7,7 +7,9 @@ import { useState, useRef } from 'react';
 import { Camera, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { processImageOCR, fileToBase64 } from '../../services/googleCloud/visionService';
 import { parseExam, parseAllExamTypes, detectExamType } from '../../services/examParsers';
+import { saveExamToConsultationForms } from '../../services/examService';
 import { logger } from '../../lib/logger';
+import { useAuth } from '../../hooks/useAuth';
 
 interface ExamScannerProps {
   examType?: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'; // Opcional: si no se proporciona, detecta automáticamente
@@ -138,6 +140,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
       // Usar datos parseados de la API si están disponibles, sino parsear localmente
       let parsed: Record<string, any> = {};
       let detectedTypesList: string[] = [];
+      let finalExamType = examType || ocrResult.examTypeDetected;
       
       if (autoDetect || !examType) {
         // Modo detección automática: parsear TODOS los tipos
@@ -151,10 +154,35 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
         logger.log('📝 Parsed all exam types, found fields:', Object.keys(parsed));
       } else if (ocrResult.parsedData && Object.keys(ocrResult.parsedData).length > 0) {
         parsed = ocrResult.parsedData;
-        logger.log('✅ Using parsed data from API');
+        finalExamType = ocrResult.examTypeDetected || examType;
+        logger.log('✅ Using parsed data from API', { examTypeDetected: ocrResult.examTypeDetected });
       } else if (ocrResult.text) {
         logger.log('📝 Parsing text locally for type:', examType);
         parsed = parseExam(ocrResult.text, examType);
+      }
+      
+      // Si es un examen genérico (no predefinido) y tenemos datos, guardar automáticamente
+      const predefinedTypes = ['hormonal', 'metabolico', 'vitamin_d', 'ecografia', 'hsg', 'espermio'];
+      const isGenericExam = finalExamType && !predefinedTypes.includes(finalExamType.toLowerCase());
+      
+      if (isGenericExam && parsed && Object.keys(parsed).length > 0 && user?.id) {
+        logger.log('💾 Saving generic exam to consultation_forms...', { examType: finalExamType });
+        try {
+          const saveResult = await saveExamToConsultationForms(
+            user.id,
+            parsed,
+            examType,
+            finalExamType,
+            ocrResult.text
+          );
+          if (saveResult.success) {
+            logger.log('✅ Generic exam saved successfully', { formId: saveResult.formId });
+          } else {
+            logger.warn('⚠️ Failed to save generic exam:', saveResult.error);
+          }
+        } catch (saveError) {
+          logger.error('❌ Error saving generic exam:', saveError);
+        }
       }
 
       // Mostrar advertencias y errores de validación si vienen de la API

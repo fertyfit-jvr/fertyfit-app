@@ -13,6 +13,7 @@ export interface OCRRequest {
 export interface OCRResponse {
   text: string;
   parsedData?: Record<string, any>;
+  examTypeDetected?: string; // Tipo de examen detectado por AI (Make/Gemini)
   warnings?: string[];
   errors?: string[];
   confidence?: number;
@@ -21,19 +22,25 @@ export interface OCRResponse {
 }
 
 /**
- * Procesa una imagen con OCR a través de la API route de Vercel
+ * Procesa una imagen con OCR a través de Make/n8n webhook o API route de Vercel
+ * Prioriza Make webhook si está configurado, sino usa Vercel API
  */
 export async function processImageOCR(request: OCRRequest): Promise<OCRResponse> {
   try {
-    // En desarrollo, usar ruta relativa para que Vite proxy maneje CORS
-    // En producción, usar la ruta relativa del mismo dominio
-    const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development' || 
-      (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+    // Priorizar Make webhook si está configurado
+    const makeWebhookUrl = import.meta.env.VITE_MAKE_WEBHOOK_URL;
+    const useMake = !!makeWebhookUrl;
     
-    // Siempre usar ruta relativa - Vite proxy manejará el redireccionamiento en desarrollo
-    const apiUrl = '/api/ocr/process';
+    // Si no hay Make, usar Vercel API (fallback)
+    const apiUrl = useMake 
+      ? makeWebhookUrl 
+      : '/api/ocr/process';
     
-    logger.log('🔍 Calling OCR API:', { url: apiUrl, examType: request.examType, isDev });
+    logger.log('🔍 Calling OCR API:', { 
+      url: useMake ? 'Make Webhook' : apiUrl, 
+      examType: request.examType,
+      useMake 
+    });
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -113,11 +120,17 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     }
 
     const data = await response.json();
+    
+    // Make puede devolver los datos directamente en parsedData o en otro formato
+    // Aceptar también examTypeDetected si viene de Make
+    const parsedData = data.parsedData || data.data || (data.parsedData === undefined && Object.keys(data).length > 0 ? data : {});
+    
     return {
-      text: data.text || '',
-      parsedData: data.parsedData,
-      warnings: data.warnings,
-      errors: data.errors,
+      text: data.text || data.rawText || '', // Make puede no devolver texto si solo devuelve datos estructurados
+      parsedData: parsedData,
+      examTypeDetected: data.examTypeDetected, // Tipo detectado por Make/Gemini
+      warnings: data.warnings || [],
+      errors: data.errors || [],
       confidence: data.confidence,
       isMedicalExam: data.isMedicalExam,
       error: data.error,

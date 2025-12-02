@@ -4,3 +4,7 @@ dist
 build
 .env
 private_docs/
+
+# Archivos de documentación de Make.com (no subir a producción)
+MAKE_*.md
+MAKE_*.txt
