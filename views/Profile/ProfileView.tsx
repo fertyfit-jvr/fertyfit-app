@@ -154,14 +154,14 @@ const ProfileView = ({
   const handleSaveProfile = async () => {
     if (!user?.id) return;
 
-    try {
-      await updateProfileForUser(user.id, { name: editName });
-      setUser({ ...user, name: editName });
-      setIsEditingProfile(false);
-      showNotif('Perfil actualizado correctamente', 'success');
-    } catch {
-      showNotif('Error al actualizar perfil', 'error');
+    const updateResult = await updateProfileForUser(user.id, { name: editName });
+    if (updateResult.success === false) {
+      showNotif(updateResult.error || 'No pudimos actualizar tu nombre', 'error');
+      return;
     }
+    setUser({ ...user, name: editName });
+    setIsEditingProfile(false);
+    showNotif('Perfil actualizado correctamente', 'success');
   };
 
   const handleProfileEditClick = () => {
@@ -262,7 +262,11 @@ const ProfileView = ({
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
       if (updates.cycleLength !== undefined) profileUpdates.cycle_length = updates.cycleLength;
       
-      await updateProfileForUser(user.id, profileUpdates);
+      const updateResult = await updateProfileForUser(user.id, profileUpdates);
+      if (updateResult.success === false) {
+        showNotif(updateResult.error || 'No pudimos actualizar tu perfil', 'error');
+        return;
+      }
       setUser({ ...user, ...updates });
     }
 

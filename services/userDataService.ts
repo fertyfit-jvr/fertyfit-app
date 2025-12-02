@@ -327,6 +327,119 @@ interface SupabaseProfile {
 }
 
 /**
+ * Creates a notification for a user
+ * @param notification - Notification data to insert
+ * @returns Result with created notification or error
+ */
+export async function createNotificationForUser(
+  notification: Omit<AppNotification, 'id' | 'created_at' | 'is_read'>
+): Promise<Result<AppNotification>> {
+  try {
+    const { data, error } = await withRetry(async () => {
+      const result = await supabase
+        .from('notifications')
+        .insert({
+          user_id: notification.user_id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          priority: notification.priority,
+          metadata: notification.metadata
+        })
+        .select()
+        .single();
+      
+      if (result.error) {
+        throw result.error;
+      }
+      return result;
+    });
+
+    if (error || !data) {
+      logger.error('❌ Notification creation failed:', error);
+      return {
+        success: false,
+        error: 'No pudimos crear la notificación.'
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: data.id,
+        user_id: data.user_id,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        priority: data.priority,
+        metadata: data.metadata,
+        created_at: data.created_at,
+        is_read: data.is_read || false
+      }
+    };
+  } catch (error) {
+    logger.error('❌ Error creating notification after retries:', error);
+    return {
+      success: false,
+      error: 'No pudimos crear la notificación.'
+    };
+  }
+}
+
+/**
+ * Creates multiple notifications for a user (with daily limit check)
+ * @param userId - User ID
+ * @param notifications - Array of notifications to create
+ * @returns Result with count of notifications created
+ */
+export async function createNotificationsForUser(
+  userId: string,
+  notifications: Omit<AppNotification, 'id' | 'created_at' | 'is_read'>[]
+): Promise<Result<number>> {
+  if (notifications.length === 0) {
+    return { success: true, data: 0 };
+  }
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', `${today}T00:00:00`);
+
+    const sentToday = count || 0;
+    const limit = 30;
+    const remaining = limit - sentToday;
+
+    if (remaining <= 0) {
+      logger.log('Daily notification limit reached. Skipping.');
+      return { success: true, data: 0 };
+    }
+
+    const toInsert = notifications.slice(0, remaining);
+    let successCount = 0;
+
+    for (const n of toInsert) {
+      const result = await createNotificationForUser(n);
+      if (result.success) {
+        successCount++;
+      } else {
+        logger.warn('Failed to create notification:', result.error);
+      }
+    }
+
+    return { success: true, data: successCount };
+  } catch (error) {
+    logger.error('❌ Error creating notifications:', error);
+    return {
+      success: false,
+      error: 'No pudimos crear las notificaciones.'
+    };
+  }
+}
+
+/**
  * Fetches user profile
  * @param userId - User ID
  * @returns User profile object or null
@@ -388,42 +501,94 @@ type ProfileUpdatePayload = Partial<{
 
 /**
  * Creates a new profile row in `profiles`
+ * @param payload - Profile data to insert
+ * @returns Result indicating success or error
  */
-export async function createProfileForUser(payload: ProfileInsertPayload): Promise<void> {
+export async function createProfileForUser(payload: ProfileInsertPayload): Promise<Result<void>> {
   const { id, email, name, age = 30, disclaimer_accepted = false } = payload;
 
-  const { error } = await supabase.from('profiles').insert({
-    id,
-    email,
-    name,
-    age,
-    disclaimer_accepted
-  });
+  try {
+    const { error } = await withRetry(async () => {
+      const result = await supabase.from('profiles').insert({
+        id,
+        email,
+        name,
+        age,
+        disclaimer_accepted
+      });
+      
+      if (result.error) {
+        throw result.error;
+      }
+      return result;
+    });
 
-  if (error) {
-    logger.error('❌ Profile creation failed:', error);
-    throw error;
+    if (error) {
+      logger.error('❌ Profile creation failed:', error);
+      return {
+        success: false,
+        error: 'No pudimos crear tu perfil. Por favor, intenta nuevamente.'
+      };
+    }
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    logger.error('❌ Error creating profile after retries:', error);
+    return {
+      success: false,
+      error: 'No pudimos crear tu perfil. Por favor, intenta nuevamente.'
+    };
   }
 }
 
 /**
  * Updates an existing profile row in `profiles`
+ * @param userId - User ID
+ * @param updates - Profile fields to update
+ * @returns Result indicating success or error
  */
 export async function updateProfileForUser(
   userId: string,
   updates: ProfileUpdatePayload
-): Promise<void> {
-  if (!userId) return;
-  if (!updates || Object.keys(updates).length === 0) return;
+): Promise<Result<void>> {
+  if (!userId) {
+    return {
+      success: false,
+      error: 'ID de usuario requerido.'
+    };
+  }
+  if (!updates || Object.keys(updates).length === 0) {
+    return { success: true, data: undefined };
+  }
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', userId);
+  try {
+    const { error } = await withRetry(async () => {
+      const result = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId);
+      
+      if (result.error) {
+        throw result.error;
+      }
+      return result;
+    });
 
-  if (error) {
-    logger.error('❌ Error updating profile:', error);
-    throw error;
+    if (error) {
+      logger.error('❌ Error updating profile:', error);
+      return {
+        success: false,
+        error: 'No pudimos actualizar tu perfil. Por favor, intenta nuevamente.'
+      };
+    }
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    logger.error('❌ Error updating profile after retries:', error);
+    return {
+      success: false,
+      error: 'No pudimos actualizar tu perfil. Por favor, intenta nuevamente.'
+    };
   }
 }
 

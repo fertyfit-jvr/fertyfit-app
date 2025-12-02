@@ -35,16 +35,16 @@ export function useAuth() {
           const emailName = session.user.email?.split('@')[0] || 'Usuario';
           const displayName = metaName || (emailName.charAt(0).toUpperCase() + emailName.slice(1));
 
-          try {
-            await createProfileForUser({
-              id: session.user.id,
-              email: session.user.email,
-              name: displayName,
-              age: 30,
-              disclaimer_accepted: false
-            });
-          } catch (createError) {
-            logger.error('Profile creation failed:', createError);
+          const profileResult = await createProfileForUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: displayName,
+            age: 30,
+            disclaimer_accepted: false
+          });
+
+          if (!profileResult.success) {
+            logger.error('Profile creation failed:', profileResult.error);
             setLoading(false);
             setAuthLoading(false);
             return;

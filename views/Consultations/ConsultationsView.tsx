@@ -374,7 +374,11 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
       if (updates.cycleLength !== undefined) profileUpdates.cycle_length = updates.cycleLength;
       
-      await updateProfileForUser(user.id, profileUpdates);
+      const updateResult = await updateProfileForUser(user.id, profileUpdates);
+      if (updateResult.success === false) {
+        showNotif(updateResult.error || 'No pudimos actualizar tu perfil', 'error');
+        return;
+      }
     }
 
     showNotif('Ficha Personal guardada correctamente', 'success');

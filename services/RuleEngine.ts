@@ -1,6 +1,7 @@
 import { UserProfile, AppNotification, NotificationAction, NotificationMetadata, NotificationType, DailyLog, CourseModule } from '../types';
 import { supabase } from './supabase';
 import { logger } from '../lib/logger';
+import { createNotificationsForUser, updateProfileForUser } from './userDataService';
 import {
     calcularVentanaFertil,
     calcularIMC,
@@ -750,34 +751,21 @@ const checkCooldown = async (ruleId: string, userId: string, days: number): Prom
 export const saveNotifications = async (userId: string, notifications: AppNotification[]) => {
     if (notifications.length === 0) return;
 
-    const today = new Date().toISOString().split('T')[0];
-    const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('created_at', `${today}T00:00:00`);
+    const notificationsToCreate = notifications.map(n => ({
+        user_id: n.user_id,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        priority: n.priority,
+        metadata: n.metadata
+    }));
 
-    const sentToday = count || 0;
-    const limit = 30;
-    const remaining = limit - sentToday;
-
-    if (remaining <= 0) {
-        logger.log('Daily notification limit reached. Skipping.');
-        return;
-    }
-
-    // Take top N
-    const toInsert = notifications.slice(0, remaining);
-
-    for (const n of toInsert) {
-        await supabase.from('notifications').insert({
-            user_id: n.user_id,
-            title: n.title,
-            message: n.message,
-            type: n.type,
-            priority: n.priority,
-            metadata: n.metadata
-        });
+    const result = await createNotificationsForUser(userId, notificationsToCreate);
+    
+    if (!result.success) {
+        logger.error('Failed to save notifications:', result.error);
+    } else {
+        logger.log(`Successfully created ${result.data} notifications`);
     }
 };
 
@@ -810,17 +798,14 @@ export const handlePeriodConfirmed = async (userId: string, newPeriodDate: strin
             newCycleLength = cicloCalculado;
         }
     }
-    const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-            last_period_date: newPeriodDate,
-            period_history: updatedHistory,
-            cycle_length: newCycleLength
-        })
-        .eq('id', userId);
+    const updateResult = await updateProfileForUser(userId, {
+        last_period_date: newPeriodDate,
+        period_history: updatedHistory,
+        cycle_length: newCycleLength
+    });
 
-    if (updateError) {
-        throw new Error(`handlePeriodConfirmed update failed: ${updateError.message}`);
+    if (!updateResult.success) {
+        throw new Error(`handlePeriodConfirmed update failed: ${updateResult.error}`);
     }
 
     logger.log(`✅ Período confirmado: ${newPeriodDate}. Ciclo promedio actualizado: ${newCycleLength} días`);
