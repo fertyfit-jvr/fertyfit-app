@@ -12,7 +12,8 @@ import {
 } from '../../constants';
 import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '../../types';
 import { supabase } from '../../services/supabase';
-import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo, handlePeriodConfirmed } from '../../services/RuleEngine';
+import { handlePeriodConfirmed } from '../../services/RuleEngine';
+import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../services/CycleCalculations';
 import { calcularVentanaFertil, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate, formatCurrentDate } from '../../services/utils';
 import { logger } from '../../lib/logger';

@@ -10,9 +10,9 @@ import {
     calcularPesoIdeal,
     calcularVentanaFertil,
     calcularProbabilidadPorDia,
-    analizarEdadFertilidad
+    analizarEdadFertilidad,
+    calcularDiaDelCiclo
 } from './CycleCalculations';
-import { calcularDiaDelCiclo } from './RuleEngine';
 
 export interface MedicalReportData {
     // Datos básicos
@@ -64,7 +64,7 @@ export interface MedicalReportData {
     };
 }
 
-// calcularDiaDelCiclo is now imported from RuleEngine to avoid duplication
+// calcularDiaDelCiclo ahora se importa desde CycleCalculations para evitar duplicación
 
 /**
  * Calcula fecha de próxima menstruación

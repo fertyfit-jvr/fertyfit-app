@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { calcularDiaDelCiclo } from '../services/RuleEngine';
+import { calcularDiaDelCiclo } from '../services/CycleCalculations';
 
 /**
  * Custom hook to calculate the current cycle day

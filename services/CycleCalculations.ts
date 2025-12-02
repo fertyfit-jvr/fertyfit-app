@@ -7,8 +7,36 @@
  */
 
 // ============================================================================
-// 1. CÁLCULO DE OVULACIÓN
+// 1. CÁLCULO DE CICLO Y OVULACIÓN
 // ============================================================================
+
+/**
+ * Calcula el día actual del ciclo basado en última regla.
+ * IMPORTANTE: El día que viene la regla = día 1 del nuevo ciclo.
+ * Si el día calculado supera la duración del ciclo, se avanza a ciclos siguientes
+ * y se devuelve el día dentro del ciclo actual.
+ */
+export function calcularDiaDelCiclo(lastPeriodDate: string | undefined, cycleLength?: number): number {
+    if (!lastPeriodDate) return 0;
+
+    const ultimaRegla = new Date(lastPeriodDate);
+    const hoy = new Date();
+    ultimaRegla.setHours(0, 0, 0, 0);
+    hoy.setHours(0, 0, 0, 0);
+    
+    const diferencia = hoy.getTime() - ultimaRegla.getTime();
+    const diasDesdeUltimaRegla = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+    const diaEnCiclo = diasDesdeUltimaRegla + 1; // Día 1 = día que viene la regla
+
+    // Si tenemos cycleLength y el día calculado es mayor, estamos en un nuevo ciclo
+    // Calcular cuántos ciclos completos han pasado para manejar múltiples ciclos
+    if (cycleLength && diaEnCiclo > cycleLength) {
+        const ciclosCompletos = Math.floor((diaEnCiclo - 1) / cycleLength);
+        return diaEnCiclo - (ciclosCompletos * cycleLength);
+    }
+
+    return diaEnCiclo;
+}
 
 /**
  * Calcula el día estimado de ovulación
