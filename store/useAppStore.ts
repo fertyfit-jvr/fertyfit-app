@@ -445,15 +445,28 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   saveDailyLog: async () => {
-    const { user, todayLog, showNotif, fetchLogs, fetchNotifications, setView } = get();
+    const { user, logs, todayLog, showNotif, fetchLogs, fetchNotifications, setView } = get();
     if (!user?.id) return;
-    if (!todayLog.date) { showNotif('La fecha es obligatoria', 'error'); return; }
-    if (!todayLog.bbt) { showNotif('La temperatura (BBT) es obligatoria', 'error'); return; }
-    if (!todayLog.mucus) { showNotif('El registro de moco cervical es obligatorio', 'error'); return; }
-    if (!todayLog.stressLevel) { showNotif('El nivel de estrés es obligatorio', 'error'); return; }
-    if (todayLog.sleepHours === undefined || todayLog.sleepHours === null) {
-      showNotif('Las horas de sueño son obligatorias', 'error'); return;
+
+    if (!todayLog.date) {
+      showNotif('La fecha es obligatoria', 'error');
+      return;
     }
+
+    // Solo obligamos BBT y moco en el primer registro del día;
+    // a partir de ahí, se puede ir completando el resto.
+    const isFirstLogOfDay = !logs.some((l) => l.date === todayLog.date);
+    if (isFirstLogOfDay) {
+      if (todayLog.bbt === undefined || todayLog.bbt === null || Number.isNaN(todayLog.bbt as any)) {
+        showNotif('La temperatura (BBT) es obligatoria en el primer registro del día', 'error');
+        return;
+      }
+      if (!todayLog.mucus) {
+        showNotif('El registro de moco cervical es obligatorio en el primer registro del día', 'error');
+        return;
+      }
+    }
+
     const validDate = formatDateForDB(new Date(todayLog.date)); // normaliza formato
 
     let correctCycleDay = todayLog.cycleDay || 1;
@@ -463,9 +476,46 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     const formattedLog = { ...todayLog, date: validDate, cycleDay: correctCycleDay };
 
+    // Normalizar valores opcionales para que el schema no falle por undefined
+    const normalizedLog = {
+      ...formattedLog,
+      lhTest: formattedLog.lhTest || 'No realizado',
+      symptoms: Array.isArray(formattedLog.symptoms) ? formattedLog.symptoms : [],
+      sex: formattedLog.sex ?? false,
+      sleepQuality:
+        typeof formattedLog.sleepQuality === 'number' && !Number.isNaN(formattedLog.sleepQuality)
+          ? formattedLog.sleepQuality
+          : undefined,
+      sleepHours:
+        typeof formattedLog.sleepHours === 'number' && !Number.isNaN(formattedLog.sleepHours)
+          ? formattedLog.sleepHours
+          : undefined,
+      stressLevel:
+        typeof formattedLog.stressLevel === 'number' && !Number.isNaN(formattedLog.stressLevel)
+          ? formattedLog.stressLevel
+          : undefined,
+      activityMinutes:
+        typeof formattedLog.activityMinutes === 'number' && !Number.isNaN(formattedLog.activityMinutes)
+          ? formattedLog.activityMinutes
+          : undefined,
+      sunMinutes:
+        typeof formattedLog.sunMinutes === 'number' && !Number.isNaN(formattedLog.sunMinutes)
+          ? formattedLog.sunMinutes
+          : undefined,
+      waterGlasses:
+        typeof formattedLog.waterGlasses === 'number' && !Number.isNaN(formattedLog.waterGlasses)
+          ? formattedLog.waterGlasses
+          : undefined,
+      veggieServings:
+        typeof formattedLog.veggieServings === 'number' && !Number.isNaN(formattedLog.veggieServings)
+          ? formattedLog.veggieServings
+          : undefined,
+      alcohol: formattedLog.alcohol ?? false
+    };
+
     // Validar el payload con Zod antes de guardar
     try {
-      DailyLogSchema.parse(formattedLog);
+      DailyLogSchema.parse(normalizedLog);
     } catch (validationError: any) {
       logger.warn('❌ DailyLog validation failed:', validationError);
       const message =
@@ -481,23 +531,23 @@ export const useAppStore = create<AppStore>((set, get) => ({
         {
           user_id: user.id,
           date: validDate,
-          cycle_day: formattedLog.cycleDay,
-          bbt: formattedLog.bbt,
-          mucus: formattedLog.mucus,
-          cervix_height: formattedLog.cervixHeight,
-          cervix_firmness: formattedLog.cervixFirmness,
-          cervix_openness: formattedLog.cervixOpenness,
-          lh_test: formattedLog.lhTest,
-          symptoms: formattedLog.symptoms,
-          sex: formattedLog.sex,
-          sleep_quality: formattedLog.sleepQuality,
-          sleep_hours: formattedLog.sleepHours,
-          stress_level: formattedLog.stressLevel,
-          water_glasses: formattedLog.waterGlasses,
-          veggie_servings: formattedLog.veggieServings,
-          alcohol: formattedLog.alcohol,
-          activity_minutes: formattedLog.activityMinutes,
-          sun_minutes: formattedLog.sunMinutes
+          cycle_day: normalizedLog.cycleDay,
+          bbt: normalizedLog.bbt,
+          mucus: normalizedLog.mucus,
+          cervix_height: normalizedLog.cervixHeight,
+          cervix_firmness: normalizedLog.cervixFirmness,
+          cervix_openness: normalizedLog.cervixOpenness,
+          lh_test: normalizedLog.lhTest,
+          symptoms: normalizedLog.symptoms,
+          sex: normalizedLog.sex,
+          sleep_quality: normalizedLog.sleepQuality,
+          sleep_hours: normalizedLog.sleepHours,
+          stress_level: normalizedLog.stressLevel,
+          water_glasses: normalizedLog.waterGlasses,
+          veggie_servings: normalizedLog.veggieServings,
+          alcohol: normalizedLog.alcohol,
+          activity_minutes: normalizedLog.activityMinutes,
+          sun_minutes: normalizedLog.sunMinutes
         },
         { onConflict: 'user_id, date' }
       );

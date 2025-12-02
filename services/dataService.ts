@@ -73,25 +73,25 @@ export const formatDateForDB = (date: Date | string): string => {
 
 // --- NEW FUNCTIONS FOR DASHBOARD PRO ---
 
-export const calculateBMI = (weight: number, height: number): string => {
-  if (!weight || !height || height === 0) return '--';
-  
+// Devuelve BMI como número para poder usarlo tanto en UI como en scoring.
+export const calculateBMI = (weight: number, height: number): number => {
+  if (!weight || !height || height === 0) return NaN;
+
   // Smart detection: If height > 3, assume cm (e.g. 165), convert to meters (1.65)
   // If height < 3, assume meters (e.g. 1.65)
   let h = height;
   if (h > 3) {
-      h = h / 100;
+    h = h / 100;
   }
 
   const bmi = weight / (h * h);
-  
-  if (!isFinite(bmi) || isNaN(bmi)) return '--';
-  return bmi.toFixed(1);
+  if (!Number.isFinite(bmi) || Number.isNaN(bmi)) return NaN;
+  return Number(bmi.toFixed(1));
 };
 
 export const getBMIStatus = (bmiStr: string): { status: string, color: string, bg: string } => {
   const bmi = parseFloat(bmiStr);
-  if (isNaN(bmi)) return { status: '-', color: 'text-stone-400', bg: 'bg-stone-50' };
+  if (Number.isNaN(bmi)) return { status: '-', color: 'text-stone-400', bg: 'bg-stone-50' };
   
   if (bmi < 18.5) return { status: 'Bajo Peso', color: 'text-amber-600', bg: 'bg-amber-50' };
   if (bmi >= 18.5 && bmi < 24.9) return { status: 'Peso Saludable', color: 'text-emerald-600', bg: 'bg-emerald-50' };

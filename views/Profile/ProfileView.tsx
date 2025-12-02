@@ -461,8 +461,8 @@ const ProfileView = ({
                       <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">
                         {FORM_DEFINITIONS.F0.description}
                       </p>
-                      {/* Bloque superior para editar nombre (email solo lectura) */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                      {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento en una sola columna */}
+                      <div className="space-y-4 mb-6">
                         <div className="border-b border-[#F4F0ED] pb-3">
                           <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
                           <input
@@ -478,10 +478,24 @@ const ProfileView = ({
                             {user.email} <span className="text-[10px] italic">(No editable)</span>
                           </p>
                         </div>
+                        <div className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                            Fecha de nacimiento
+                          </p>
+                          <input
+                            type="date"
+                            value={f0Answers['q1_birthdate'] || ''}
+                            className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                            onChange={e => setF0Answers({ ...f0Answers, q1_birthdate: e.target.value })}
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-6">
                         {FORM_DEFINITIONS.F0.questions.map(q => {
+                          // La fecha de nacimiento se gestiona en el bloque superior junto con nombre y email
+                          if (q.id === 'q1_birthdate') return null;
+
                           const updateAnswer = (id: string, value: any) => {
                             setF0Answers({ ...f0Answers, [id]: value });
                           };
@@ -741,61 +755,15 @@ const ProfileView = ({
 
                         return (
                           <>
-                            {/* Grupo 1: Datos básicos */}
-                            <div className="space-y-2">
+                            {/* Grupo 1: Datos básicos (solo se muestran aquí en la ficha, el resto se ve en la pestaña Historia) */}
+                            <div className="space-y-3">
                               <p className="text-[10px] font-bold text-[#95706B] uppercase tracking-wider">
                                 DATOS BÁSICOS
                               </p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {renderField(
-                                  'Nombre y email',
-                                  `${isEditingF0 ? editName : user.name} · ${user.email}`
-                                )}
+                              <div className="space-y-2">
+                                {renderField('Nombre', user.name)}
+                                {renderField('Email', user.email)}
                                 {renderField('Fecha de nacimiento', birthdate)}
-                                {renderField(
-                                  'Altura',
-                                  typeof height === 'number' ? `${height} cm` : height
-                                )}
-                                {renderField(
-                                  'Peso',
-                                  typeof weight === 'number' ? `${weight} kg` : weight
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Grupo 2: Ciclo y objetivo */}
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-bold text-[#95706B] uppercase tracking-wider">
-                                CICLO Y OBJETIVO
-                              </p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {renderField(
-                                  'Duración ciclo promedio',
-                                  typeof cycleLength === 'number' ? `${cycleLength} días` : cycleLength
-                                )}
-                                {renderField('¿Ciclos regulares?', regularity)}
-                                {renderField('Tiempo buscando embarazo', timeTryingDisplay)}
-                                {renderField('Objetivo principal', objective)}
-                                {renderField('Pareja o solitario', partner)}
-                              </div>
-                            </div>
-
-                            {/* Grupo 3: Historial y diagnósticos */}
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-bold text-[#95706B] uppercase tracking-wider">
-                                HISTORIAL Y DIAGNÓSTICOS
-                              </p>
-                              <div className="grid grid-cols-1 gap-4">
-                                {renderField('Tratamientos de fertilidad previos', treatments)}
-                                {renderField(
-                                  'Diagnósticos e historia familiar',
-                                  toSingleLine(
-                                    [diagnoses, familyHistory]
-                                      .map(v => toSingleLine(v))
-                                      .filter(Boolean)
-                                      .join(' · ')
-                                  )
-                                )}
                               </div>
                             </div>
                           </>
@@ -898,18 +866,109 @@ const ProfileView = ({
                         <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.edad} años</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">IMC</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.imc.valor} ({medicalData.imc.categoria})</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Peso actual</p>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Peso</p>
                         <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoActual} kg</p>
                       </div>
                       <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">Altura</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                          {typeof user.height === 'number' ? `${user.height} cm` : user.height ?? '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-[#5D7180] mb-0.5">IMC</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                          {medicalData.imc.valor} ({medicalData.imc.categoria})
+                        </p>
+                      </div>
+                      <div className="col-span-2">
                         <p className="text-[10px] text-[#5D7180] mb-0.5">Peso ideal</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoIdeal.minimo}-{medicalData.pesoIdeal.maximo} kg</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                          {medicalData.pesoIdeal.minimo}-{medicalData.pesoIdeal.maximo} kg
+                        </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Resumen F0: Ciclo / Objetivo e Historial, debajo de Salud General */}
+                  {f0Form && f0Form.answers && (() => {
+                    const getAnswer = (id: string) =>
+                      f0Form.answers.find(a => a.questionId === id)?.answer ?? null;
+
+                    const toSingleLine = (value: any, maxLength: number = 160) => {
+                      if (value == null) return null;
+                      let text = String(value).replace(/\s+/g, ' ').trim();
+                      if (!text) return null;
+                      if (text.length > maxLength) {
+                        text = text.slice(0, maxLength - 1) + '…';
+                      }
+                      return text;
+                    };
+
+                    const height = getAnswer('q2_height');
+                    const weight = getAnswer('q2_weight');
+                    const cycleLength = getAnswer('q6_cycle');
+                    const regularity = getAnswer('q7_regularity');
+                    const objective = getAnswer('q4_objective');
+                    const partner = getAnswer('q5_partner');
+                    const timeTrying = getAnswer('q3_time_trying');
+                    const treatments = getAnswer('q20_fertility_treatments');
+                    const diagnoses = getAnswer('q9_diagnoses');
+                    const familyHistory = getAnswer('q21_family_history');
+
+                    const renderField = (label: string, value: any) => (
+                      <div className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                        <p className="text-[11px] text-[#5D7180] mb-0.5">{label}</p>
+                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                          {value ?? '—'}
+                        </p>
+                      </div>
+                    );
+
+                    return (
+                      <>
+                        {/* CICLO Y OBJETIVO (en Historia, en dos columnas) */}
+                        <div className="border-b border-[#F4F0ED] pb-3">
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">
+                            CICLO Y OBJETIVO
+                          </p>
+                          <div className="grid grid-cols-2 gap-4">
+                            {renderField(
+                              'Duración ciclo promedio',
+                              typeof cycleLength === 'number' ? `${cycleLength} días` : cycleLength
+                            )}
+                            {renderField('¿Ciclos regulares?', regularity)}
+                            {renderField('Tiempo buscando embarazo', toSingleLine(timeTrying))}
+                            {renderField('Objetivo principal', objective)}
+                            {renderField('Pareja o solitario', partner)}
+                            {renderField(
+                              'Tratamientos de fertilidad previos',
+                              toSingleLine(treatments)
+                            )}
+                          </div>
+                        </div>
+
+                        {/* HISTORIAL Y DIAGNÓSTICOS (en Historia, en una columna por bloque) */}
+                        <div>
+                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">
+                            HISTORIAL Y DIAGNÓSTICOS
+                          </p>
+                          <div className="space-y-4">
+                            {renderField('Diagnósticos / Historia médica', toSingleLine(diagnoses))}
+                            {renderField('Historia familiar', toSingleLine(familyHistory))}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                  
+                  {/* Análisis de Edad (justo después de datos físicos / ciclo / historial) */}
+                  <div>
+                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Análisis de Edad</p>
+                    <p className="text-sm font-semibold text-[#4A4A4A] mb-1">
+                      {medicalData.analisisEdad.categoria} - {medicalData.analisisEdad.probabilidad}
+                    </p>
+                    <p className="text-[10px] text-[#5D7180]">{medicalData.analisisEdad.mensaje}</p>
                   </div>
 
                   {/* Hábitos (últimos 7 días) */}
@@ -937,15 +996,6 @@ const ProfileView = ({
                         <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.diasConAlcohol}</p>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Análisis de Edad */}
-                  <div>
-                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Análisis de Edad</p>
-                    <p className="text-sm font-semibold text-[#4A4A4A] mb-1">
-                      {medicalData.analisisEdad.categoria} - {medicalData.analisisEdad.probabilidad}
-                    </p>
-                    <p className="text-[10px] text-[#5D7180]">{medicalData.analisisEdad.mensaje}</p>
                   </div>
                 </div>
               )}

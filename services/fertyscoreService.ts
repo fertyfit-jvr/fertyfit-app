@@ -76,8 +76,10 @@ export interface FertyPillars {
 // 1. FUNCTION (fisiología / riesgo reproductivo)
 // ============================================================================
 
+// IMC: rango ajustado para 17–18,5 según especificación MVP
 function calculateBMIScore(bmi: number): number {
   if (Number.isNaN(bmi) || !Number.isFinite(bmi)) return NaN;
+
   if (bmi >= 20 && bmi <= 25) return 100;
   if (bmi >= 18.5 && bmi < 20) return 85;
   if (bmi > 25 && bmi <= 27.5) return 85;
@@ -85,7 +87,11 @@ function calculateBMIScore(bmi: number): number {
   if (bmi > 30 && bmi <= 35) return 50;
   if (bmi > 35 && bmi <= 40) return 35;
   if (bmi > 40) return 25;
+
   if (bmi < 17) return 40;
+  if (bmi >= 17 && bmi < 18.5) return 70;
+
+  // fallback para casos raros
   return 55;
 }
 
@@ -98,33 +104,88 @@ function calculateAgeScore(age: number): number {
   return 50;
 }
 
-function calculateDiagnosesScore(user: UserProfile, pillar?: PillarFunction | null): number {
+// Normaliza texto para comparar diagnósticos: minúsculas, sin tildes
+function normalizeText(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function calculateDiagnosesScore(
+  user: UserProfile,
+  pillar?: PillarFunction | null
+): number {
   const riskList = [
     'SOP',
     'PCOS',
     'Endometriosis',
-    'Ovarios Poliquísticos',
-    'insuficiencia ovárica'
+    'Ovarios Poliquisticos', // sin tilde, lo normalizamos
+    'insuficiencia ovarica',
   ];
 
-  const allDiag = [
+  const allDiagRaw = [
     ...(Array.isArray(user.diagnoses) ? user.diagnoses : []),
     ...(pillar?.diagnoses ?? []),
-  ].map(d => d.toLowerCase());
+  ];
 
-  const hasRisk = riskList.some(risk =>
-    allDiag.some(d => d.includes(risk.toLowerCase()))
+  const allDiagNormalized = allDiagRaw.map(d => normalizeText(d));
+  const riskListNormalized = riskList.map(r => normalizeText(r));
+
+  const hasRisk = riskListNormalized.some(risk =>
+    allDiagNormalized.some(d =>
+      d.includes(risk) &&
+      !d.includes(`no ${risk}`) &&
+      !d.includes(`sin ${risk}`)
+    )
   );
 
   return hasRisk ? 60 : 100;
 }
 
 function calculateSmokingScore(smokerText?: string | null): number {
-  const text = (smokerText ?? '').toLowerCase();
-  if (!text || text.includes('no')) return 100;
-  if (text.includes('diario')) return 25;
-  if (text.includes('ocasional')) return 60;
-  return 65;
+  const text = (smokerText ?? '').toLowerCase().trim();
+
+  // Sin respuesta asumimos "no fuma" para MVP
+  if (!text) return 100;
+
+  // No fuma
+  if (text.includes('no') || text.includes('nunca')) {
+    return 100;
+  }
+
+  // Exfumadora
+  if (
+    text.includes('ex') ||
+    text.includes('dej') ||      // "dejé de fumar"
+    text.includes('deje') ||     // sin tilde
+    text.includes('dejo de fumar')
+  ) {
+    return 85;
+  }
+
+  // Fumadora diaria
+  if (
+    text.includes('diario') ||
+    text.includes('a diario') ||
+    text.includes('cada dia') ||
+    text.includes('cada día')
+  ) {
+    return 20;
+  }
+
+  // Fumadora ocasional / social
+  if (
+    text.includes('ocasional') ||
+    text.includes('social') ||
+    text.includes('finde') ||
+    text.includes('fin de semana')
+  ) {
+    return 65;
+  }
+
+  // Cualquier otro texto ambiguo (ej. "fumo poco")
+  return 70;
 }
 
 const FUNCTION_WEIGHTS = {
@@ -135,7 +196,7 @@ const FUNCTION_WEIGHTS = {
 } as const;
 
 function calculateFunctionScore(user: UserProfile, pillar?: PillarFunction | null): number {
-  const bmiVal = parseFloat(calculateBMI(user.weight, user.height));
+  const bmiVal = calculateBMI(user.weight, user.height);
   const scores = {
     bmi: calculateBMIScore(bmiVal),
     age: calculateAgeScore(user.age),
@@ -162,7 +223,17 @@ function calculateFunctionScore(user: UserProfile, pillar?: PillarFunction | nul
     0,
   );
 
-  return clampScore(weighted / totalWeight);
+  let baseScore = clampScore(weighted / totalWeight);
+
+  // --- CAP PARA FUMADORA DIARIA ---
+  // Si el score de tabaco es muy bajo (fumadora diaria),
+  // FUNCTION no puede ser > 70.
+  if (!Number.isNaN(scores.smoking) && scores.smoking <= 20) {
+    baseScore = Math.min(baseScore, 70);
+  }
+  // -------------------------------
+
+  return baseScore;
 }
 
 // ============================================================================
