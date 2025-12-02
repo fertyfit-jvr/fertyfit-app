@@ -449,12 +449,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   saveDailyLog: async () => {
     const { user, logs, courseModules, todayLog, showNotif, fetchLogs, fetchNotifications, setView } = get();
     if (!user?.id) return;
-<<<<<<< HEAD
-
-    if (!todayLog.date) {
-      showNotif('La fecha es obligatoria', 'error');
-      return;
-    }
 
     // Solo obligamos la fecha; el resto de campos son opcionales
     if (!todayLog.date) {
