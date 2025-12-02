@@ -1,4 +1,4 @@
-import { UserProfile, AppNotification, NotificationAction, NotificationMetadata, NotificationType } from '../types';
+import { UserProfile, AppNotification, NotificationAction, NotificationMetadata, NotificationType, DailyLog, CourseModule } from '../types';
 import { supabase } from './supabase';
 import { logger } from '../lib/logger';
 import {
@@ -10,28 +10,70 @@ import {
     calcularDiaDelCiclo
 } from './CycleCalculations';
 import { parseLocalDate } from './dateUtils';
+import {
+    FormsStatus,
+    Last7DaysStats,
+    LearnProgress,
+    calculateFormsStatus,
+    calculateDaysSinceLastDailyLog,
+    calculateDailyLogStreak,
+    calculateLast7DaysStats,
+    calculateLearnProgress,
+    getLastSummaryDates
+} from './ruleContextHelpers';
 
 // --- Types ---
 
-export type RuleTrigger = 'DAILY_CHECK' | 'WEIGHT_UPDATE' | 'AGE_CHECK';
+export type Trigger = 'DAILY_CHECK' | 'DAILY_LOG_SAVED' | 'LESSON_COMPLETED' | 'WEIGHT_UPDATE' | 'AGE_CHECK';
 export type Priority = 1 | 2 | 3;
 
 export interface RuleContext {
     user: UserProfile;
+    // Ciclo
     currentCycleDay?: number;
+    cycleLength?: number;
+    ventanaFertil?: { inicio: number; diaOvulacion: number; fin: number };
+    // Adherencia
+    daysSinceLastDailyLog?: number;
+    dailyLogStreak?: number;
+    last7DaysStats?: Last7DaysStats;
+    // Formularios
+    formsStatus?: FormsStatus;
+    // Aprende
+    learnProgress?: LearnProgress;
+    // Resúmenes
+    lastWeeklySummaryAt?: string | null;
+    lastMonthlySummaryAt?: string | null;
+    // Legacy
     previousWeight?: number;
+}
+
+export interface AppNotificationInput {
+    title: string;
+    message: string;
+    type: NotificationType;
+    priority: Priority;
+    metadata?: Record<string, any>;
 }
 
 export interface Rule {
     id: string;
-    trigger: RuleTrigger[];
-    type: NotificationType;
-    priority: Priority;
+    trigger: Trigger;
+    priority: Priority; // Prioridad para ordenamiento (no se usa en buildNotification)
     cooldownDays: number;
+    requiresCycle?: boolean;
     condition: (ctx: RuleContext) => boolean;
-    getMessage: (ctx: RuleContext) => { title: string; message: string };
-    getMetadata?: (ctx: RuleContext) => NotificationMetadata | undefined;
+    buildNotification: (ctx: RuleContext) => AppNotificationInput;
 }
+
+// Límites por trigger
+export const TRIGGER_MAX: Record<Trigger, number> = {
+    DAILY_CHECK: 3,
+    DAILY_LOG_SAVED: 1,
+    LESSON_COMPLETED: 1,
+    WEIGHT_UPDATE: 1,
+    AGE_CHECK: 1,
+};
 
 /**
  * Calcula fecha esperada de próxima menstruación
@@ -51,73 +93,58 @@ export const RULES: Rule[] = [
 
     {
         id: 'VF-1',
-        trigger: ['DAILY_CHECK'],
-        type: 'opportunity',
+        trigger: 'DAILY_CHECK',
         priority: 1,
         cooldownDays: 0,
-        condition: ({ user, currentCycleDay }) => {
-            if (!user.cycleLength || !currentCycleDay) return false;
-            if (!debeEnviarNotificacionFertilidad(user.age)) return false;
-
-            const ventana = calcularVentanaFertil(user.cycleLength);
-            // Notificar 2 días antes del inicio de ventana fértil
-            return currentCycleDay === ventana.inicio - 2;
+        requiresCycle: true,
+        condition: (ctx) => {
+            if (!ctx.currentCycleDay || !ctx.ventanaFertil) return false;
+            if (!debeEnviarNotificacionFertilidad(ctx.user.age)) return false;
+            return ctx.currentCycleDay === ctx.ventanaFertil.inicio - 2;
         },
-        getMessage: ({ user }) => {
-            const mensaje = user.age >= 45
-                ? "En 2 días comenzarán tus días más fértiles. Recuerda que después de los 45 años la fertilidad disminuye significativamente y los riesgos en el embarazo aumentan."
-                : "En 2 días comenzarán tus días más fértiles del ciclo. Prepárate.";
-
-            return {
-                title: '🌸 Tu ventana fértil se acerca',
-                message: mensaje + '\n\n' + DISCLAIMERS.ventanaFertil
-            };
-        }
+        buildNotification: () => ({
+            title: 'Tu ventana fértil está cerca',
+            message: 'En 2 días comienza tu ventana fértil. Es un buen momento para observar tus señales y preparar tu ciclo.',
+            type: 'opportunity',
+            priority: 1
+        })
     },
 
     {
         id: 'VF-2',
-        trigger: ['DAILY_CHECK'],
-        type: 'opportunity',
+        trigger: 'DAILY_CHECK',
         priority: 1,
         cooldownDays: 0,
-        condition: ({ user, currentCycleDay }) => {
-            if (!user.cycleLength || !currentCycleDay) return false;
-            if (!debeEnviarNotificacionFertilidad(user.age)) return false;
-
-            const ventana = calcularVentanaFertil(user.cycleLength);
-            // Día de ovulación estimado
-            return currentCycleDay === ventana.diaOvulacion;
+        requiresCycle: true,
+        condition: (ctx) => {
+            if (!ctx.currentCycleDay || !ctx.ventanaFertil) return false;
+            if (!debeEnviarNotificacionFertilidad(ctx.user.age)) return false;
+            return ctx.currentCycleDay === ctx.ventanaFertil.diaOvulacion;
         },
-        getMessage: ({ user }) => {
-            const mensaje = user.age >= 45
-                ? "Hoy es tu día más fértil, aunque a esta edad la probabilidad de concepción es menor. Consulta con tu médico sobre tu salud reproductiva."
-                : "Hoy es día de alta fertilidad. Los días de mayor probabilidad son 1-2 días antes de la ovulación (33%).";
-
-            return {
-                title: '✨ Día de máxima fertilidad',
-                message: mensaje + '\n\n' + DISCLAIMERS.ovulacion
-            };
-        }
+        buildNotification: () => ({
+            title: 'Hoy es tu pico de fertilidad',
+            message: 'Estás en el día de mayor probabilidad de embarazo de tu ciclo. Escucha a tu cuerpo y cuídalo especialmente hoy.',
+            type: 'opportunity',
+            priority: 1
+        })
     },
 
     {
         id: 'VF-3',
-        trigger: ['DAILY_CHECK'],
-        type: 'insight',
+        trigger: 'DAILY_CHECK',
         priority: 2,
         cooldownDays: 0,
-        condition: ({ user, currentCycleDay }) => {
-            if (!user.cycleLength || !currentCycleDay) return false;
-            if (!debeEnviarNotificacionFertilidad(user.age)) return false;
-
-            const ventana = calcularVentanaFertil(user.cycleLength);
-            // 1 día después de ovulación
-            return currentCycleDay === ventana.fin + 1;
+        requiresCycle: true,
+        condition: (ctx) => {
+            if (!ctx.currentCycleDay || !ctx.ventanaFertil) return false;
+            if (!debeEnviarNotificacionFertilidad(ctx.user.age)) return false;
+            return ctx.currentCycleDay === ctx.ventanaFertil.fin + 1;
         },
-        getMessage: () => ({
-            title: '⏰ Fin de ventana fértil',
-            message: 'Tu ventana fértil terminó. Tu próxima oportunidad será en tu siguiente ciclo.\n\n' + DISCLAIMERS.ventanaFertil
+        buildNotification: () => ({
+            title: 'Fin de tu ventana fértil',
+            message: 'Tu ventana fértil ha terminado. Ahora tu cuerpo entra en una fase distinta. Te acompañamos paso a paso.',
+            type: 'insight',
+            priority: 2
         })
     },
 
@@ -127,138 +154,83 @@ export const RULES: Rule[] = [
 
     {
         id: 'CYCLE-1',
-        trigger: ['DAILY_CHECK'],
-        type: 'confirmation',
+        trigger: 'DAILY_CHECK',
         priority: 1,
         cooldownDays: 0,
-        condition: ({ user, currentCycleDay }) => {
-            if (!user.lastPeriodDate || !user.cycleLength) {
-                logger.warn('[RuleEngine] CYCLE-1 skipped: missing data', {
-                    userId: user.id,
-                    hasLastPeriodDate: Boolean(user.lastPeriodDate),
-                    hasCycleLength: Boolean(user.cycleLength)
-                });
-                return false;
-            }
-            if (!currentCycleDay) return false;
-            
-            // OPCIÓN B: Preguntar cuando currentCycleDay === cycleLength (día esperado)
-            // Y también cuando currentCycleDay > cycleLength (retraso)
-            // Esto asegura que seguimos preguntando hasta que confirme
-            return currentCycleDay >= user.cycleLength;
+        requiresCycle: true,
+        condition: (ctx) => {
+            if (!ctx.currentCycleDay || !ctx.cycleLength) return false;
+            return ctx.currentCycleDay >= ctx.cycleLength;
         },
-        getMessage: ({ user, currentCycleDay }) => {
-            const diasRetraso = currentCycleDay && user.cycleLength 
-                ? currentCycleDay - user.cycleLength 
+        buildNotification: (ctx) => {
+            const diasRetraso = ctx.currentCycleDay && ctx.cycleLength
+                ? ctx.currentCycleDay - ctx.cycleLength
                 : 0;
-            
-            if (diasRetraso === 0) {
-                return {
-            title: '¿Te ha venido la regla?',
-            message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
-                };
-            } else {
-                return {
-                    title: '¿Te ha venido la regla?',
-                    message: `Tu ciclo promedio de ${user.cycleLength} días ha concluido hace ${diasRetraso} día${diasRetraso > 1 ? 's' : ''}. Confírmanos si ya comenzó tu menstruación para mantener tus predicciones precisas.`
-                };
-            }
-        },
-        getMetadata: ({ currentCycleDay, user }) => {
-            const diasRetraso = currentCycleDay && user.cycleLength 
-                ? currentCycleDay - user.cycleLength 
-                : 0;
-            
-            const actions: NotificationAction[] = [
-                { label: 'Sí, me vino', value: 'today', handler: 'handlePeriodConfirmed' },
-                { label: 'No, aún no', value: String(diasRetraso + 1), handler: 'handlePeriodDelayed' }
-            ];
-            return { actions };
+
+            const message = diasRetraso === 0
+                ? `Tu ciclo promedio de ${ctx.cycleLength} días ha concluido. Confírmalo para ajustar tu ciclo y mejorar tus informes.`
+                : `Tu ciclo promedio de ${ctx.cycleLength} días ha concluido hace ${diasRetraso} día${diasRetraso > 1 ? 's' : ''}. Confírmalo para ajustar tu ciclo y mejorar tus informes.`;
+
+            return {
+                title: '¿Te vino la regla hoy?',
+                message,
+                type: 'confirmation',
+                priority: 1,
+                metadata: {
+                    actions: [
+                        { label: 'Sí, me vino', value: 'today', handler: 'handlePeriodConfirmed' },
+                        { label: 'No, aún no', value: String(diasRetraso + 1), handler: 'handlePeriodDelayed' }
+                    ]
+                }
+            };
         }
     },
 
     {
         id: 'PM-1',
-        trigger: ['DAILY_CHECK'],
-        type: 'insight',
+        trigger: 'DAILY_CHECK',
         priority: 2,
         cooldownDays: 0,
-        condition: ({ user, currentCycleDay }) => {
-            if (!user.cycleLength || !currentCycleDay) return false;
-
-            // 2 días antes de fecha esperada
-            return currentCycleDay === user.cycleLength - 2;
+        requiresCycle: true,
+        condition: (ctx) => {
+            if (!ctx.currentCycleDay || !ctx.cycleLength) return false;
+            return ctx.currentCycleDay === ctx.cycleLength - 2;
         },
-        getMessage: ({ user }) => {
-            if (!user.lastPeriodDate || !user.cycleLength) {
-                return {
-                    title: '📅 Se acerca tu menstruación',
-                    message: 'Tu próximo período se espera en aproximadamente 2 días.'
-                };
-            }
-
-            const fechaEsperada = calcularProximaMenstruacion(user.lastPeriodDate, user.cycleLength);
-            const fechaFormateada = fechaEsperada.toLocaleDateString('es-ES', {
-                day: 'numeric',
-                month: 'long'
-            });
-
-            return {
-                title: '📅 Se acerca tu menstruación',
-                message: `Tu próximo período se espera en aproximadamente 2 días (${fechaFormateada}).`
-            };
-        }
+        buildNotification: () => ({
+            title: 'Tu menstruación se acerca',
+            message: 'Según tu ciclo, tu menstruación podría llegar en 2 días. Si notas cambios, puedes registrarlos.',
+            type: 'insight',
+            priority: 2
+        })
     },
 
     {
         id: 'PM-2',
-        trigger: ['DAILY_CHECK'],
-        type: 'alert',
+        trigger: 'DAILY_CHECK',
         priority: 1,
         cooldownDays: 0,
-        condition: ({ user, currentCycleDay }) => {
-            if (!user.cycleLength || !currentCycleDay) return false;
-
-            // 5 días después de fecha esperada
-            return currentCycleDay === user.cycleLength + 5;
+        requiresCycle: true,
+        condition: (ctx) => {
+            if (!ctx.currentCycleDay || !ctx.cycleLength) return false;
+            return ctx.currentCycleDay === ctx.cycleLength + 5;
         },
-        getMessage: ({ user, currentCycleDay }) => {
-            const fechaEsperada = user.lastPeriodDate && user.cycleLength
-                ? calcularProximaMenstruacion(user.lastPeriodDate, user.cycleLength)
-                : null;
-            
-            const diasRetraso = currentCycleDay && user.cycleLength 
-                ? currentCycleDay - user.cycleLength 
-                : 5; // Por defecto 5 si no se puede calcular
-            
-            const mensajeBase = '¿Te ha venido la regla? Por favor, actualiza la fecha de tu última regla para mantener tus predicciones precisas.';
-            
-            if (fechaEsperada) {
-                const fechaFormateada = fechaEsperada.toLocaleDateString('es-ES', {
-                    day: 'numeric',
-                    month: 'long'
-                });
-                return {
-                    title: '📅 ¿Ya te vino la regla?',
-                    message: `${mensajeBase}\n\nSe esperaba alrededor del ${fechaFormateada}.`
-                };
-            }
-            
-            return {
-                title: '📅 ¿Ya te vino la regla?',
-                message: mensajeBase
-            };
-        },
-        getMetadata: ({ currentCycleDay, user }) => {
-            const diasRetraso = currentCycleDay && user.cycleLength 
-                ? currentCycleDay - user.cycleLength 
+        buildNotification: (ctx) => {
+            const diasRetraso = ctx.currentCycleDay && ctx.cycleLength
+                ? ctx.currentCycleDay - ctx.cycleLength
                 : 5;
-            
-            const actions: NotificationAction[] = [
-                { label: 'Sí, me vino', value: 'today', handler: 'handlePeriodConfirmed' },
-                { label: 'No, aún no', value: String(diasRetraso + 1), handler: 'handlePeriodDelayed' }
-            ];
-            return { actions };
+
+            return {
+                title: 'Tu menstruación se ha retrasado',
+                message: 'Han pasado 5 días desde la fecha esperada. ¿Quieres actualizar tu ciclo?',
+                type: 'alert',
+                priority: 1,
+                metadata: {
+                    actions: [
+                        { label: 'Sí, me vino', value: 'today', handler: 'handlePeriodConfirmed' },
+                        { label: 'No, aún no', value: String(diasRetraso + 1), handler: 'handlePeriodDelayed' }
+                    ]
+                }
+            };
         }
     },
 
@@ -268,22 +240,17 @@ export const RULES: Rule[] = [
 
     {
         id: 'IMC-1',
-        trigger: ['WEIGHT_UPDATE'],
-        type: 'alert',
+        trigger: 'WEIGHT_UPDATE',
         priority: 1,
-        cooldownDays: 7, // Solo notificar si cambió de categoría hace más de 7 días
-        condition: ({ user, previousWeight }) => {
-            if (!previousWeight || !user.weight || !user.height) return false;
-
-            const imcAnterior = calcularIMC(previousWeight, user.height);
-            const imcNuevo = calcularIMC(user.weight, user.height);
-
-            // Solo notificar si cambió de categoría
+        cooldownDays: 7,
+        condition: (ctx) => {
+            if (!ctx.previousWeight || !ctx.user.weight || !ctx.user.height) return false;
+            const imcAnterior = calcularIMC(ctx.previousWeight, ctx.user.height);
+            const imcNuevo = calcularIMC(ctx.user.weight, ctx.user.height);
             return imcAnterior.categoria !== imcNuevo.categoria;
         },
-        getMessage: ({ user }) => {
-            const resultado = calcularIMC(user.weight, user.height);
-
+        buildNotification: (ctx) => {
+            const resultado = calcularIMC(ctx.user.weight, ctx.user.height);
             let titulo = '';
             let mensaje = '';
 
@@ -300,27 +267,358 @@ export const RULES: Rule[] = [
 
             return {
                 title: titulo,
-                message: mensaje + '\n\n' + DISCLAIMERS.imc
+                message: mensaje + '\n\n' + DISCLAIMERS.imc,
+                type: 'alert',
+                priority: 1
             };
         }
     },
 
+    {
+        id: 'EDAD-1',
+        trigger: 'AGE_CHECK',
+        priority: 1,
+        cooldownDays: 365,
+        condition: (ctx) => ctx.user.age >= 50,
+        buildNotification: () => ({
+            title: '🌸 Programa de Menopausia',
+            message: 'A los 50 años, la mayoría de mujeres están en menopausia o perimenopausia. El embarazo natural es extremadamente raro y conlleva riesgos significativos.\n\nTe invitamos a conocer nuestro programa especializado en menopausia, donde te acompañamos en esta nueva etapa de tu vida.\n\n' + DISCLAIMERS.edad,
+            type: 'alert',
+            priority: 1
+        })
+    },
+
     // ============================================================================
-    // EDAD ≥ 50 AÑOS
+    // FORMULARIOS
     // ============================================================================
 
     {
-        id: 'EDAD-1',
-        trigger: ['AGE_CHECK'],
-        type: 'alert',
+        id: 'FORM-F0-NEW',
+        trigger: 'DAILY_CHECK',
         priority: 1,
-        cooldownDays: 365, // Solo una vez al año
-        condition: ({ user }) => {
-            return user.age >= 50;
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.f0?.state === 'not_started',
+        buildNotification: () => ({
+            title: 'Completa tu ficha inicial',
+            message: 'Aún no has completado tu ficha de salud. Es clave para personalizar tus informes y tu FertyScore.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-F0-PARTIAL',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.f0?.state === 'partial',
+        buildNotification: () => ({
+            title: 'Retoma tu ficha de salud',
+            message: 'Dejaste tu ficha inicial a medias. Si la completas, podremos entender tu caso con mucha más precisión.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FUNCTION-NEW',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.function?.state === 'not_started',
+        buildNotification: () => ({
+            title: 'Aún falta un pilar por completar',
+            message: 'Si completas este pilar podremos mejorar tus análisis y ajustar mejor tus recomendaciones.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FUNCTION-PARTIAL',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.function?.state === 'partial',
+        buildNotification: () => ({
+            title: 'Termina tu pilar de salud',
+            message: 'Veo que empezaste este formulario. Completarlo hará que tus informes y tu FertyScore reflejen tu realidad.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FOOD-NEW',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.food?.state === 'not_started',
+        buildNotification: () => ({
+            title: 'Aún falta un pilar por completar',
+            message: 'Si completas este pilar podremos mejorar tus análisis y ajustar mejor tus recomendaciones.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FOOD-PARTIAL',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.food?.state === 'partial',
+        buildNotification: () => ({
+            title: 'Termina tu pilar de salud',
+            message: 'Veo que empezaste este formulario. Completarlo hará que tus informes y tu FertyScore reflejen tu realidad.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FLORA-NEW',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.flora?.state === 'not_started',
+        buildNotification: () => ({
+            title: 'Aún falta un pilar por completar',
+            message: 'Si completas este pilar podremos mejorar tus análisis y ajustar mejor tus recomendaciones.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FLORA-PARTIAL',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.flora?.state === 'partial',
+        buildNotification: () => ({
+            title: 'Termina tu pilar de salud',
+            message: 'Veo que empezaste este formulario. Completarlo hará que tus informes y tu FertyScore reflejen tu realidad.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FLOW-NEW',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.flow?.state === 'not_started',
+        buildNotification: () => ({
+            title: 'Aún falta un pilar por completar',
+            message: 'Si completas este pilar podremos mejorar tus análisis y ajustar mejor tus recomendaciones.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    {
+        id: 'FORM-FLOW-PARTIAL',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => ctx.formsStatus?.flow?.state === 'partial',
+        buildNotification: () => ({
+            title: 'Termina tu pilar de salud',
+            message: 'Veo que empezaste este formulario. Completarlo hará que tus informes y tu FertyScore reflejen tu realidad.',
+            type: 'tip',
+            priority: 1
+        })
+    },
+
+    // ============================================================================
+    // ADHERENCIA
+    // ============================================================================
+
+    {
+        id: 'ENG-1',
+        trigger: 'DAILY_CHECK',
+        priority: 2,
+        cooldownDays: 3,
+        condition: (ctx) => (ctx.daysSinceLastDailyLog ?? 999) >= 3,
+        buildNotification: () => ({
+            title: 'Te echamos de menos en tu registro',
+            message: 'Hace 3 días que no registras tu ciclo ni tus hábitos. Volver a hacerlo hará tu FertyScore más preciso.',
+            type: 'alert',
+            priority: 2
+        })
+    },
+
+    {
+        id: 'ENG-2',
+        trigger: 'DAILY_LOG_SAVED',
+        priority: 3,
+        cooldownDays: 0,
+        condition: (ctx) => {
+            const streak = ctx.dailyLogStreak ?? 0;
+            return streak === 3 || streak === 7 || streak === 14;
         },
-        getMessage: () => ({
-            title: '🌸 Programa de Menopausia',
-            message: 'A los 50 años, la mayoría de mujeres están en menopausia o perimenopausia. El embarazo natural es extremadamente raro y conlleva riesgos significativos.\n\nTe invitamos a conocer nuestro programa especializado en menopausia, donde te acompañamos en esta nueva etapa de tu vida.\n\n' + DISCLAIMERS.edad
+        buildNotification: (ctx) => ({
+            title: '¡Qué constancia! 🔥',
+            message: `Llevas ${ctx.dailyLogStreak} días seguidos registrando tu salud. Este tipo de compromiso marca una gran diferencia.`,
+            type: 'celebration',
+            priority: 3
+        })
+    },
+
+    // ============================================================================
+    // HÁBITOS (últimos 7 días)
+    // ============================================================================
+
+    {
+        id: 'HAB-STRESS-1',
+        trigger: 'DAILY_CHECK',
+        priority: 2,
+        cooldownDays: 7,
+        condition: (ctx) => {
+            const avgStress = ctx.last7DaysStats?.avgStressLevel;
+            return avgStress !== undefined && avgStress >= 4;
+        },
+        buildNotification: () => ({
+            title: 'Tu cuerpo pide una pausa',
+            message: 'Has tenido varios días de estrés elevado. Esto puede afectar tu ovulación. ¿Revisamos tu pilar FLOW?',
+            type: 'alert',
+            priority: 2
+        })
+    },
+
+    {
+        id: 'HAB-SLEEP-1',
+        trigger: 'DAILY_CHECK',
+        priority: 2,
+        cooldownDays: 7,
+        condition: (ctx) => {
+            const avgSleep = ctx.last7DaysStats?.avgSleepHours;
+            return avgSleep !== undefined && avgSleep < 6;
+        },
+        buildNotification: () => ({
+            title: 'Tu descanso está bajando',
+            message: 'Dormir poco varios días reduce la calidad ovulatoria. Te ayudamos a mejorarlo paso a paso.',
+            type: 'alert',
+            priority: 2
+        })
+    },
+
+    {
+        id: 'HAB-ALCOHOL-1',
+        trigger: 'DAILY_CHECK',
+        priority: 2,
+        cooldownDays: 7,
+        condition: (ctx) => {
+            const alcoholDays = ctx.last7DaysStats?.alcoholDays ?? 0;
+            return alcoholDays >= 4;
+        },
+        buildNotification: () => ({
+            title: 'Cuida tu fertilidad esta semana',
+            message: 'Has consumido alcohol varios días. No pasa nada, pero es un buen momento para volver al equilibrio.',
+            type: 'tip',
+            priority: 2
+        })
+    },
+
+    {
+        id: 'HAB-COMBO-1',
+        trigger: 'DAILY_CHECK',
+        priority: 1,
+        cooldownDays: 7,
+        condition: (ctx) => {
+            const stats = ctx.last7DaysStats;
+            const highStress = (stats?.avgStressLevel ?? 0) >= 4;
+            const lowSleep = (stats?.avgSleepHours ?? 10) < 6;
+            const highAlcohol = (stats?.alcoholDays ?? 0) >= 3;
+            return highStress && lowSleep && highAlcohol;
+        },
+        buildNotification: () => ({
+            title: 'Tu fertilidad necesita calma',
+            message: 'Estrés, poco sueño y alcohol han coincidido esta semana. Te proponemos pautas para recuperar bienestar.',
+            type: 'alert',
+            priority: 1
+        })
+    },
+
+    // ============================================================================
+    // APRENDE
+    // ============================================================================
+
+    {
+        id: 'LEARN-1',
+        trigger: 'DAILY_CHECK',
+        priority: 2,
+        cooldownDays: 7,
+        condition: (ctx) => {
+            const daysSince = ctx.learnProgress?.daysSinceLastLearn;
+            const hasIncomplete = (ctx.learnProgress?.modulesStartedNotCompleted?.length ?? 0) > 0;
+            return daysSince !== undefined && daysSince >= 7 && hasIncomplete;
+        },
+        buildNotification: () => ({
+            title: 'Retoma tu aprendizaje',
+            message: 'Dejaste un módulo a medias. Completarlo te ayudará a entender mejor tu ciclo.',
+            type: 'tip',
+            priority: 2
+        })
+    },
+
+    {
+        id: 'LEARN-2',
+        trigger: 'LESSON_COMPLETED',
+        priority: 3,
+        cooldownDays: 0,
+        condition: () => true,
+        buildNotification: () => ({
+            title: '¡Módulo completado! 🎉',
+            message: 'Has dado un paso importante en tu camino de fertilidad. ¿Quieres ver tu siguiente lección?',
+            type: 'celebration',
+            priority: 3
+        })
+    },
+
+    // ============================================================================
+    // RESÚMENES
+    // ============================================================================
+
+    {
+        id: 'SUMMARY-WEEKLY-1',
+        trigger: 'DAILY_CHECK',
+        priority: 2,
+        cooldownDays: 7,
+        condition: (ctx) => {
+            if (!ctx.lastWeeklySummaryAt) return true; // Nunca se ha enviado
+            const lastDate = parseLocalDate(ctx.lastWeeklySummaryAt);
+            if (!lastDate) return true;
+            const daysSince = Math.floor((new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+            return daysSince >= 7;
+        },
+        buildNotification: () => ({
+            title: 'Tu resumen semanal está listo',
+            message: 'Hemos analizado tu semana. Aquí tienes un informe claro para seguir entendiendo tu fertilidad.',
+            type: 'insight',
+            priority: 2
+        })
+    },
+
+    {
+        id: 'SUMMARY-MONTHLY-1',
+        trigger: 'DAILY_CHECK',
+        priority: 2,
+        cooldownDays: 28,
+        condition: (ctx) => {
+            if (!ctx.lastMonthlySummaryAt) return true; // Nunca se ha enviado
+            const lastDate = parseLocalDate(ctx.lastMonthlySummaryAt);
+            if (!lastDate) return true;
+            const daysSince = Math.floor((new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+            return daysSince >= 28;
+        },
+        buildNotification: () => ({
+            title: 'Informe mensual disponible',
+            message: 'Un mes entero de datos. Ya puedes ver tu progreso real en tus pilares y tu FertyScore.',
+            type: 'insight',
+            priority: 2
         })
     }
 ];
@@ -330,58 +628,109 @@ export const RULES: Rule[] = [
 // ============================================================================
 
 /**
+ * Filtra notificaciones de formularios: solo 1 por día según prioridad
+ */
+function filterFormNotifications(notifs: AppNotificationInput[]): AppNotificationInput[] {
+    const forms = notifs.filter(n => n.metadata?.ruleId?.startsWith('FORM-'));
+    if (!forms.length) return notifs;
+
+    const ORDER = [
+        'FORM-F0-PARTIAL',
+        'FORM-F0-NEW',
+        'FORM-FUNCTION-PARTIAL',
+        'FORM-FOOD-PARTIAL',
+        'FORM-FLORA-PARTIAL',
+        'FORM-FLOW-PARTIAL',
+        'FORM-FUNCTION-NEW',
+        'FORM-FOOD-NEW',
+        'FORM-FLORA-NEW',
+        'FORM-FLOW-NEW',
+    ];
+
+    const selected = forms.sort(
+        (a, b) => ORDER.indexOf(a.metadata!.ruleId) - ORDER.indexOf(b.metadata!.ruleId)
+    )[0];
+
+    const others = notifs.filter(n => !n.metadata?.ruleId?.startsWith('FORM-'));
+
+    return [selected, ...others];
+}
+
+/**
  * Evalúa las reglas aplicables para un trigger específico
  */
 export const evaluateRules = async (
-    trigger: RuleTrigger,
-    context: RuleContext
-): Promise<AppNotification[]> => {
+    trigger: Trigger,
+    context: RuleContext,
+    userId: string
+): Promise<void> => {
     logger.log(`🔍 Evaluating Rules for Trigger: ${trigger}`);
 
-    const applicableRules = RULES.filter(r => r.trigger.includes(trigger));
-    logger.log(`📋 Found ${applicableRules.length} applicable rules`);
+    const rulesForTrigger = RULES.filter(r => r.trigger === trigger);
+    logger.log(`📋 Found ${rulesForTrigger.length} applicable rules`);
 
-    const newNotifications: AppNotification[] = [];
+    const preCandidates: AppNotificationInput[] = [];
 
-    for (const rule of applicableRules) {
+    for (const rule of rulesForTrigger) {
         try {
-            const conditionMet = rule.condition(context);
-
-            if (conditionMet) {
-                // Check Cooldown
-                const inCooldown = await checkCooldown(rule.id, context.user.id!, rule.cooldownDays);
-                if (!inCooldown) {
-                    logger.log(`  🚀 Triggering Rule ${rule.id}`);
-                    const { title, message } = rule.getMessage(context);
-
-                    const baseMetadata: NotificationMetadata = { ruleId: rule.id };
-                    const metadata = {
-                        ...baseMetadata,
-                        ...(rule.getMetadata ? (rule.getMetadata(context) || {}) : {})
-                    };
-
-                    newNotifications.push({
-                        id: 0,
-                        user_id: context.user.id!,
-                        title,
-                        message,
-                        type: rule.type,
-                        priority: rule.priority,
-                        is_read: false,
-                        created_at: new Date().toISOString(),
-                        metadata
-                    });
-                } else {
-                    logger.log(`  ⏳ Rule ${rule.id} in cooldown`);
+            // Verificar requiresCycle
+            if (rule.requiresCycle) {
+                if (!context.currentCycleDay || !context.cycleLength || !context.ventanaFertil) {
+                    continue;
                 }
             }
+
+            const conditionMet = rule.condition(context);
+            if (!conditionMet) continue;
+
+            // Check Cooldown
+            const inCooldown = await checkCooldown(rule.id, userId, rule.cooldownDays);
+            if (inCooldown) {
+                logger.log(`  ⏳ Rule ${rule.id} in cooldown`);
+                continue;
+            }
+
+            logger.log(`  🚀 Triggering Rule ${rule.id}`);
+            const notif = rule.buildNotification(context);
+            preCandidates.push({
+                ...notif,
+                metadata: { ...(notif.metadata || {}), ruleId: rule.id }
+            });
         } catch (err) {
             logger.error(`Error evaluating rule ${rule.id}:`, err);
         }
     }
 
-    logger.log(`🔔 Generated ${newNotifications.length} notifications`);
-    return newNotifications.sort((a, b) => a.priority - b.priority);
+    if (!preCandidates.length) {
+        logger.log(`🔔 No notifications generated for ${trigger}`);
+        return;
+    }
+
+    // 1) Filtrar notificaciones de formularios (solo 1 por día)
+    let filtered = filterFormNotifications(preCandidates);
+
+    // 2) Ordenar por prioridad
+    filtered.sort((a, b) => a.priority - b.priority);
+
+    // 3) Límite final por trigger
+    const max = TRIGGER_MAX[trigger];
+    const finalNotifs = filtered.slice(0, max);
+
+    // 4) Convertir a AppNotification y guardar
+    const notifications: AppNotification[] = finalNotifs.map(notif => ({
+        id: 0,
+        user_id: userId,
+        title: notif.title,
+        message: notif.message,
+        type: notif.type,
+        priority: notif.priority,
+        is_read: false,
+        created_at: new Date().toISOString(),
+        metadata: notif.metadata
+    }));
+
+    await saveNotifications(userId, notifications);
+    logger.log(`🔔 Generated and saved ${notifications.length} notifications for ${trigger}`);
 };
 
 /**

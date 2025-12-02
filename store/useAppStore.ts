@@ -23,6 +23,10 @@ import {
 import { logger } from '../lib/logger';
 import { getCycleDay } from '../hooks/useCycleDay';
 import { DailyLogSchema } from '../types/schemas';
+import { evaluateRules } from '../services/RuleEngine';
+import { buildRuleContext } from '../services/buildRuleContext';
+import { evaluateRules } from '../services/RuleEngine';
+import { buildRuleContext } from '../services/buildRuleContext';
 
 type ToastState = { msg: string; type: 'success' | 'error' } | null;
 
@@ -445,7 +449,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   saveDailyLog: async () => {
-    const { user, logs, todayLog, showNotif, fetchLogs, fetchNotifications, setView } = get();
+    const { user, logs, courseModules, todayLog, showNotif, fetchLogs, fetchNotifications, setView } = get();
     if (!user?.id) return;
 
     if (!todayLog.date) {
@@ -554,11 +558,26 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     if (!error) {
       showNotif('Registro guardado con éxito', 'success');
+      
       // Refrescar datos en paralelo para mejor rendimiento
-      await Promise.allSettled([
+      const [logsResult] = await Promise.allSettled([
         fetchLogs(user.id),
         fetchNotifications(user.id)
       ]);
+
+      // Trigger DAILY_LOG_SAVED después de guardar
+      try {
+        const updatedLogs = logsResult.status === 'fulfilled' ? logsResult.value : logs;
+        const context = await buildRuleContext(user, updatedLogs, courseModules);
+        await evaluateRules('DAILY_LOG_SAVED', context, user.id);
+        
+        // Refrescar notificaciones después del trigger
+        await fetchNotifications(user.id);
+      } catch (triggerError) {
+        logger.error('Error evaluating DAILY_LOG_SAVED trigger:', triggerError);
+        // No fallar el guardado si el trigger falla
+      }
+
       setView('DASHBOARD');
     } else {
       showNotif('Error al guardar: ' + error.message, 'error');
@@ -608,7 +627,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   markLessonComplete: async (lessonId: number) => {
-    const { user, setCourseModules, fetchEducation, showNotif, setActiveLesson } = get();
+    const { user, logs, courseModules, setCourseModules, fetchEducation, showNotif, setActiveLesson, fetchNotifications } = get();
     if (!user?.id) return;
 
     try {
@@ -665,6 +684,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
           return prev;
         }
       });
+
+      // Trigger LESSON_COMPLETED después de marcar como completada
+      try {
+        const updatedModules = get().courseModules;
+        const context = await buildRuleContext(user, logs, updatedModules);
+        await evaluateRules('LESSON_COMPLETED', context, user.id);
+        
+        // Refrescar notificaciones después del trigger
+        await fetchNotifications(user.id);
+      } catch (triggerError) {
+        logger.error('Error evaluating LESSON_COMPLETED trigger:', triggerError);
+        // No fallar si el trigger falla
+      }
 
       if (user?.id && user?.methodStartDate) {
         setTimeout(() => {

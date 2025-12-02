@@ -4,17 +4,15 @@
  */
 
 import { useEffect, useState } from 'react';
-import { UserProfile } from '../types';
-import { supabase } from '../services/supabase';
-import { evaluateRules, saveNotifications } from '../services/RuleEngine';
-import { getCycleDay } from './useCycleDay';
 import { formatDateForDB } from '../services/dataService';
 import { fetchNotificationsForUser } from '../services/userDataService';
 import { logger } from '../lib/logger';
 import { useAppStore } from '../store/useAppStore';
+import { evaluateRules } from '../services/RuleEngine';
+import { buildRuleContext } from '../services/buildRuleContext';
 
 export function useDailyNotifications() {
-  const { user, setNotifications } = useAppStore();
+  const { user, logs, courseModules, setNotifications } = useAppStore();
   const [lastDailyCheckDate, setLastDailyCheckDate] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,20 +35,17 @@ export function useDailyNotifications() {
       return; // Already checked today
     }
 
-    const currentCycleDay = getCycleDay(user.lastPeriodDate, user.cycleLength);
-    if (!currentCycleDay) return;
-
     let cancelled = false;
 
     const runDailyCheck = async () => {
       try {
-        const ruleNotifications = await evaluateRules('DAILY_CHECK', {
-          user,
-          currentCycleDay
-        });
+        // Construir contexto completo
+        const context = await buildRuleContext(user, logs, courseModules);
 
-        if (!cancelled && ruleNotifications.length > 0) {
-          await saveNotifications(user.id!, ruleNotifications);
+        // Evaluar reglas (ahora guarda automáticamente)
+        await evaluateRules('DAILY_CHECK', context, user.id!);
+
+        if (!cancelled) {
           // Fetch notifications after saving
           const result = await fetchNotificationsForUser(user.id);
           if (result.success) {
@@ -70,6 +65,6 @@ export function useDailyNotifications() {
     runDailyCheck();
 
     return () => { cancelled = true; };
-  }, [user?.id, user?.lastPeriodDate, user?.cycleLength, lastDailyCheckDate, setNotifications]);
+  }, [user?.id, user?.lastPeriodDate, user?.cycleLength, logs, courseModules, lastDailyCheckDate, setNotifications]);
 }
 
