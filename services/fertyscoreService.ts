@@ -290,11 +290,16 @@ function calculateWaistScore(waist?: number | null): number {
   return 55;
 }
 
-function calculateExerciseScore(txt?: string | null): number {
-  const t = (txt ?? '').toLowerCase();
-  if (!t) return NaN;
-  if (t.includes('3-4') || t.includes('5+')) return 100;
-  if (t.includes('1-2')) return 75;
+function calculateExerciseScore(value?: string | null): number {
+  if (!value) return NaN;
+
+  const text = value.toLowerCase();
+
+  if (text === '3-4' || text === '5+') return 100;
+  if (text === '1-2') return 75;
+  if (text === 'no hago') return 35;
+
+  // fallback por si en el futuro se añaden otras opciones
   return 50;
 }
 
@@ -305,11 +310,17 @@ function calculateMetabolicScore(food: PillarFood): number {
   ]));
 }
 
-function calculateAlcoholBaselineScore(txt?: string | null): number {
-  const t = (txt ?? '').toLowerCase();
-  if (!t || t.includes('no')) return 100;
-  if (t.includes('ocasional')) return 75;
-  if (t.includes('frecuente') || t.includes('diario')) return 30;
+function calculateAlcoholBaselineScore(value?: string | null): number {
+  // Sin respuesta → sin dato, no regalamos 100
+  if (!value) return NaN;
+
+  const text = value.toLowerCase();
+
+  if (text === 'no tomo') return 100;
+  if (text === 'ocasional') return 75;
+  if (text === 'frecuente' || text === 'diario') return 30;
+
+  // Por si en el futuro se añaden otras opciones
   return 60;
 }
 
@@ -346,33 +357,74 @@ function calculateFoodBaseline(food?: PillarFood | null): number {
   return clampScore(weighted / totalWeight);
 }
 
+const FOOD_DYNAMIC_WEIGHTS = {
+  veg: 0.5,
+  alcohol: 0.3,
+  water: 0.2,
+} as const;
+
+function averageField(logs: DailyLog[], field: keyof DailyLog): number {
+  const values = logs
+    .map(l => l[field])
+    .filter(v => v !== null && v !== undefined) as number[];
+
+  if (!values.length) return NaN;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function calculateVegDynamicScore(avgVeg: number): number {
+  if (Number.isNaN(avgVeg)) return NaN;
+  if (avgVeg >= 5) return 100;
+  if (avgVeg >= 3) return 75;
+  if (avgVeg >= 1) return 60;
+  return 40;
+}
+
+function calculateAlcoholDynamicScore(daysAlcohol: number): number {
+  if (daysAlcohol === 0) return 100;
+  if (daysAlcohol <= 2) return 70;
+  if (daysAlcohol <= 4) return 50;
+  return 25;
+}
+
+function calculateWaterDynamicScore(avgWater: number): number {
+  if (Number.isNaN(avgWater)) return NaN;
+  if (avgWater >= 6 && avgWater <= 10) return 100;
+  if (avgWater >= 4) return 80;
+  return 55;
+}
+
 function calculateFoodDynamic(logs: DailyLog[]): number {
   const recent = takeLastDays(logs, DYNAMIC_DAYS);
   if (!recent.length) return NaN;
 
-  const avgVeg = average(recent.map(l => l.veggieServings ?? 0));
+  const avgVeg = averageField(recent, 'veggieServings');
+  const avgWater = averageField(recent, 'waterGlasses');
   const daysAlcohol = recent.filter(l => l.alcohol === true).length;
-  const avgWater = average(recent.map(l => l.waterGlasses ?? 0));
 
-  const vegScore =
-    avgVeg >= 5 ? 100 :
-    avgVeg >= 3 ? 75 :
-    avgVeg >= 1 ? 60 : 40;
+  const components = {
+    veg: calculateVegDynamicScore(avgVeg),
+    alcohol: calculateAlcoholDynamicScore(daysAlcohol),
+    water: calculateWaterDynamicScore(avgWater),
+  };
 
-  const alcoholScore =
-    daysAlcohol === 0 ? 100 :
-    daysAlcohol <= 2 ? 70 :
-    daysAlcohol <= 4 ? 50 : 25;
+  const validEntries = Object.entries(components).filter(
+    ([, v]) => !Number.isNaN(v),
+  ) as [keyof typeof FOOD_DYNAMIC_WEIGHTS, number][];
 
-  const waterScore =
-    avgWater >= 6 && avgWater <= 10 ? 100 :
-    avgWater >= 4 ? 80 : 55;
+  if (!validEntries.length) return NaN;
 
-  return clampScore(
-    vegScore * 0.5 +
-    alcoholScore * 0.3 +
-    waterScore * 0.2,
+  const weighted = validEntries.reduce((acc, [key, value]) => {
+    const weight = FOOD_DYNAMIC_WEIGHTS[key];
+    return acc + value * weight;
+  }, 0);
+
+  const totalWeight = validEntries.reduce(
+    (acc, [key]) => acc + FOOD_DYNAMIC_WEIGHTS[key],
+    0,
   );
+
+  return clampScore(weighted / totalWeight);
 }
 
 function calculateFoodScore(food?: PillarFood | null, logs: DailyLog[] = []): number {
@@ -390,21 +442,21 @@ function calculateFoodScore(food?: PillarFood | null, logs: DailyLog[] = []): nu
 // 3. FLORA (microbiota + sueño)
 // ============================================================================
 
-function yesNoScoreFromBoolean(value?: boolean | null, goodWhenTrue = true): number {
-  if (value === undefined || value === null) return NaN;
-  if (goodWhenTrue) {
-    return value ? 90 : 60;
-  }
-  // malo cuando es true
-  return value ? 60 : 100;
+function normalizeYesNo(value: any): boolean | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'boolean') return value;
+
+  const t = String(value).toLowerCase().trim();
+  return ['si', 'sí', 'yes', 'true'].includes(t);
 }
 
-function yesNoScoreFromString(txt?: string | null, goodWhenYes = true): number {
-  const t = (txt ?? '').toLowerCase();
-  if (!t) return NaN;
-  const hasYes = t.includes('si') || t.includes('sí') || t.includes('yes');
-  if (goodWhenYes) return hasYes ? 90 : 60;
-  return hasYes ? 60 : 100;
+function yesNoScore(value: any, goodWhenYes: boolean): number {
+  const v = normalizeYesNo(value);
+  if (v === null) return NaN;
+
+  return goodWhenYes
+    ? (v ? 90 : 60)
+    : (v ? 60 : 100);
 }
 
 function calculateBristolScore(value?: number | null): number {
@@ -416,9 +468,9 @@ function calculateBristolScore(value?: number | null): number {
 
 function calculateMicrobiotaRiskScore(flora: PillarFlora): number {
   const scores = [
-    yesNoScoreFromString(flora.antibiotics_last_12_months, false),
-    yesNoScoreFromBoolean(flora.vaginal_infections, false),
-    yesNoScoreFromBoolean(flora.altered_vaginal_ph, false),
+    yesNoScore(flora.antibiotics_last_12_months, false),
+    yesNoScore(flora.vaginal_infections, false),
+    yesNoScore(flora.altered_vaginal_ph, false),
     calculateBristolScore(flora.bristol_stool_scale),
   ];
   return clampScore(averageDefined(scores));
@@ -426,9 +478,9 @@ function calculateMicrobiotaRiskScore(flora: PillarFlora): number {
 
 function calculateCareScore(flora: PillarFlora): number {
   const scores = [
-    yesNoScoreFromBoolean(flora.previous_probiotics, true),
-    yesNoScoreFromString(flora.microbiome_tests, true),
-    yesNoScoreFromString(flora.recommended_supplements, true),
+    yesNoScore(flora.previous_probiotics, true),
+    yesNoScore(flora.microbiome_tests, true),
+    yesNoScore(flora.recommended_supplements, true),
   ];
   return clampScore(averageDefined(scores));
 }
@@ -444,21 +496,28 @@ function calculateFloraBaseline(flora?: PillarFlora | null): number {
   const risk = calculateMicrobiotaRiskScore(flora);
   const care = calculateCareScore(flora);
 
-  const components = { risk, care };
-  const valid = Object.entries(components).filter(
-    ([, v]) => !Number.isNaN(v),
-  ) as [keyof typeof FLORA_BASELINE_WEIGHTS, number][];
+  const validEntries = [
+    ['risk', risk],
+    ['care', care],
+  ].filter(([, v]) => !Number.isNaN(v)) as [keyof typeof FLORA_BASELINE_WEIGHTS, number][];
 
-  if (!valid.length) return NaN;
+  // baseline debe tener al menos 2 sub-scores válidos para ser fiable
+  if (validEntries.length < 2) return NaN;
 
-  const weighted = valid.reduce(
-    (acc, [key, value]) => acc + value * FLORA_BASELINE_WEIGHTS[key],
-    0,
-  );
-  const totalWeight = valid.reduce(
+  // Si el riesgo es alto (score bajo), el bloque CARE no debe inflar artificialmente el baseline
+  if (risk < 60) {
+    return clampScore(risk);
+  }
+
+  const totalWeight = validEntries.reduce(
     (acc, [key]) => acc + FLORA_BASELINE_WEIGHTS[key],
     0,
   );
+
+  const weighted = validEntries.reduce((acc, [key, value]) => {
+    const weight = FLORA_BASELINE_WEIGHTS[key];
+    return acc + value * weight;
+  }, 0);
 
   return clampScore(weighted / totalWeight);
 }
@@ -467,13 +526,19 @@ function calculateSleepScoreFromLogs(logs: DailyLog[]): number {
   const recent = takeLastDays(logs, DYNAMIC_DAYS);
   if (!recent.length) return NaN;
 
-  const avgSleep = average(recent.map(l => l.sleepHours ?? 0));
-  if (Number.isNaN(avgSleep)) return NaN;
+  const sleepValues = recent
+    .map(l => l.sleepHours)
+    .filter(v => typeof v === 'number') as number[];
+
+  if (!sleepValues.length) return NaN;
+
+  const avgSleep = sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length;
 
   if (avgSleep >= 7 && avgSleep <= 9) return 100;
   if (avgSleep >= 6) return 80;
   if (avgSleep >= 5) return 60;
-  if (avgSleep > 9) return 75;
+  if (avgSleep > 9 && avgSleep <= 10) return 90;
+  if (avgSleep > 10) return 75;
   return 40;
 }
 
