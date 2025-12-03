@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@google-cloud/vision": "^4.2.0",
+    "@google/genai": "^1.30.0",
     "@supabase/supabase-js": "^2.39.7",
     "@vercel/node": "^3.0.0",
     "clsx": "^2.1.0",

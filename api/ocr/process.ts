@@ -11,7 +11,8 @@ import { OCRRequestSchema } from '../lib/validation.js';
 import { ocrRateLimiter, rateLimitMiddleware } from '../lib/rateLimiter.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 import { applySecurityHeaders, validateImageUpload } from '../lib/security.js';
-import { validateMedicalExamText, validateExtractedData, getErrorMessage } from '../lib/medicalValidation.js';
+import { validateExtractedData, getErrorMessage } from '../lib/medicalValidation.js';
+import { ai } from '../lib/ai.js';
 
 // Logger simple para serverless functions (solo para serverless, no usar en frontend)
 const logger = {
@@ -25,40 +26,47 @@ const logger = {
   },
 };
 
-// Importar Google Cloud Vision (dependencia instalada)
-let vision: any = null;
+// Extracción estructurada con Gemini 2.5 Flash
+async function extractStructuredDataWithGemini(
+  base64Image: string,
+  examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio'
+) {
+  const prompt = `
+Eres un extractor de datos médicos muy preciso para un examen de tipo "${examType}".
+Extrae todos los resultados, rangos de referencia y unidades.
 
-async function getVisionClient() {
-  if (vision) return vision;
-
-  try {
-    // Importar dinámicamente para evitar errores en build
-    const { ImageAnnotatorClient } = await import('@google-cloud/vision');
-    
-    const credentials = process.env.GOOGLE_CLOUD_CREDENTIALS;
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
-
-    if (!credentials || !projectId) {
-      throw createError('Google Cloud credentials not configured', 500, 'CONFIG_ERROR');
+DEVUELVE UN ÚNICO OBJETO JSON con la forma:
+{
+  "resultados": [
+    {
+      "parametro": string,
+      "valor": number | string,
+      "unidades": string | null,
+      "rango_referencia": string | null
     }
+  ]
+}
 
-    // Parsear credenciales JSON con validación
-    let credentialsObj;
-    try {
-      credentialsObj = typeof credentials === 'string' ? JSON.parse(credentials) : credentials;
-    } catch (parseError) {
-      throw createError('Invalid credentials format', 500, 'CONFIG_ERROR');
-    }
+No añadas nada fuera del JSON (ni explicaciones, ni texto adicional).`;
 
-    vision = new ImageAnnotatorClient({
-      projectId,
-      credentials: credentialsObj,
-    });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [
+      { text: prompt },
+      {
+        inlineData: {
+          data: base64Image,
+          mimeType: 'image/jpeg',
+        },
+      },
+    ],
+    config: {
+      responseMimeType: 'application/json',
+    },
+  } as any);
 
-    return vision;
-  } catch (error) {
-    throw createError('Error initializing Vision client', 500, 'VISION_INIT_ERROR');
-  }
+  const jsonText = (response as any).text ?? JSON.stringify(response);
+  return JSON.parse(jsonText);
 }
 
 // Helper function to set CORS headers
@@ -154,125 +162,102 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw createError('Invalid image format', 400, 'INVALID_IMAGE_FORMAT');
     }
 
-    // Get Vision client
-    const client = await getVisionClient();
-
-    // Convert base64 to buffer with size check
-    let imageBuffer: Buffer;
-    try {
-      imageBuffer = Buffer.from(base64Data, 'base64');
-    } catch (bufferError) {
-      throw createError('Error processing image data', 400, 'IMAGE_PROCESSING_ERROR');
-    }
-
-    // Size check (max 10MB)
-    if (imageBuffer.length > 10 * 1024 * 1024) {
+    // Tamaño máximo 10MB (igual que antes, pero usando longitud de base64)
+    const estimatedBytes = (base64Data.length * 3) / 4;
+    if (estimatedBytes > 10 * 1024 * 1024) {
       throw createError(getErrorMessage('IMAGE_TOO_LARGE', examType), 400, 'IMAGE_TOO_LARGE');
     }
 
-    // Perform OCR with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for OCR
-
+    // Llamar a Gemini para extracción estructurada
+    let structuredData: any;
     try {
-      // Usar documentTextDetection para mejor detección de estructura en tablas
-      const [result] = await client.documentTextDetection({
-        image: { content: imageBuffer },
-      });
-
-      clearTimeout(timeoutId);
-
-      // documentTextDetection devuelve fullTextAnnotation en lugar de textAnnotations
-      const fullTextAnnotation = result.fullTextAnnotation;
-      if (!fullTextAnnotation || !fullTextAnnotation.text) {
-        throw createError(getErrorMessage('NO_TEXT_DETECTED', examType), 400, 'NO_TEXT_DETECTED');
-      }
-
-      // El texto completo está en fullTextAnnotation.text
-      const fullText = fullTextAnnotation.text || '';
-
-      if (!fullText || fullText.trim().length < 10) {
-        throw createError(getErrorMessage('INSUFFICIENT_TEXT', examType), 400, 'INSUFFICIENT_TEXT');
-      }
-
-      // Validar que el texto parece ser un examen médico
-      const textValidation = validateMedicalExamText(fullText, examType);
-      
-      // Parsear el texto según el tipo de examen (siempre, aunque no sea válido)
-      // Esto permite mostrar lo que se encontró aunque no sea un examen médico válido
-      let rawParsedData: Record<string, any> = {};
-      try {
-        // Importar parseExam - en Vercel necesitamos usar la ruta relativa desde api/
-        const examParsersModule = await import('../services/examParsers.js');
-        const parseExam = examParsersModule.parseExam;
-        
-        if (!parseExam || typeof parseExam !== 'function') {
-          throw new Error('parseExam function not found');
-        }
-        
-        rawParsedData = parseExam(fullText, examType);
-      } catch (parseError: any) {
-        logger.error('Error parsing exam:', {
-          error: parseError.message,
-          stack: parseError.stack,
-          examType,
-          textLength: fullText.length,
-        });
-        throw createError(
-          'Error al procesar los datos del examen. Por favor, intenta con otra foto.',
-          500,
-          'PARSE_ERROR'
-        );
-      }
-
-      // Validar los datos extraídos
-      let dataValidation;
-      try {
-        dataValidation = validateExtractedData(rawParsedData, examType);
-      } catch (validationError: any) {
-        logger.error('Error validating data:', validationError);
-        // Si falla la validación, devolver los datos sin validar pero con advertencia
-        dataValidation = {
-          isValid: true,
-          warnings: ['Algunos valores no pudieron ser validados. Por favor, revísalos manualmente.'],
-          errors: [],
-          validatedData: rawParsedData,
-        };
-      }
-
-      // Combinar advertencias de validación de texto y datos
-      const allWarnings = [
-        ...(textValidation.warnings || []),
-        ...(dataValidation.warnings || [])
-      ];
-      
-      // Si no es un examen médico válido, agregar advertencia pero no rechazar
-      if (!textValidation.isMedicalExam) {
-        allWarnings.push(
-          `No se detectaron suficientes términos médicos para un ${examType === 'hormonal' ? 'panel hormonal' : 
-            examType === 'metabolic' ? 'panel metabólico' : 
-            examType === 'vitamin_d' ? 'análisis de Vitamina D' :
-            examType === 'ecografia' ? 'ecografía' :
-            examType === 'hsg' ? 'histerosalpingografía' : 'espermiograma'}. ` +
-          `Se procesará la imagen de todas formas, pero por favor verifica que los datos sean correctos.`
-        );
-      }
-
-      return res.status(200).json({
-        text: fullText,
-        parsedData: dataValidation.validatedData,
-        warnings: allWarnings,
-        errors: dataValidation.errors,
-        confidence: textValidation.confidence,
-        isMedicalExam: textValidation.isMedicalExam,
-      });
+      structuredData = await extractStructuredDataWithGemini(base64Data, examType);
     } catch (ocrError: any) {
-      clearTimeout(timeoutId);
-      if (ocrError.name === 'AbortError') {
-        throw createError(getErrorMessage('TIMEOUT_ERROR', examType), 504, 'TIMEOUT_ERROR');
-      }
-      throw ocrError;
+      logger.error('Gemini OCR Error:', {
+        message: ocrError instanceof Error ? ocrError.message : String(ocrError),
+        stack: ocrError instanceof Error ? ocrError.stack : undefined,
+        examType,
+      });
+      // Reusar mensaje de timeout o genérico según convenga
+      throw createError(
+        getErrorMessage('TIMEOUT_ERROR', examType),
+        504,
+        'TIMEOUT_ERROR'
+      );
     }
+
+    // Mapeamos el JSON de Gemini a un objeto de campos numéricos compatible con validateExtractedData
+    const rawParsedData: Record<string, any> = {};
+    const resultados = Array.isArray(structuredData?.resultados)
+      ? structuredData.resultados
+      : [];
+
+    for (const item of resultados) {
+      const parametro = String(item.parametro || '').toLowerCase().trim();
+      const valor = item.valor;
+
+      // Mapear nombres de parámetro a keys internas usadas en MEDICAL_RANGES
+      // (simplificado; se puede refinar con más reglas)
+      if (parametro.includes('fsh')) rawParsedData.function_fsh = valor;
+      if (parametro.includes('lh')) rawParsedData.function_lh = valor;
+      if (parametro.includes('estradiol')) rawParsedData.function_estradiol = valor;
+      if (parametro.includes('prolact')) rawParsedData.function_prolactina = valor;
+      if (parametro.includes('tsh')) rawParsedData.function_tsh = valor;
+      if (parametro.includes('t4')) rawParsedData.function_t4 = valor;
+      if (parametro.includes('glucosa')) rawParsedData.function_glucosa = valor;
+      if (parametro.includes('insulin')) rawParsedData.function_insulina = valor;
+      if (parametro.includes('ferritin')) rawParsedData.function_ferritina = valor;
+      if (parametro.includes('hierro')) rawParsedData.function_hierro = valor;
+      if (parametro.includes('transferrin')) rawParsedData.function_transferrina = valor;
+      if (parametro.includes('colesterol')) rawParsedData.function_colesterol = valor;
+      if (parametro.includes('triglic')) rawParsedData.function_trigliceridos = valor;
+      if (parametro.includes('vitamina d') || parametro.includes('25-oh') || parametro.includes('25oh')) {
+        rawParsedData.function_vitamina_d_valor = valor;
+      }
+      if (parametro.includes('afc total')) rawParsedData.function_afc_total = valor;
+      if (parametro.includes('afc der')) rawParsedData.function_afc_derecho = valor;
+      if (parametro.includes('afc izq')) rawParsedData.function_afc_izquierdo = valor;
+      if (parametro.includes('endometrio')) rawParsedData.function_endometrio = valor;
+      if (parametro.includes('volumen') && examType === 'espermio') {
+        rawParsedData.function_espermio_volumen = valor;
+      }
+      if (parametro.includes('concentración') || parametro.includes('concentracion')) {
+        rawParsedData.function_espermio_concentracion = valor;
+      }
+      if (parametro.includes('movilidad total')) {
+        rawParsedData.function_espermio_mov_total = valor;
+      }
+      if (parametro.includes('movilidad progresiva')) {
+        rawParsedData.function_espermio_mov_prog = valor;
+      }
+      if (parametro.includes('morfolog')) {
+        rawParsedData.function_espermio_morfologia = valor;
+      }
+      if (parametro.includes('vitalidad')) {
+        rawParsedData.function_espermio_vitalidad = valor;
+      }
+    }
+
+    // Validar los datos extraídos
+    let dataValidation;
+    try {
+      dataValidation = validateExtractedData(rawParsedData, examType);
+    } catch (validationError: any) {
+      logger.error('Error validating data:', validationError);
+      dataValidation = {
+        isValid: true,
+        warnings: ['Algunos valores no pudieron ser validados. Por favor, revísalos manualmente.'],
+        errors: [],
+        validatedData: rawParsedData,
+      };
+    }
+
+    return res.status(200).json({
+      parsedData: dataValidation.validatedData,
+      warnings: dataValidation.warnings,
+      errors: dataValidation.errors,
+      raw: structuredData,
+    });
   } catch (error) {
     // Log error details for debugging
     logger.error('OCR API Error:', {
