@@ -4,9 +4,7 @@ import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 
-import type { PillarFunction, PillarFood, PillarFlora, PillarFlow } from '../../types/pillars.js';
 import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
-
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -117,38 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const forms: ConsultationForm[] = (formsData as ConsultationForm[]) || [];
 
-    // 4. Pilares actuales (tablas pillar_*)
-    const [
-      { data: functionData, error: functionError },
-      { data: foodData, error: foodError },
-      { data: floraData, error: floraError },
-      { data: flowData, error: flowError },
-    ] = await Promise.all([
-      supabase.from('pillar_function').select('*').eq('user_id', userId).maybeSingle(),
-      supabase.from('pillar_food').select('*').eq('user_id', userId).maybeSingle(),
-      supabase.from('pillar_flora').select('*').eq('user_id', userId).maybeSingle(),
-      supabase.from('pillar_flow').select('*').eq('user_id', userId).maybeSingle(),
-    ]);
-
-    if (functionError || foodError || floraError || flowError) {
-      console.error('Error cargando pilares', {
-        functionError,
-        foodError,
-        floraError,
-        flowError,
-      });
-    }
-
-    const pillars = {
-      function: (functionData as PillarFunction) || null,
-      food: (foodData as PillarFood) || null,
-      flora: (floraData as PillarFlora) || null,
-      flow: (flowData as PillarFlow) || null,
-    };
-
-    // 5. Cálculo de FertyScore (total + por pilar)
-
-    // 6. Construir contexto para Gemini
+    // Construir contexto para Gemini (sin FertyScore ni pilares)
     const context = {
       perfil: {
         id: userProfile.id,
@@ -170,12 +137,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         consumo_alcohol: userProfile.alcoholConsumption,
         fumadora: userProfile.smoker,
       },
-      pilares: {
-        function: pillars.function,
-        food: pillars.food,
-        flora: pillars.flora,
-        flow: pillars.flow,
-      },
       registros_diarios: logs,
       formularios: forms,
       fecha_informe: new Date().toISOString(),
@@ -186,20 +147,16 @@ Eres un experto en fertilidad y salud integral femenina.
 
 Recibirás un JSON con:
 - Perfil de la usuaria.
-- Estado actual de sus pilares (FUNCTION, FOOD, FLORA, FLOW).
 - Historial de registros diarios (temperatura, moco, sueño, estrés, hábitos).
-- Formularios y exámenes médicos guardados.
-- Información clínica relevante de los pilares (FUNCTION, FOOD, FLORA, FLOW).
+- Formularios y exámenes médicos guardados (incluyendo analíticas y ecografías).
 
 TAREA:
 1. Lee el JSON y construye un INFORME NARRATIVO COMPLETO para la usuaria.
 2. Estructura el informe en secciones con subtítulos claros, por ejemplo:
    - Perfil general y contexto.
    - Resumen de fertilidad general.
-   - Análisis del pilar FUNCTION (fisiología, analíticas, diagnósticos).
-   - Análisis del pilar FOOD (nutrición y hábitos).
-   - Análisis del pilar FLORA (microbiota, digestivo, infecciones).
-   - Análisis del pilar FLOW (estrés, sueño, carga mental, sexualidad).
+   - Análisis de exámenes y datos médicos relevantes.
+   - Hábitos y estilo de vida (sueño, estrés, actividad, alimentación si está disponible).
    - Síntesis de riesgos y fortalezas.
    - Recomendaciones prácticas (3–5 puntos concretos).
 
