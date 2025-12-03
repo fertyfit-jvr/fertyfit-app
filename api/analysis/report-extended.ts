@@ -1,13 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 
-import { fetchProfileForUser, fetchAllLogsForUser, fetchUserFormsForUser } from '../../services/userDataService.js';
-import { fetchPillarData } from '../../services/pillarService.js';
-import { calculateFertyScore, type FertyPillars } from '../../services/fertyscoreService.js';
 import type { PillarFunction, PillarFood, PillarFlora, PillarFlow } from '../../types/pillars.js';
 import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
+import { calculateFertyScore, type FertyPillars } from '../../services/fertyscoreService.js';
+
+// Supabase client para entorno serverless (usar process.env, no import.meta.env)
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey =
+  process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Supabase URL o ANON KEY no están configuradas en las variables de entorno');
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -23,13 +33,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw createError('Falta el userId en la solicitud', 400, 'BAD_REQUEST');
     }
 
-    // 1. Perfil
-    const profile = await fetchProfileForUser(userId);
-    if (!profile) {
+    // 1. Perfil (tabla profiles)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
       throw createError('No se encontró el perfil de la usuaria', 404, 'PROFILE_NOT_FOUND');
     }
 
-    // Mapear a UserProfile mínimo para FertyScore (simplificado)
     const userProfile: UserProfile = {
       id: userId,
       email: undefined,
@@ -55,27 +69,81 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       alcoholConsumption: profile.alcohol_consumption || undefined,
     };
 
-    // 2. Registros diarios (historial completo)
-    const logsResult = await fetchAllLogsForUser(userId);
-    const logs: DailyLog[] = logsResult.success ? logsResult.data : [];
+    // 2. Registros diarios (tabla daily_logs)
+    const { data: logsData, error: logsError } = await supabase
+      .from('daily_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
 
-    // 3. Formularios / exámenes (consultation_forms)
-    const formsResult = await fetchUserFormsForUser(userId);
-    const forms: ConsultationForm[] = formsResult.success ? formsResult.data : [];
+    if (logsError) {
+      throw createError('Error al cargar los registros diarios', 500, 'LOGS_ERROR');
+    }
 
-    // 4. Pilares actuales
-    const [functionData, foodData, floraData, flowData] = await Promise.all([
-      fetchPillarData<PillarFunction>(userId, 'FUNCTION'),
-      fetchPillarData<PillarFood>(userId, 'FOOD'),
-      fetchPillarData<PillarFlora>(userId, 'FLORA'),
-      fetchPillarData<PillarFlow>(userId, 'FLOW'),
+    const logs: DailyLog[] =
+      logsData?.map((dbLog: any) => ({
+        id: dbLog.id,
+        user_id: dbLog.user_id,
+        date: dbLog.date,
+        cycleDay: dbLog.cycle_day,
+        bbt: dbLog.bbt,
+        mucus: dbLog.mucus || '',
+        cervixHeight: dbLog.cervix_height || '',
+        cervixFirmness: dbLog.cervix_firmness || '',
+        cervixOpenness: dbLog.cervix_openness || '',
+        lhTest: dbLog.lh_test || 'No realizado',
+        symptoms: dbLog.symptoms || [],
+        sex: dbLog.sex,
+        sleepQuality: dbLog.sleep_quality,
+        sleepHours: dbLog.sleep_hours,
+        stressLevel: dbLog.stress_level,
+        activityMinutes: dbLog.activity_minutes || 0,
+        sunMinutes: dbLog.sun_minutes || 0,
+        waterGlasses: dbLog.water_glasses,
+        veggieServings: dbLog.veggie_servings,
+        alcohol: dbLog.alcohol,
+        alcoholUnits: dbLog.alcohol_units || undefined,
+      })) || [];
+
+    // 3. Formularios / exámenes (tabla consultation_forms)
+    const { data: formsData, error: formsError } = await supabase
+      .from('consultation_forms')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (formsError) {
+      throw createError('Error al cargar los formularios', 500, 'FORMS_ERROR');
+    }
+
+    const forms: ConsultationForm[] = (formsData as ConsultationForm[]) || [];
+
+    // 4. Pilares actuales (tablas pillar_*)
+    const [
+      { data: functionData, error: functionError },
+      { data: foodData, error: foodError },
+      { data: floraData, error: floraError },
+      { data: flowData, error: flowError },
+    ] = await Promise.all([
+      supabase.from('pillar_function').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('pillar_food').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('pillar_flora').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('pillar_flow').select('*').eq('user_id', userId).maybeSingle(),
     ]);
 
+    if (functionError || foodError || floraError || flowError) {
+      console.error('Error cargando pilares', {
+        functionError,
+        foodError,
+        floraError,
+        flowError,
+      });
+    }
+
     const pillars: FertyPillars = {
-      function: functionData,
-      food: foodData,
-      flora: floraData,
-      flow: flowData,
+      function: (functionData as PillarFunction) || null,
+      food: (foodData as PillarFood) || null,
+      flora: (floraData as PillarFlora) || null,
+      flow: (flowData as PillarFlow) || null,
     };
 
     // 5. Cálculo de FertyScore (total + por pilar)
@@ -104,10 +172,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         fumadora: userProfile.smoker,
       },
       pilares: {
-        function: functionData,
-        food: foodData,
-        flora: floraData,
-        flow: flowData,
+        function: pillars.function,
+        food: pillars.food,
+        flora: pillars.flora,
+        flow: pillars.flow,
       },
       registros_diarios: logs,
       formularios: forms,
@@ -161,5 +229,3 @@ A continuación tienes el JSON de contexto:
     sendErrorResponse(res, error, req);
   }
 }
-
-
