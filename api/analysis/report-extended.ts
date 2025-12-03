@@ -7,19 +7,73 @@ import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
+// Usamos SERVICE ROLE KEY para bypassear RLS y poder leer todos los datos del usuario
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey =
-  process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase URL o ANON KEY no están configuradas en las variables de entorno');
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  throw new Error(
+    'Supabase URL o SERVICE ROLE KEY no están configuradas en las variables de entorno'
+  );
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+});
+
+// Helper CORS similar al de /api/ocr/process
+function setCORSHeaders(res: VercelResponse, origin: string): string {
+  const isLocalhost =
+    origin.includes('localhost') ||
+    origin.includes('127.0.0.1') ||
+    origin.includes('0.0.0.0');
+
+  const allowedOrigins = [
+    'https://method.fertyfit.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+  ];
+
+  let allowedOrigin: string;
+  if (origin && allowedOrigins.includes(origin)) {
+    allowedOrigin = origin;
+  } else if (isLocalhost) {
+    allowedOrigin = origin;
+  } else {
+    allowedOrigin = 'https://method.fertyfit.com';
+  }
+
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
+
+  return allowedOrigin;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS primero
+  const origin = (req.headers.origin as string) || '';
+  setCORSHeaders(res, origin);
+
+  // Preflight OPTIONS
+  if (req.method === 'OPTIONS') {
+    res.status(200);
+    res.setHeader('Content-Length', '0');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.end();
+  }
+
   try {
+    // Seguridad después de CORS
     applySecurityHeaders(res);
+    // Reafirmar CORS tras los headers de seguridad
+    setCORSHeaders(res, origin);
 
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
@@ -181,6 +235,9 @@ A continuación tienes el JSON de contexto:
       report: reportText,
     });
   } catch (error) {
+    // Aseguramos CORS también en errores
+    setCORSHeaders(res, origin);
     sendErrorResponse(res, error, req);
   }
 }
+
