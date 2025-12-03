@@ -192,6 +192,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? structuredData.resultados
       : [];
 
+    // Si no hay resultados estructurados, probablemente no es un examen médico válido
+    if (!resultados || resultados.length === 0) {
+      throw createError(getErrorMessage('NO_MEDICAL_EXAM', examType), 400, 'NO_MEDICAL_EXAM');
+    }
+
     for (const item of resultados) {
       const parametro = String(item.parametro || '').toLowerCase().trim();
       const valor = item.valor;

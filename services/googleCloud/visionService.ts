@@ -13,6 +13,7 @@ export interface OCRRequest {
 export interface OCRResponse {
   text: string;
   parsedData?: Record<string, any>;
+  raw?: any; // Datos originales devueltos por la API (por ejemplo, resultados de Gemini)
   examTypeDetected?: string; // Tipo de examen detectado automáticamente
   warnings?: string[];
   errors?: string[];
@@ -121,11 +122,15 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     const data = await response.json();
     
     // Aceptar datos en parsedData o en otros formatos alternativos
-    const parsedData = data.parsedData || data.data || (data.parsedData === undefined && Object.keys(data).length > 0 ? data : {});
+    const parsedData =
+      data.parsedData ||
+      data.data ||
+      (data.parsedData === undefined && Object.keys(data).length > 0 ? data : {});
     
     return {
       text: data.text || data.rawText || '', // Texto extraído o datos estructurados de la API
-      parsedData: parsedData,
+      parsedData,
+      raw: data.raw, // Datos originales (por ejemplo, resultados de Gemini)
       examTypeDetected: data.examTypeDetected, // Tipo detectado automáticamente
       warnings: data.warnings || [],
       errors: data.errors || [],

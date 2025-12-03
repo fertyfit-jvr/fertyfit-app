@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { processImageOCR } from '../services/googleCloud/visionService';
-import { parseExam, parseAllExamTypes, detectExamType } from '../services/examParsers';
-import { saveExamToConsultationForms } from '../services/examService';
+import { saveExamToConsultationForms, saveFunctionFromExam } from '../services/examService';
 import { logger } from '../lib/logger';
 import { useAppStore } from '../store/useAppStore';
 
@@ -111,56 +110,70 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         setExtractedText(ocrResult.text);
       }
 
-      if (!ocrResult.text && !ocrResult.parsedData) {
+      if (!ocrResult.parsedData || Object.keys(ocrResult.parsedData).length === 0) {
         throw new Error(
-          'No se pudo extraer texto de la imagen. Por favor, asegúrate de que la imagen sea clara y contenga texto legible.'
+          'No se pudieron extraer datos estructurados del examen. Por favor, asegúrate de que la imagen sea clara y contenga los resultados visibles.'
         );
       }
 
-      let parsed: Record<string, any> = {};
-      let detectedTypesList: string[] = [];
+      const parsed: Record<string, any> = ocrResult.parsedData;
       let finalExamType: string | undefined = examType || ocrResult.examTypeDetected;
 
-      if (autoDetect || !examType) {
-        logger.log('🔍 Auto-detecting exam type and parsing all types...');
-        const detection = detectExamType(ocrResult.text || '');
-        detectedTypesList = detection.types;
-        setDetectedTypes(detectedTypesList);
-        logger.log('✅ Detected exam types:', detectedTypesList, 'confidence:', detection.confidence);
-
-        parsed = parseAllExamTypes(ocrResult.text || '');
-        logger.log('📝 Parsed all exam types, found fields:', Object.keys(parsed));
-      } else if (ocrResult.parsedData && Object.keys(ocrResult.parsedData).length > 0) {
-        parsed = ocrResult.parsedData;
-        finalExamType = ocrResult.examTypeDetected || examType;
-        logger.log('✅ Using parsed data from API', { examTypeDetected: ocrResult.examTypeDetected });
-      } else if (ocrResult.text) {
-        logger.log('📝 Parsing text locally for type:', examType);
-        parsed = parseExam(ocrResult.text, examType);
+      // Si tenemos examType detectado por el backend, usarlo
+      if (ocrResult.examTypeDetected) {
+        finalExamType = ocrResult.examTypeDetected;
       }
 
-      // Guardar examen genérico si aplica
-      const predefinedTypes = ['hormonal', 'metabolico', 'vitamin_d', 'ecografia', 'hsg', 'espermio'];
-      const isGenericExam =
-        finalExamType && !predefinedTypes.includes(finalExamType.toLowerCase());
+      // Construir comentario breve a partir de warnings y errores
+      const commentParts: string[] = [];
 
-      if (isGenericExam && parsed && Object.keys(parsed).length > 0 && user?.id) {
-        logger.log('💾 Saving generic exam to consultation_forms...', { examType: finalExamType });
+      if (ocrResult.warnings && ocrResult.warnings.length > 0) {
+        commentParts.push('Advertencias:');
+        ocrResult.warnings.forEach(w => commentParts.push(`- ${w}`));
+      }
+
+      if (ocrResult.errors && ocrResult.errors.length > 0) {
+        if (commentParts.length > 0) commentParts.push('');
+        commentParts.push('Valores fuera de rango:');
+        ocrResult.errors.forEach(e => commentParts.push(`- ${e}`));
+      }
+
+      const validationComment =
+        commentParts.length > 0
+          ? commentParts.join('\n')
+          : 'Todos los valores están dentro de los rangos recomendados.';
+
+      // Guardar TODOS los exámenes (no solo genéricos)
+      if (parsed && Object.keys(parsed).length > 0 && user?.id) {
+        logger.log('💾 Saving exam to consultation_forms...', { examType: finalExamType });
         try {
           const saveResult = await saveExamToConsultationForms(
             user.id,
             parsed,
             examType,
             finalExamType,
-            ocrResult.text
+            ocrResult.text,
+            ocrResult.raw,
+            validationComment
           );
           if (saveResult.success) {
-            logger.log('✅ Generic exam saved successfully', { formId: saveResult.formId });
+            logger.log('✅ Exam saved successfully', { formId: saveResult.formId });
           } else {
-            logger.warn('⚠️ Failed to save generic exam:', saveResult.error);
+            logger.warn('⚠️ Failed to save exam:', saveResult.error);
+          }
+
+          // Actualizar pilar FUNCTION solo para exámenes de tipo función/metabólico
+          const functionExamTypes = ['hormonal', 'metabolic', 'vitamin_d', 'espermio'];
+          const examTypeKey = (finalExamType || examType || '').toLowerCase();
+
+          if (functionExamTypes.includes(examTypeKey)) {
+            const pillarResult = await saveFunctionFromExam(user.id, parsed);
+            if (!pillarResult.success) {
+              logger.warn('⚠️ Failed to update FUNCTION pillar from exam:', pillarResult.error);
+            }
           }
         } catch (saveError) {
-          logger.error('❌ Error saving generic exam:', saveError);
+          logger.error('❌ Error saving exam:', saveError);
         }
       }
 
