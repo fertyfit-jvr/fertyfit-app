@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, X } from 'lucide-react';
+import { Activity, AlertCircle, Camera, Check, CheckCircle, ChevronDown, Clock, Download, Edit2, X, Loader2, FileText } from 'lucide-react';
 import { ConsultationForm, DailyLog, UserProfile } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { calculateAverages } from '../../services/dataService';
@@ -51,6 +51,10 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
     'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'
   >('hormonal');
   const [globalExamName, setGlobalExamName] = useState('');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportText, setReportText] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   const originalAnswers = useRef<Record<string, any>>({});
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -630,6 +634,41 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
     </div>
   );
 
+  const handleGenerateReport = async () => {
+    if (!user?.id) return;
+    setIsGeneratingReport(true);
+    setReportError(null);
+    setReportText(null);
+    setReportModalOpen(true);
+
+    try {
+      const response = await fetch('/api/analysis/report-extended', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message =
+          errorData.error ||
+          `Error al generar el informe (${response.status}). Por favor, intenta de nuevo más tarde.`;
+        setReportError(message);
+        return;
+      }
+
+      const data = await response.json();
+      setReportText(data.report || 'No se pudo generar el informe.');
+    } catch (err: any) {
+      setReportError(
+        err?.message ||
+          'Error al conectar con el servidor. Verifica tu conexión a internet e intenta de nuevo.'
+      );
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   const renderFormCard = () => {
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
     return (
@@ -849,6 +888,26 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
       <div>
         <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
         <p className="text-sm text-[#5D7180]">Puedes actualizarlos durante todo el método.</p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#5D7180] text-white text-xs font-bold shadow-sm hover:bg-[#4A5568] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isGeneratingReport ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Generando informe...
+              </>
+            ) : (
+              <>
+                <FileText size={14} />
+                Generar informe 360º
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -962,6 +1021,57 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
           autoDetect={globalExamType === 'other'}
           examName={globalExamType === 'other' ? globalExamName : undefined}
         />
+      )}
+
+      {/* Modal de informe 360º */}
+      {reportModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-[#F4F0ED]">
+              <div>
+                <h3 className="text-lg font-bold text-[#4A4A4A]">Informe 360º FertyFit</h3>
+                <p className="text-xs text-[#5D7180] mt-1">
+                  Análisis narrativo basado en tu perfil, pilares, registros diarios y exámenes.
+                </p>
+              </div>
+              <button
+                onClick={() => setReportModalOpen(false)}
+                className="text-[#5D7180] hover:bg-[#F4F0ED] p-2 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {isGeneratingReport && (
+                <div className="flex items-center gap-3 text-sm text-[#5D7180]">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>Estamos generando tu informe. Esto puede tardar unos segundos…</span>
+                </div>
+              )}
+
+              {reportError && !isGeneratingReport && (
+                <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-red-800">Error al generar el informe</p>
+                      <div className="text-xs text-red-700 mt-1 whitespace-pre-line">{reportError}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {reportText && !isGeneratingReport && !reportError && (
+                <div className="bg-[#F9F6F4] border border-[#F4F0ED] p-4 rounded-2xl">
+                  <p className="text-sm text-[#4A4A4A] whitespace-pre-line leading-relaxed">
+                    {reportText}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
