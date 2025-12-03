@@ -9,6 +9,7 @@ interface ExamScannerProps {
   onClose: () => void;
   sectionTitle?: string;
   autoDetect?: boolean; // Si true, detecta automáticamente el tipo y extrae todos los valores
+  examName?: string; // Nombre del examen cuando es "Otro"
 }
 
 const EXAM_TYPE_LABELS: Record<string, string> = {
@@ -20,7 +21,7 @@ const EXAM_TYPE_LABELS: Record<string, string> = {
   espermio: 'Espermiograma',
 };
 
-export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, autoDetect = false }: ExamScannerProps) => {
+export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, autoDetect = false, examName }: ExamScannerProps) => {
   const {
     image,
     isProcessing,
@@ -34,7 +35,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
     setError,
     reset,
     processImage
-  } = useExamScanner({ examType, autoDetect });
+  } = useExamScanner({ examType, autoDetect, examName });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -46,8 +46,11 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  const [scanningSection, setScanningSection] = useState<string | null>(null);
-  const [isScanningAll, setIsScanningAll] = useState(false); // Nuevo estado para escaneo universal
+  const [globalScannerOpen, setGlobalScannerOpen] = useState(false);
+  const [globalExamType, setGlobalExamType] = useState<
+    'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'
+  >('hormonal');
+  const [globalExamName, setGlobalExamName] = useState('');
   const originalAnswers = useRef<Record<string, any>>({});
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -585,17 +588,7 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             </button>
             {isOpen && (
               <div className="px-5 pb-5 space-y-4">
-                {/* Botón de escaneo si la sección tiene mapeo */}
-                {SECTION_TO_EXAM_TYPE[section.id] && (
-                  <button
-                    type="button"
-                    onClick={() => setScanningSection(section.id)}
-                    className="w-full flex items-center justify-center gap-2 bg-[#F4F0ED] hover:bg-[#E1D7D3] border border-[#E1D7D3] rounded-xl py-3 transition-colors"
-                  >
-                    <Camera size={18} className="text-[#95706B]" />
-                    <span className="text-sm font-bold text-[#95706B]">Escanear examen</span>
-                  </button>
-                )}
+                {/* Escáner por sección deshabilitado: usamos el escáner global */}
                 {section.fields.map(field => {
                   const question = { ...field, text: field.label };
                   return (
@@ -697,24 +690,6 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
             </>
           )}
       </div>
-      {/* Botón único de escaneo para FUNCTION - discreto y elegante */}
-      {formType === 'FUNCTION' && (
-        <div className="mb-6 flex items-center gap-3 p-4 bg-gradient-to-r from-[#F9F6F4] to-[#F4F0ED] border border-[#E1D7D3] rounded-2xl">
-          <div className="flex-1">
-            <p className="text-xs font-bold text-[#95706B] mb-0.5">Escaneo inteligente</p>
-            <p className="text-[10px] text-[#5D7180]">Sube una foto y detectaremos automáticamente todos los valores</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsScanningAll(true)}
-            className="flex items-center gap-2 bg-white hover:bg-[#F9F6F4] border border-[#C7958E] text-[#95706B] px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm hover:shadow transition-all"
-          >
-            <Camera size={16} />
-            Escanear
-          </button>
-        </div>
-      )}
-      
       {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
         <button onClick={handleSubmit} className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2">
         Guardar y enviar <Download size={16} />
@@ -901,6 +876,50 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
         })}
       </div>
 
+      {/* Bloque global de subida de analíticas/ecografías */}
+      <div className="bg-white border border-[#F4F0ED] rounded-3xl p-4 shadow-sm mb-6">
+        <p className="text-sm font-bold text-[#4A4A4A] mb-3">Subir analítica / Eco</p>
+        <div className="flex flex-col md:flex-row gap-3 items-stretch">
+          <select
+            value={globalExamType}
+            onChange={e => {
+              setGlobalExamType(e.target.value as any);
+              if (e.target.value !== 'other') {
+                setGlobalExamName('');
+              }
+            }}
+            className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-white focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+          >
+            <option value="hormonal">Panel hormonal</option>
+            <option value="metabolic">Panel metabólico</option>
+            <option value="vitamin_d">Vitamina D</option>
+            <option value="espermio">Espermiograma</option>
+            <option value="ecografia">Ecografía transvaginal + AFC</option>
+            <option value="hsg">Histerosalpingografía</option>
+            <option value="other">Otro (especificar)</option>
+          </select>
+
+          {globalExamType === 'other' && (
+            <input
+              type="text"
+              value={globalExamName}
+              onChange={e => setGlobalExamName(e.target.value)}
+              placeholder="¿Qué examen estás subiendo?"
+              className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+            />
+          )}
+
+          <button
+            type="button"
+            onClick={() => setGlobalScannerOpen(true)}
+            className="px-6 py-3 rounded-2xl bg-[#C7958E] text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#B5847D] transition-colors shadow-sm"
+          >
+            <Camera size={18} />
+            Escanear examen
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-4">
         {/* Progress Bar - Always visible, more discrete */}
         <div className="bg-[#F9F6F4] px-4 py-2.5 rounded-xl border border-[#F4F0ED]">
@@ -926,22 +945,22 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
           : renderFormCard()}
       </div>
 
-      {/* Exam Scanner Modal - Modo específico por sección */}
-      {scanningSection && SECTION_TO_EXAM_TYPE[scanningSection] && (
+      {/* Exam Scanner Modal - Global */}
+      {globalScannerOpen && (
         <ExamScanner
-          examType={SECTION_TO_EXAM_TYPE[scanningSection]}
+          examType={
+            globalExamType === 'other'
+              ? undefined
+              : (globalExamType as 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio')
+          }
           onDataExtracted={handleDataExtracted}
-          onClose={() => setScanningSection(null)}
-          sectionTitle={definition.sections?.find(s => s.id === scanningSection)?.title}
-        />
-      )}
-
-      {/* Exam Scanner Modal - Modo detección automática universal */}
-      {isScanningAll && (
-        <ExamScanner
-          autoDetect={true}
-          onDataExtracted={handleDataExtracted}
-          onClose={() => setIsScanningAll(false)}
+          onClose={() => {
+            setGlobalScannerOpen(false);
+            setGlobalExamName('');
+          }}
+          sectionTitle={globalExamType === 'other' ? globalExamName || 'Examen' : undefined}
+          autoDetect={globalExamType === 'other'}
+          examName={globalExamType === 'other' ? globalExamName : undefined}
         />
       )}
     </div>

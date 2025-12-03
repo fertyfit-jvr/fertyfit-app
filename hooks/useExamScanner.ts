@@ -15,6 +15,7 @@ export type ExamType =
 interface UseExamScannerOptions {
   examType?: ExamType;
   autoDetect?: boolean;
+  examName?: string; // Nombre del examen cuando es "Otro"
 }
 
 interface UseExamScannerReturn {
@@ -40,7 +41,7 @@ interface UseExamScannerReturn {
  * - Gestionar estados de error, warnings y validación
  */
 export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScannerReturn {
-  const { examType, autoDetect = false } = options;
+  const { examType, autoDetect = false, examName } = options;
   const { user } = useAppStore();
 
   const [image, setImage] = useState<string | null>(null);
@@ -147,11 +148,14 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
       if (parsed && Object.keys(parsed).length > 0 && user?.id) {
         logger.log('💾 Saving exam to consultation_forms...', { examType: finalExamType });
         try {
+          // Si hay un nombre de examen personalizado (caso "Otro"), usarlo como examTypeDetected
+          const finalExamTypeWithName = examName || finalExamType;
+          
           const saveResult = await saveExamToConsultationForms(
             user.id,
             parsed,
             examType,
-            finalExamType,
+            finalExamTypeWithName,
             ocrResult.text,
             ocrResult.raw,
             validationComment
