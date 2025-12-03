@@ -192,8 +192,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? structuredData.resultados
       : [];
 
-    // Si no hay resultados estructurados, probablemente no es un examen médico válido
-    if (!resultados || resultados.length === 0) {
+    // Solo tratamos falta de resultados como "no es examen médico" para analíticas
+    const labExamTypes: Array<typeof examType> = ['hormonal', 'metabolic', 'vitamin_d', 'espermio'];
+    if (labExamTypes.includes(examType) && (!resultados || resultados.length === 0)) {
       throw createError(getErrorMessage('NO_MEDICAL_EXAM', examType), 400, 'NO_MEDICAL_EXAM');
     }
 

@@ -88,6 +88,15 @@ export async function saveExamToConsultationForms(
       return { success: false, error: 'No se encontraron datos para guardar' };
     }
 
+    // Añadir comentario de validación como respuesta estructurada si existe
+    if (validationComment) {
+      answers.push({
+        questionId: 'gemini_comment',
+        question: 'Comentario de validación del examen (Gemini)',
+        answer: validationComment,
+      });
+    }
+
     // Construir observaciones con:
     // - Comentario de validación (warnings/errores)
     // - Datos originales de Gemini (raw)
