@@ -6,7 +6,7 @@ import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 
 import type { PillarFunction, PillarFood, PillarFlora, PillarFlow } from '../../types/pillars.js';
 import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
-import { calculateFertyScore, type FertyPillars } from '../../services/fertyscoreService.js';
+
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -139,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const pillars: FertyPillars = {
+    const pillars = {
       function: (functionData as PillarFunction) || null,
       food: (foodData as PillarFood) || null,
       flora: (floraData as PillarFlora) || null,
@@ -147,7 +147,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     // 5. Cálculo de FertyScore (total + por pilar)
-    const scores = calculateFertyScore(userProfile, logs, pillars);
 
     // 6. Construir contexto para Gemini
     const context = {
@@ -179,7 +178,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       registros_diarios: logs,
       formularios: forms,
-      fertyScore: scores,
       fecha_informe: new Date().toISOString(),
     };
 
@@ -191,13 +189,13 @@ Recibirás un JSON con:
 - Estado actual de sus pilares (FUNCTION, FOOD, FLORA, FLOW).
 - Historial de registros diarios (temperatura, moco, sueño, estrés, hábitos).
 - Formularios y exámenes médicos guardados.
-- FertyScore total y por pilar.
+- Información clínica relevante de los pilares (FUNCTION, FOOD, FLORA, FLOW).
 
 TAREA:
 1. Lee el JSON y construye un INFORME NARRATIVO COMPLETO para la usuaria.
 2. Estructura el informe en secciones con subtítulos claros, por ejemplo:
    - Perfil general y contexto.
-   - Resumen de fertilidad y FertyScore.
+   - Resumen de fertilidad general.
    - Análisis del pilar FUNCTION (fisiología, analíticas, diagnósticos).
    - Análisis del pilar FOOD (nutrición y hábitos).
    - Análisis del pilar FLORA (microbiota, digestivo, infecciones).
