@@ -19,7 +19,7 @@ export const securityHeaders = {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co https://generativelanguage.googleapis.com",
+    "connect-src 'self' https://*.supabase.co",
     "media-src 'self' blob: data:",
     "frame-ancestors 'none'",
   ].join('; '),

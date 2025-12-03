@@ -25,7 +25,7 @@ const logger = {
   },
 };
 
-// Importar Google Cloud Vision (se instalará como dependencia)
+// Importar Google Cloud Vision (dependencia instalada)
 let vision: any = null;
 
 async function getVisionClient() {

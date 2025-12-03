@@ -13,7 +13,7 @@ export interface OCRRequest {
 export interface OCRResponse {
   text: string;
   parsedData?: Record<string, any>;
-  examTypeDetected?: string; // Tipo de examen detectado por AI (Make/Gemini)
+  examTypeDetected?: string; // Tipo de examen detectado automáticamente
   warnings?: string[];
   errors?: string[];
   confidence?: number;
@@ -22,8 +22,8 @@ export interface OCRResponse {
 }
 
 /**
- * Procesa una imagen con OCR a través de una API HTTP (por ejemplo, API route de Vercel).
- * No depende ya de Make/n8n; toda la configuración se hace vía URL de API.
+ * Procesa una imagen con OCR a través de una API HTTP (API route de Vercel).
+ * Toda la configuración se hace vía URL de API.
  */
 export async function processImageOCR(request: OCRRequest): Promise<OCRResponse> {
   try {
@@ -120,14 +120,13 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
 
     const data = await response.json();
     
-    // Make puede devolver los datos directamente en parsedData o en otro formato
-    // Aceptar también examTypeDetected si viene de Make
+    // Aceptar datos en parsedData o en otros formatos alternativos
     const parsedData = data.parsedData || data.data || (data.parsedData === undefined && Object.keys(data).length > 0 ? data : {});
     
     return {
-      text: data.text || data.rawText || '', // Make puede no devolver texto si solo devuelve datos estructurados
+      text: data.text || data.rawText || '', // Texto extraído o datos estructurados de la API
       parsedData: parsedData,
-      examTypeDetected: data.examTypeDetected, // Tipo detectado por Make/Gemini
+      examTypeDetected: data.examTypeDetected, // Tipo detectado automáticamente
       warnings: data.warnings || [],
       errors: data.errors || [],
       confidence: data.confidence,

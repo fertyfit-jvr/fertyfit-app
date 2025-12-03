@@ -1,24 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Plugin para interceptar y bloquear llamadas a /api/gemini/*
-const blockGeminiPlugin = () => {
-  return {
-    name: 'block-gemini-api',
-    configureServer(server) {
-      server.middlewares.use('/api/gemini', (req, res, next) => {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ 
-          error: 'Endpoint no disponible - Gemini ha sido removido',
-          code: 'GEMINI_REMOVED'
-        }));
-      });
-    },
-  };
-};
-
 export default defineConfig({
-  plugins: [react(), blockGeminiPlugin()],
+  plugins: [react()],
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   server: {
     // En desarrollo local, las funciones serverless se ejecutan localmente
