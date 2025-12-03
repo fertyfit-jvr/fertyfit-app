@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -7,7 +7,7 @@ if (!apiKey) {
 }
 
 // Cliente principal para modelos de texto / visión
-export const ai = new GoogleGenerativeAI({
+export const ai = new GoogleGenAI({
   apiKey,
 });
 
