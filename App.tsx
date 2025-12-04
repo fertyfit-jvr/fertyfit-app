@@ -100,16 +100,6 @@ function AppContent() {
     );
   }
 
-
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-[#F4F0ED]">
-      <div className="animate-pulse flex flex-col items-center">
-        <img src={BRAND_ASSETS.favicon} alt="Loading" className="w-12 h-12 mb-4 animate-bounce" />
-        <p className="text-[#C7958E] font-bold text-sm tracking-widest">CARGANDO...</p>
-      </div>
-    </div>
-  );
-
   // Loading state
   if (loading) {
     return (

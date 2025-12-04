@@ -521,11 +521,33 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // Validar el payload con Zod antes de guardar
     try {
       DailyLogSchema.parse(normalizedLog);
-    } catch (validationError: any) {
-      logger.warn('❌ DailyLog validation failed:', validationError);
-      const message =
-        validationError?.errors?.[0]?.message ||
-        'Algunos valores del registro diario no son válidos. Revisa los campos e inténtalo de nuevo.';
+    } catch (validationError: unknown) {
+      // Zod usa 'issues', no 'errors'
+      let message = 'Algunos valores del registro diario no son válidos. Revisa los campos e inténtalo de nuevo.';
+      
+      // Validar que sea un ZodError
+      if (validationError && typeof validationError === 'object') {
+        // ZodError tiene estructura { issues: Array<{ message: string, path: string[] }> }
+        if ('issues' in validationError && Array.isArray(validationError.issues) && validationError.issues.length > 0) {
+          const firstIssue = validationError.issues[0];
+          if (firstIssue && typeof firstIssue === 'object' && 'message' in firstIssue) {
+            message = String(firstIssue.message);
+            
+            // Agregar campo específico si está disponible para mejor UX
+            if ('path' in firstIssue && Array.isArray(firstIssue.path) && firstIssue.path.length > 0) {
+              const fieldName = firstIssue.path[firstIssue.path.length - 1];
+              message = `${String(fieldName)}: ${message}`;
+            }
+          }
+        }
+      }
+      
+      logger.warn('❌ DailyLog validation failed:', {
+        error: validationError,
+        message,
+        normalizedLog: normalizedLog, // Para debugging
+      });
+      
       showNotif(message, 'error');
       return;
     }
