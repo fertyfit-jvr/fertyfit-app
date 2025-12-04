@@ -202,6 +202,38 @@ TAREA:
 
     const explanation = (response as any).text ?? 'No se pudo generar la explicación.';
 
+    // Guardar la explicación en notifications
+    try {
+      const labNames = Object.keys(labs).join(', ');
+      const { error: saveError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          type: 'LABS',
+          title: `Análisis de analíticas - ${labNames}`,
+          message: explanation,
+          priority: 1,
+          is_read: false,
+          metadata: {
+            input: { userId, labs, age: age || undefined },
+            sources: ragChunks.map((c) => ({
+              document_id: c.metadata?.document_id || '',
+              document_title: c.metadata?.document_title || '',
+              chunk_index: c.metadata?.chunk_index || 0,
+            })),
+            generated_at: new Date().toISOString(),
+          },
+        });
+
+      if (saveError) {
+        console.warn('No se pudo guardar la explicación en notifications:', saveError);
+        // No fallamos la request si falla el guardado
+      }
+    } catch (saveError) {
+      console.warn('Error al guardar explicación en notifications:', saveError);
+      // No fallamos la request si falla el guardado
+    }
+
     const responseData: LabsRagResponse = {
       explanation,
       rawLabs: labs,

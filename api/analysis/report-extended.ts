@@ -272,6 +272,33 @@ A continuación tienes el JSON de contexto de la paciente:
 
     const reportText = (response as any).text ?? 'No se pudo generar el informe.';
 
+    // Guardar el informe en notifications
+    try {
+      const { error: saveError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          type: 'REPORT',
+          title: `Informe 360º - ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+          message: reportText,
+          priority: 1,
+          is_read: false,
+          metadata: {
+            input: { userId },
+            rag_context_length: ragContext.length,
+            generated_at: new Date().toISOString(),
+          },
+        });
+
+      if (saveError) {
+        console.warn('No se pudo guardar el informe en notifications:', saveError);
+        // No fallamos la request si falla el guardado
+      }
+    } catch (saveError) {
+      console.warn('Error al guardar informe en notifications:', saveError);
+      // No fallamos la request si falla el guardado
+    }
+
     return res.status(200).json({
       report: reportText,
     });
