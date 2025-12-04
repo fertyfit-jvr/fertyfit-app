@@ -7,12 +7,12 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { OCRRequestSchema } from '../lib/validation.js';
-import { ocrRateLimiter, rateLimitMiddleware } from '../lib/rateLimiter.js';
-import { sendErrorResponse, createError } from '../lib/errorHandler.js';
-import { applySecurityHeaders, validateImageUpload } from '../lib/security.js';
-import { validateExtractedData, getErrorMessage } from '../lib/medicalValidation.js';
-import { ai } from '../lib/ai.js';
+import { OCRRequestSchema } from '../../server/lib/validation.js';
+import { ocrRateLimiter, rateLimitMiddleware } from '../../server/lib/rateLimiter.js';
+import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
+import { applySecurityHeaders, validateImageUpload } from '../../server/lib/security.js';
+import { validateExtractedData, getErrorMessage } from '../../server/lib/medicalValidation.js';
+import { ai } from '../../server/lib/ai.js';
 
 // Logger simple para serverless functions (solo para serverless, no usar en frontend)
 const logger = {

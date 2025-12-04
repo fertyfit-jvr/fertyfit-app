@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { ai } from '../lib/ai.js';
-import { applySecurityHeaders } from '../lib/security.js';
-import { sendErrorResponse, createError } from '../lib/errorHandler.js';
-import { searchRagDirect } from '../lib/ragUtils.js';
+import { ai } from '../../server/lib/ai.js';
+import { applySecurityHeaders } from '../../server/lib/security.js';
+import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
+import { searchRagDirect } from '../../server/lib/ragUtils.js';
 
 type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
