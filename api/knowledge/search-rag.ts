@@ -42,19 +42,15 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
 });
 
 async function embedQuery(query: string): Promise<number[]> {
-  const resp = await ai.models.embedContent({
+  // El SDK nuevo usa ai.models.embedContent directamente
+  const resp = await (ai as any).models.embedContent({
     model: 'text-embedding-004',
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: query }],
-      },
-    ],
-  } as any);
+    contents: [query], // Array de strings
+  });
 
+  // La respuesta tiene embeddings array, cada uno con values
   const embedding =
-    (resp as any).embeddings?.[0]?.values ||
-    (resp as any).embedding?.values;
+    resp?.embeddings?.[0]?.values;
 
   if (!embedding || embedding.length === 0) {
     throw createError('No se pudo generar el embedding de la consulta', 500, 'EMBEDDING_ERROR');
