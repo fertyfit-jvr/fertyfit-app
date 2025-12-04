@@ -3,17 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
-import { searchRagDirect } from '../lib/ragUtils.js';
 
-type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
-
-type ChatRagRequest = {
+type ChatRequest = {
   userId: string;
   query: string;
-  filters?: {
-    pillar_category?: PillarCategory;
-    doc_type?: string;
-  };
   conversation_history?: Array<{
     role: 'user' | 'assistant';
     content: string;
@@ -35,15 +28,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
   },
 });
 
-type ChatRagResponse = {
+type ChatResponse = {
   answer: string;
-  sources?: Array<{
-    document_id: string;
-    document_title: string;
-    chunk_index: number;
-  }>;
-  rag_used: boolean;
-  rag_chunks_count: number;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -54,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { userId, query, filters, conversation_history }: ChatRagRequest = req.body || {};
+    const { userId, query, conversation_history }: ChatRequest = req.body || {};
 
     if (!userId) {
       throw createError('Falta el userId en la solicitud', 400, 'BAD_REQUEST');
@@ -64,9 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw createError('Falta la pregunta del usuario', 400, 'BAD_REQUEST');
     }
 
-    // Verificar límite diario de chat (5 para free, 30 para premium)
-    // TODO: Añadir campo is_premium en profiles cuando implementes premium
-    const dailyChatLimit = 5; // Por ahora todos tienen 5, luego se puede ajustar según premium
+    // Verificar límite diario de chat (5 para free)
+    const dailyChatLimit = 5;
     
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -80,7 +65,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (countError) {
         console.warn('Error al verificar límite diario de chat:', countError);
-        // Continuamos sin límite si falla la verificación
       } else if (count !== null && count >= dailyChatLimit) {
         throw createError(
           `Has alcanzado tu límite diario de ${dailyChatLimit} preguntas. Vuelve mañana o actualiza a premium para más preguntas.`,
@@ -89,58 +73,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
     } catch (limitError: any) {
-      // Si es nuestro error de límite, lo propagamos
       if (limitError.code === 'DAILY_LIMIT_EXCEEDED') {
         throw limitError;
       }
-      // Si es otro error, solo lo logueamos y continuamos
       console.warn('Error al verificar límite de chat:', limitError);
     }
 
-    // Obtener contexto RAG
-    let ragContext = '';
-    let ragSources: Array<{
-      document_id: string;
-      document_title: string;
-      chunk_index: number;
-    }> = [];
-    let ragUsed = false;
-    let ragChunksCount = 0;
-
-    try {
-      console.log(`[RAG] Buscando contexto para: "${query.substring(0, 80)}..."`);
-      console.log(`[RAG] Filtros:`, filters || 'NINGUNO (búsqueda en todos los pilares)`);
-
-      // Usar función directa en lugar de fetch HTTP para evitar problemas de autenticación
-      const ragChunks = await searchRagDirect(query, filters, 5);
-      
-      console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
-      
-      if (ragChunks.length > 0) {
-        ragContext = ragChunks.map((c) => c.content).join('\n\n');
-        ragChunksCount = ragChunks.length;
-        ragSources = ragChunks
-          .map((c) => ({
-            document_id: c.metadata?.document_id || '',
-            document_title: c.metadata?.document_title || '',
-            chunk_index: c.metadata?.chunk_index || 0,
-          }))
-          .filter((s) => s.document_id);
-        ragUsed = ragContext.length > 0;
-        
-        if (ragUsed) {
-          console.log(`✅ RAG usado en chat: ${ragChunksCount} chunks encontrados para query: "${query.substring(0, 50)}..."`);
-        }
-      } else {
-        console.warn(`⚠️ RAG NO disponible en chat: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
-      }
-    } catch (ragError: any) {
-      // Si falla el RAG, continuamos sin él (pero avisamos)
-      console.error('❌ RAG EXCEPTION en chat:', ragError?.message || ragError);
-      console.error('Stack:', ragError?.stack);
-    }
-
-    // Construir prompt para Gemini
+    // Construir prompt para Gemini (SIN RAG - respuestas cortas)
     const historyText = conversation_history
       ? conversation_history
           .map((msg) => `${msg.role === 'user' ? 'Usuario' : 'Asistente'}: ${msg.content}`)
@@ -148,23 +87,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : '';
 
     const prompt = `
-Eres el consultor experto de FertyFit.
-${ragContext ? `IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
-Si la pregunta no se puede responder con este contexto, dilo explícitamente.
-NO uses conocimiento general que no esté en este contexto.
+Eres el consultor experto de FertyFit, una metodología integral de fertilidad basada en 4 pilares: FUNCIÓN (hormonal), FLORA (microbiota), FOOD (nutrición) y FLOW (bienestar).
 
-CONTEXTO FERTYFIT (${ragChunksCount} fragmentos de documentación):
-${ragContext}
+INSTRUCCIONES CRÍTICAS:
+- Responde en MÁXIMO 2 párrafos cortos (3-4 líneas cada uno)
+- Sé directo, claro y conciso
+- NO des diagnósticos médicos ni prescribas tratamientos
+- Si requiere diagnóstico médico, orienta a consultar con un especialista
+- Usa un tono cercano pero profesional
+- Si no estás seguro, dilo brevemente
 
-` : 'Responde basándote en tu conocimiento general sobre fertilidad y salud femenina, pero siempre desde la perspectiva de FertyFit.\n\n'}
-${historyText ? `HISTORIAL DE CONVERSACIÓN:
-${historyText}
-
-` : ''}PREGUNTA DEL USUARIO:
+${historyText ? `HISTORIAL DE CONVERSACIÓN:\n${historyText}\n\n` : ''}
+PREGUNTA DEL USUARIO:
 ${query}
 
-Responde en español, de forma clara, empática y sin dar diagnósticos médicos.
-${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporcionado arriba.' : ''}
+Responde en máximo 2 párrafos cortos. Sé conciso y directo.
 `;
 
     let answer = 'No se pudo generar una respuesta.';
@@ -182,7 +119,6 @@ ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporc
       console.log(`[CHAT] Respuesta generada exitosamente (${answer.length} caracteres)`);
     } catch (geminiError: any) {
       console.error(`[CHAT] ERROR al generar respuesta con Gemini:`, geminiError?.message || geminiError);
-      console.error(`[CHAT] Stack:`, geminiError?.stack);
       throw createError(
         `Error al generar respuesta: ${geminiError?.message || 'Error desconocido'}`,
         500,
@@ -192,7 +128,6 @@ ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporc
 
     // Guardar la interacción de chat en notifications
     try {
-      // Obtener historial reciente para metadata (últimas 5 interacciones de hoy)
       const today = new Date().toISOString().split('T')[0];
       const { data: recentChats } = await supabase
         .from('notifications')
@@ -215,11 +150,7 @@ ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporc
           priority: 1,
           is_read: false,
           metadata: {
-            input: { query, filters },
-            sources: ragSources,
-            rag_used: ragUsed,
-            rag_chunks_count: ragChunksCount,
-            rag_context_length: ragContext.length,
+            input: { query },
             conversation_turn: conversationTurn,
             generated_at: new Date().toISOString(),
           },
@@ -227,18 +158,13 @@ ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporc
 
       if (saveError) {
         console.warn('No se pudo guardar el chat en notifications:', saveError);
-        // No fallamos la request si falla el guardado
       }
     } catch (saveError) {
       console.warn('Error al guardar chat en notifications:', saveError);
-      // No fallamos la request si falla el guardado
     }
 
-    const responseData: ChatRagResponse = {
+    const responseData: ChatResponse = {
       answer,
-      rag_used: ragUsed,
-      rag_chunks_count: ragChunksCount,
-      ...(ragSources.length > 0 && { sources: ragSources }),
     };
 
     return res.status(200).json(responseData);
@@ -246,4 +172,3 @@ ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporc
     sendErrorResponse(res, error, req);
   }
 }
-

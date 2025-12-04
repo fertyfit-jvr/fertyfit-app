@@ -7,11 +7,6 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-  sources?: Array<{
-    document_id: string;
-    document_title: string;
-    chunk_index: number;
-  }>;
 }
 
 interface FertyFitChatProps {
@@ -69,7 +64,6 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
               role: 'assistant',
               content: chat.message || '',
               timestamp: chat.created_at,
-              sources: chat.metadata?.sources,
             });
           }
         }
@@ -155,7 +149,6 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
         role: 'assistant',
         content: data.answer || 'No se pudo generar una respuesta.',
         timestamp: new Date().toISOString(),
-        sources: data.sources,
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
@@ -228,18 +221,6 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                {message.sources && message.sources.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-[#F4F0ED]">
-                    <p className="text-xs text-[#95706B] font-semibold mb-1">Fuentes:</p>
-                    <div className="space-y-1">
-                      {message.sources.map((source, sidx) => (
-                        <p key={sidx} className="text-xs text-[#5D7180]">
-                          • {source.document_title}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ))
