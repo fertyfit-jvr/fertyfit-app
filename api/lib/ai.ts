@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -7,11 +7,12 @@ if (!apiKey) {
 }
 
 // Cliente principal para modelos de texto / visión
-export const ai = new GoogleGenerativeAI({
+export const ai = new GoogleGenAI({
   apiKey,
 });
 
 // Helper para obtener un modelo concreto (por defecto, gemini-2.5-flash)
 export function getModel(modelName = 'gemini-2.5-flash') {
-  return ai.getGenerativeModel({ model: modelName });
+  // Mantener helper por compatibilidad; actualmente no se usa.
+  return (ai as any).models?.get({ model: modelName });
 }
