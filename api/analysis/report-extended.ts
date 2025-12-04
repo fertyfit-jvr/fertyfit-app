@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
+import { searchRagDirect } from '../knowledge/search-rag.js';
 
 import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
 
@@ -203,48 +204,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let ragChunksCount = 0;
 
     try {
-      const vercelUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
-
       const ragQuery = `contexto metodológico FertyFit para un informe integral de fertilidad de una paciente de ${userProfile.age} años`;
       
-      const ragResponse = await fetch(`${vercelUrl}/api/knowledge/search-rag`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: ragQuery,
-          filters: {
-            doc_type: 'Informe_Global',
-          },
-          limit: 5,
-        }),
-      });
-
-      if (ragResponse.ok) {
-        const ragData = (await ragResponse.json()) as {
-          chunks?: Array<{ content: string; metadata?: Record<string, any> }>;
-        };
-        if (ragData.chunks && ragData.chunks.length > 0) {
-          ragChunks = ragData.chunks;
-          ragChunksCount = ragData.chunks.length;
-          ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
-          ragUsed = ragContext.length > 0;
-          
-          if (ragUsed) {
-            console.log(`✅ RAG usado en informe: ${ragChunksCount} chunks encontrados para informe de paciente ${userProfile.age} años`);
-          }
-        } else {
-          console.warn(`⚠️ RAG NO disponible en informe: No se encontraron chunks para informe de paciente ${userProfile.age} años`);
+      console.log(`[RAG] Buscando contexto para informe de paciente ${userProfile.age} años`);
+      console.log(`[RAG] Query: "${ragQuery}"`);
+      console.log(`[RAG] Filtros: doc_type=Informe_Global`);
+      
+      // Usar función directa en lugar de fetch HTTP para evitar problemas de autenticación
+      ragChunks = await searchRagDirect(ragQuery, { doc_type: 'Informe_Global' }, 5);
+      
+      console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
+      
+      if (ragChunks.length > 0) {
+        ragChunksCount = ragChunks.length;
+        ragContext = ragChunks.map((c) => c.content).join('\n\n');
+        ragUsed = ragContext.length > 0;
+        
+        if (ragUsed) {
+          console.log(`✅ RAG usado en informe: ${ragChunksCount} chunks encontrados para informe de paciente ${userProfile.age} años`);
         }
       } else {
-        console.warn(`⚠️ RAG NO disponible en informe: Error en respuesta RAG (status: ${ragResponse.status})`);
+        console.warn(`⚠️ RAG NO disponible en informe: No se encontraron chunks para informe de paciente ${userProfile.age} años`);
+        console.warn(`[RAG] Intentando sin filtro doc_type para ver si hay documentos disponibles...`);
+        
+        // Intentar sin filtro doc_type para ver si hay documentos
+        try {
+          const ragChunksNoFilter = await searchRagDirect(ragQuery, undefined, 5);
+          console.log(`[RAG] Sin filtro doc_type: ${ragChunksNoFilter.length} chunks encontrados`);
+          if (ragChunksNoFilter.length > 0) {
+            console.warn(`[RAG] ⚠️ Hay documentos disponibles pero NO tienen doc_type='Informe_Global'`);
+          }
+        } catch (e) {
+          // Ignorar error del segundo intento
+        }
       }
-    } catch (ragError) {
+    } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él (no rompemos el informe)
-      console.warn('⚠️ RAG NO disponible en informe - Error al obtener contexto RAG:', ragError);
+      console.error('❌ RAG EXCEPTION en informe:', ragError?.message || ragError);
+      console.error('Stack:', ragError?.stack);
     }
 
     const prompt = `

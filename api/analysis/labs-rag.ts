@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
+import { searchRagDirect } from '../knowledge/search-rag.js';
 
 type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
@@ -137,10 +138,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let ragChunksCount = 0;
 
     try {
-      const vercelUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
-
       // Construir query para RAG basada en los valores de analítica
       const labValues = Object.entries(labs)
         .filter(([_, value]) => value !== undefined && value !== null)
@@ -149,43 +146,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const ragQuery = `contexto sobre interpretación general de analíticas de fertilidad (${labValues}) para una mujer de ${age || 'edad no especificada'} años`;
 
-      const ragResponse = await fetch(`${vercelUrl}/api/knowledge/search-rag`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: ragQuery,
-          filters: {
-            doc_type: 'Analitica',
-            pillar_category: filters?.pillar_category || 'FUNCTION',
-          },
-          limit: 5,
-        }),
-      });
+      console.log(`[RAG] Buscando contexto para analíticas de paciente ${age || 'edad no especificada'} años`);
+      console.log(`[RAG] Query: "${ragQuery.substring(0, 100)}..."`);
+      console.log(`[RAG] Filtros: doc_type=Analitica, pillar_category=${filters?.pillar_category || 'FUNCTION'}`);
 
-      if (ragResponse.ok) {
-        const ragData = (await ragResponse.json()) as {
-          chunks?: Array<{ content: string; metadata: Record<string, any> }>;
-        };
-        if (ragData.chunks && ragData.chunks.length > 0) {
-          ragChunks = ragData.chunks;
-          ragChunksCount = ragData.chunks.length;
-          ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
-          ragUsed = ragContext.length > 0;
-          
-          if (ragUsed) {
-            console.log(`✅ RAG usado en analíticas: ${ragChunksCount} chunks encontrados para labs: ${labValues.substring(0, 100)}...`);
-          }
-        } else {
-          console.warn(`⚠️ RAG NO disponible en analíticas: No se encontraron chunks para labs: ${labValues.substring(0, 100)}...`);
+      // Usar función directa en lugar de fetch HTTP para evitar problemas de autenticación
+      ragChunks = await searchRagDirect(ragQuery, {
+        doc_type: 'Analitica',
+        pillar_category: filters?.pillar_category || 'FUNCTION',
+      }, 5);
+      
+      console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
+      
+      if (ragChunks.length > 0) {
+        ragChunksCount = ragChunks.length;
+        ragContext = ragChunks.map((c) => c.content).join('\n\n');
+        ragUsed = ragContext.length > 0;
+        
+        if (ragUsed) {
+          console.log(`✅ RAG usado en analíticas: ${ragChunksCount} chunks encontrados para labs: ${labValues.substring(0, 100)}...`);
         }
       } else {
-        console.warn(`⚠️ RAG NO disponible en analíticas: Error en respuesta RAG (status: ${ragResponse.status})`);
+        console.warn(`⚠️ RAG NO disponible en analíticas: No se encontraron chunks para labs: ${labValues.substring(0, 100)}...`);
+        console.warn(`[RAG] Intentando sin filtros para ver si hay documentos disponibles...`);
+        
+        // Intentar sin filtros para ver si hay documentos
+        try {
+          const ragChunksNoFilter = await searchRagDirect(ragQuery, undefined, 5);
+          console.log(`[RAG] Sin filtros: ${ragChunksNoFilter.length} chunks encontrados`);
+          if (ragChunksNoFilter.length > 0) {
+            console.warn(`[RAG] ⚠️ Hay documentos disponibles pero NO coinciden con los filtros (doc_type='Analitica' o pillar_category='${filters?.pillar_category || 'FUNCTION'}')`);
+          }
+        } catch (e) {
+          // Ignorar error del segundo intento
+        }
       }
-    } catch (ragError) {
+    } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él
-      console.warn('⚠️ RAG NO disponible en analíticas - Error al obtener contexto RAG:', ragError);
+      console.error('❌ RAG EXCEPTION en analíticas:', ragError?.message || ragError);
+      console.error('Stack:', ragError?.stack);
     }
 
     // Construir prompt para Gemini

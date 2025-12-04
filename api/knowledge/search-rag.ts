@@ -4,7 +4,7 @@ import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
 
-type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
+export type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
 type SearchRagRequest = {
   query?: string;
@@ -16,7 +16,7 @@ type SearchRagRequest = {
   limit?: number;
 };
 
-type KnowledgeChunk = {
+export type KnowledgeChunk = {
   content: string;
   metadata: Record<string, any>;
   similarity_score?: number;
@@ -68,6 +68,62 @@ async function embedQuery(query: string): Promise<number[]> {
   }
 }
 
+// Función exportable para usar directamente desde otros endpoints
+export async function searchRagDirect(
+  query: string,
+  filters?: {
+    pillar_category?: PillarCategory;
+    doc_type?: string;
+    document_id?: string;
+  },
+  limit: number = 5
+): Promise<KnowledgeChunk[]> {
+  const matchCount = Math.min(Math.max(limit, 1), 20); // 1–20
+
+  // 1) Obtener embedding de la query
+  const queryEmbedding = await embedQuery(query);
+
+  // 2) Llamar a la función RPC en Supabase
+  console.log(`[RAG] Llamando RPC match_fertyfit_knowledge con match_count=${matchCount}`);
+  console.log(`[RAG] Filtros: pillar_category=${filters?.pillar_category || 'null'}, doc_type=${filters?.doc_type || 'null'}, document_id=${filters?.document_id || 'null'}`);
+  
+  const { data, error } = await supabase.rpc('match_fertyfit_knowledge', {
+    query_embedding: queryEmbedding,
+    match_count: matchCount,
+    filter_pillar_category: filters?.pillar_category ?? null,
+    filter_doc_type: filters?.doc_type ?? null,
+    filter_document_id: filters?.document_id ?? null,
+  });
+
+  if (error) {
+    console.error(`[RAG] ERROR en RPC:`, error);
+    throw error;
+  }
+
+  console.log(`[RAG] RPC devolvió ${data?.length || 0} resultados`);
+  if (data && data.length > 0) {
+    console.log(`[RAG] Primer resultado: similarity=${data[0]?.similarity}, doc_id=${data[0]?.document_id}, chunk_id=${data[0]?.chunk_id}`);
+  }
+
+  const chunks: KnowledgeChunk[] =
+    (data || []).map((row: any) => ({
+      content: row.content_chunk,
+      metadata: row.metadata_json,
+      similarity_score: typeof row.similarity === 'number' ? row.similarity : undefined,
+    })) ?? [];
+
+  // Logging para verificar que RAG funciona
+  if (chunks.length > 0) {
+    console.log(`✅ RAG search exitoso: ${chunks.length} chunks encontrados para query: "${query.substring(0, 50)}..."`);
+    console.log(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
+  } else {
+    console.warn(`⚠️ RAG search sin resultados: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
+    console.warn(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
+  }
+
+  return chunks;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     applySecurityHeaders(res);
@@ -82,48 +138,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw createError('Falta la query de búsqueda', 400, 'BAD_REQUEST');
     }
 
-    const matchCount = Math.min(Math.max(limit ?? 5, 1), 20); // 1–20
-
-    // 1) Obtener embedding de la query
-    const queryEmbedding = await embedQuery(query);
-
-    // 2) Llamar a la función RPC en Supabase
-    console.log(`[RAG] Llamando RPC match_fertyfit_knowledge con match_count=${matchCount}`);
-    console.log(`[RAG] Filtros: pillar_category=${filters?.pillar_category || 'null'}, doc_type=${filters?.doc_type || 'null'}, document_id=${filters?.document_id || 'null'}`);
-    
-    const { data, error } = await supabase.rpc('match_fertyfit_knowledge', {
-      query_embedding: queryEmbedding,
-      match_count: matchCount,
-      filter_pillar_category: filters?.pillar_category ?? null,
-      filter_doc_type: filters?.doc_type ?? null,
-      filter_document_id: filters?.document_id ?? null,
-    });
-
-    if (error) {
-      console.error(`[RAG] ERROR en RPC:`, error);
-      throw error;
-    }
-
-    console.log(`[RAG] RPC devolvió ${data?.length || 0} resultados`);
-    if (data && data.length > 0) {
-      console.log(`[RAG] Primer resultado: similarity=${data[0]?.similarity}, doc_id=${data[0]?.document_id}, chunk_id=${data[0]?.chunk_id}`);
-    }
-
-    const chunks: KnowledgeChunk[] =
-      (data || []).map((row: any) => ({
-        content: row.content_chunk,
-        metadata: row.metadata_json,
-        similarity_score: typeof row.similarity === 'number' ? row.similarity : undefined,
-      })) ?? [];
-
-    // Logging para verificar que RAG funciona
-    if (chunks.length > 0) {
-      console.log(`✅ RAG search exitoso: ${chunks.length} chunks encontrados para query: "${query.substring(0, 50)}..."`);
-      console.log(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
-    } else {
-      console.warn(`⚠️ RAG search sin resultados: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
-      console.warn(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
-    }
+    // Usar la función directa para evitar problemas de autenticación
+    const chunks = await searchRagDirect(query, filters, limit ?? 5);
 
     const response: SearchRagResponse = {
       chunks,

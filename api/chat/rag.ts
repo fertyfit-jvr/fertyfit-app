@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
+import { searchRagDirect } from '../knowledge/search-rag.js';
 
 type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
@@ -107,58 +108,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let ragChunksCount = 0;
 
     try {
-      const vercelUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
-
       console.log(`[RAG] Buscando contexto para: "${query.substring(0, 80)}..."`);
       console.log(`[RAG] Filtros:`, filters || 'NINGUNO (búsqueda en todos los pilares)`);
 
-      const ragResponse = await fetch(`${vercelUrl}/api/knowledge/search-rag`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          filters: filters || undefined, // No enviar filters si es undefined
-          limit: 5,
-        }),
-      });
-
-      console.log(`[RAG] Status respuesta: ${ragResponse.status}`);
-
-      if (ragResponse.ok) {
-        const ragData = (await ragResponse.json()) as {
-          chunks?: Array<{
-            content: string;
-            metadata?: Record<string, any>;
-          }>;
-        };
+      // Usar función directa en lugar de fetch HTTP para evitar problemas de autenticación
+      const ragChunks = await searchRagDirect(query, filters, 5);
+      
+      console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
+      
+      if (ragChunks.length > 0) {
+        ragContext = ragChunks.map((c) => c.content).join('\n\n');
+        ragChunksCount = ragChunks.length;
+        ragSources = ragChunks
+          .map((c) => ({
+            document_id: c.metadata?.document_id || '',
+            document_title: c.metadata?.document_title || '',
+            chunk_index: c.metadata?.chunk_index || 0,
+          }))
+          .filter((s) => s.document_id);
+        ragUsed = ragContext.length > 0;
         
-        console.log(`[RAG] Chunks recibidos: ${ragData.chunks?.length || 0}`);
-        
-        if (ragData.chunks && ragData.chunks.length > 0) {
-          ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
-          ragChunksCount = ragData.chunks.length;
-          ragSources = ragData.chunks
-            .map((c) => ({
-              document_id: c.metadata?.document_id || '',
-              document_title: c.metadata?.document_title || '',
-              chunk_index: c.metadata?.chunk_index || 0,
-            }))
-            .filter((s) => s.document_id);
-          ragUsed = ragContext.length > 0;
-          
-          if (ragUsed) {
-            console.log(`✅ RAG usado en chat: ${ragChunksCount} chunks encontrados para query: "${query.substring(0, 50)}..."`);
-          }
-        } else {
-          console.warn(`⚠️ RAG NO disponible en chat: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
+        if (ragUsed) {
+          console.log(`✅ RAG usado en chat: ${ragChunksCount} chunks encontrados para query: "${query.substring(0, 50)}..."`);
         }
       } else {
-        const errorText = await ragResponse.text().catch(() => 'Error desconocido');
-        console.error(`❌ RAG ERROR en chat: Status ${ragResponse.status} - ${errorText.substring(0, 200)}`);
+        console.warn(`⚠️ RAG NO disponible en chat: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
       }
     } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él (pero avisamos)
