@@ -3,7 +3,6 @@ node_modules
 dist
 build
 .env
-private_docs/
 
 # Archivos de documentación interna (no subir a producción)
 MAKE_*.md
@@ -13,3 +12,6 @@ MAKE_*.txt
 *_REPORT.md
 *_SETUP.md
 NOTIFICATION_SYSTEM.md
+
+# Carpeta para archivos locales que nunca deben subirse a GitHub
+local/
