@@ -1,9 +1,8 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2 } from 'lucide-react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
-import ReportCard from '../../components/common/ReportCard';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
@@ -141,11 +140,12 @@ const ProfileView = ({
   setLogs
 }: ProfileViewProps) => {
   // Estados locales - ya no están en el store global
-  const [profileTab, setProfileTab] = useState<'PROFILE' | 'HISTORIA'>('PROFILE');
+  const [profileTab, setProfileTab] = useState<'PROFILE' | 'HISTORIA'>('HISTORIA');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState(user.name);
   const [isEditingF0, setIsEditingF0] = useState(false);
   const [f0Answers, setF0Answers] = useState<Record<string, any>>({});
+  const [isF0Expanded, setIsF0Expanded] = useState(false);
   
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedAllHistory, setHasLoadedAllHistory] = useState(false);
@@ -395,20 +395,20 @@ const ProfileView = ({
       <div className="p-5 pt-0">
         <div className="flex gap-2 mb-6 bg-white p-1 rounded-2xl shadow-sm">
           <button
-            onClick={() => setProfileTab('PROFILE')}
-            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${profileTab === 'PROFILE'
-              ? 'bg-[#C7958E] text-white shadow-md'
-              : 'text-[#5D7180] hover:bg-[#F4F0ED]'}`}
-          >
-            Mi Perfil
-          </button>
-          <button
             onClick={() => setProfileTab('HISTORIA')}
             className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${profileTab === 'HISTORIA'
               ? 'bg-[#C7958E] text-white shadow-md'
               : 'text-[#5D7180] hover:bg-[#F4F0ED]'}`}
           >
             Historia
+          </button>
+          <button
+            onClick={() => setProfileTab('PROFILE')}
+            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${profileTab === 'PROFILE'
+              ? 'bg-[#C7958E] text-white shadow-md'
+              : 'text-[#5D7180] hover:bg-[#F4F0ED]'}`}
+          >
+            Mi Perfil
           </button>
         </div>
 
@@ -442,76 +442,45 @@ const ProfileView = ({
               </div>
             ) : (f0Form || isEditingF0) ? (
                 <div className="space-y-4">
-                  <div className="flex justify-between items-end mb-1">
-                    <div>
-                      <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
-                      {f0Form && (
-                        <>
-                          <p className="text-[10px] text-[#5D7180] mt-0.5">
-                            Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
-                          </p>
-                          {f0Form.pdf_generated_at && (
-                            <p className="text-[10px] text-[#5D7180] mt-0.5">
-                              Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isEditingF0 && (
-                        <button
-                          onClick={() => {
-                            setF0Answers(JSON.parse(JSON.stringify(originalF0Answers.current)));
-                            setIsEditingF0(false);
-                            if (autoSaveTimeoutRef.current) {
-                              clearTimeout(autoSaveTimeoutRef.current);
-                              autoSaveTimeoutRef.current = null;
-                            }
-                          }}
-                          className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                          title="Cancelar"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (isEditingF0) {
-                            const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
-                            handleF0Save(currentF0Form);
-                          } else {
-                            const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
-                            if (!currentF0Form) return;
-
-                            const initialAnswers: Record<string, any> = {};
-                            currentF0Form.answers.forEach((a: any) => {
-                              initialAnswers[a.questionId] = a.answer;
-                            });
-
-                            if (user?.cycleLength) {
-                              initialAnswers['q6_cycle'] = user.cycleLength;
-                            }
-
-                            originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers));
-                            setF0Answers(initialAnswers);
-                            setIsEditingF0(true);
-                          }
-                        }}
-                        className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                        title={isEditingF0 ? 'Guardar' : 'Editar'}
-                      >
-                        {isEditingF0 ? <Check size={16} /> : <Edit2 size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
                   {isEditingF0 ? (
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-                      <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
-                      <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">
-                        {FORM_DEFINITIONS.F0.description}
-                      </p>
+                    <div className="bg-white rounded-3xl shadow-sm border border-[#F4F0ED] overflow-hidden">
+                      {/* Header con título y botones cuando está editando */}
+                      <div className="p-6 flex items-center justify-between border-b border-[#F4F0ED]">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                          <p className="text-xs text-[#5D7180]">
+                            {FORM_DEFINITIONS.F0.description}
+                          </p>
+                        </div>
+                        <div className="ml-4 flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              setF0Answers(JSON.parse(JSON.stringify(originalF0Answers.current)));
+                              setIsEditingF0(false);
+                              if (autoSaveTimeoutRef.current) {
+                                clearTimeout(autoSaveTimeoutRef.current);
+                                autoSaveTimeoutRef.current = null;
+                              }
+                            }}
+                            className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            title="Cancelar"
+                          >
+                            <X size={16} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
+                              handleF0Save(currentF0Form);
+                            }}
+                            className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            title="Guardar"
+                          >
+                            <Check size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="p-6">
                       {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento en una sola columna */}
                       <div className="space-y-4 mb-6">
                         <div className="border-b border-[#F4F0ED] pb-3">
@@ -746,74 +715,137 @@ const ProfileView = ({
                       >
                         Guardar cambios
                       </button>
+                      </div>
                     </div>
                   ) : f0Form ? (
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-                      <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
-                      <p className="text-xs text-[#5D7180] mb-6 border-b border-[#F4F0ED] pb-4">
-                        {FORM_DEFINITIONS.F0.description}
-                      </p>
-                      
-                      {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento */}
-                      <div className="space-y-4 mb-6">
-                        <div className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
-                          <p className="text-sm text-[#4A4A4A]">{user.name}</p>
-                        </div>
-                        <div className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
-                          <p className="text-sm text-[#4A4A4A] opacity-70">
-                            {user.email} <span className="text-[10px] italic">(No editable)</span>
+                    <div className="bg-white rounded-3xl shadow-sm border border-[#F4F0ED] overflow-hidden">
+                      {/* Header clickeable del desplegable */}
+                      <div className="p-6 flex items-center justify-between">
+                        <button
+                          onClick={() => setIsF0Expanded(!isF0Expanded)}
+                          className="flex-1 text-left hover:opacity-80 transition-opacity"
+                        >
+                          <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                          <p className="text-xs text-[#5D7180]">
+                            {FORM_DEFINITIONS.F0.description}
                           </p>
-                        </div>
-                        <div className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
-                            Fecha de nacimiento
-                          </p>
-                          <p className="text-sm text-[#4A4A4A]">
-                            {(() => {
-                              const birthdateAnswer = f0Form.answers?.find(a => a.questionId === 'q1_birthdate')?.answer;
-                              return birthdateAnswer 
-                                ? formatDate(birthdateAnswer as string, 'long')
-                                : '—';
-                            })()}
-                          </p>
+                          {f0Form && (
+                            <div className="mt-2 space-y-0.5">
+                              <p className="text-[10px] text-[#5D7180]">
+                                Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
+                              </p>
+                              {f0Form.pdf_generated_at && (
+                                <p className="text-[10px] text-[#5D7180]">
+                                  Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                        <div className="ml-4 flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
+                              if (!currentF0Form) return;
+
+                              const initialAnswers: Record<string, any> = {};
+                              currentF0Form.answers.forEach((a: any) => {
+                                initialAnswers[a.questionId] = a.answer;
+                              });
+
+                              if (user?.cycleLength) {
+                                initialAnswers['q6_cycle'] = user.cycleLength;
+                              }
+
+                              originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers));
+                              setF0Answers(initialAnswers);
+                              setIsEditingF0(true);
+                            }}
+                            className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setIsF0Expanded(!isF0Expanded)}
+                            className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            title={isF0Expanded ? 'Colapsar' : 'Expandir'}
+                          >
+                            {isF0Expanded ? (
+                              <ChevronUp size={20} />
+                            ) : (
+                              <ChevronDown size={20} />
+                            )}
+                          </button>
                         </div>
                       </div>
 
-                      {/* Mostrar todos los campos del formulario F0 en modo lectura */}
-                      <div className="space-y-6">
-                        {FORM_DEFINITIONS.F0.questions.map(q => {
-                          // La fecha de nacimiento se gestiona en el bloque superior
-                          if (q.id === 'q1_birthdate') return null;
-
-                          const answer = f0Form.answers?.find(a => a.questionId === q.id);
-                          const value = answer?.answer ?? null;
-
-                          // Formatear el valor para mostrar
-                          let displayValue: string | null = null;
-                          if (value !== null && value !== undefined && value !== '') {
-                            if (q.type === 'date' && typeof value === 'string') {
-                              displayValue = formatDate(value, 'long');
-                            } else if (Array.isArray(value)) {
-                              displayValue = value.join(', ');
-                            } else if (typeof value === 'number' && (q as any).unit) {
-                              displayValue = `${value} ${(q as any).unit}`;
-                            } else {
-                              displayValue = String(value);
-                            }
-                          }
-
-                          return (
-                            <div key={q.id} className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{q.text}</p>
-                              <p className="text-sm text-[#4A4A4A] whitespace-pre-line">
-                                {displayValue ?? '—'}
+                      {/* Contenido desplegable */}
+                      {isF0Expanded && (
+                        <div className="px-6 pb-6 border-t border-[#F4F0ED] pt-6">
+                          {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento */}
+                          <div className="space-y-4 mb-6">
+                            <div className="border-b border-[#F4F0ED] pb-3">
+                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
+                              <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                            </div>
+                            <div className="border-b border-[#F4F0ED] pb-3">
+                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
+                              <p className="text-sm text-[#4A4A4A] opacity-70">
+                                {user.email} <span className="text-[10px] italic">(No editable)</span>
                               </p>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="border-b border-[#F4F0ED] pb-3">
+                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                                Fecha de nacimiento
+                              </p>
+                              <p className="text-sm text-[#4A4A4A]">
+                                {(() => {
+                                  const birthdateAnswer = f0Form.answers?.find(a => a.questionId === 'q1_birthdate')?.answer;
+                                  return birthdateAnswer 
+                                    ? formatDate(birthdateAnswer as string, 'long')
+                                    : '—';
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Mostrar todos los campos del formulario F0 en modo lectura */}
+                          <div className="space-y-6">
+                            {FORM_DEFINITIONS.F0.questions.map(q => {
+                              // La fecha de nacimiento se gestiona en el bloque superior
+                              if (q.id === 'q1_birthdate') return null;
+
+                              const answer = f0Form.answers?.find(a => a.questionId === q.id);
+                              const value = answer?.answer ?? null;
+
+                              // Formatear el valor para mostrar
+                              let displayValue: string | null = null;
+                              if (value !== null && value !== undefined && value !== '') {
+                                if (q.type === 'date' && typeof value === 'string') {
+                                  displayValue = formatDate(value, 'long');
+                                } else if (Array.isArray(value)) {
+                                  displayValue = value.join(', ');
+                                } else if (typeof value === 'number' && (q as any).unit) {
+                                  displayValue = `${value} ${(q as any).unit}`;
+                                } else {
+                                  displayValue = String(value);
+                                }
+                              }
+
+                              return (
+                                <div key={q.id} className="border-b border-[#F4F0ED] pb-3 last:border-0">
+                                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{q.text}</p>
+                                  <p className="text-sm text-[#4A4A4A] whitespace-pre-line">
+                                    {displayValue ?? '—'}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -851,29 +883,6 @@ const ProfileView = ({
             </div>
             )}
 
-            <div>
-              <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Mis Informes</h3>
-              {reports.length > 0 ? (
-                <div className="space-y-3">
-                  {reports.map(report => (
-                    <ReportCard key={report.id} report={report} />
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white p-6 rounded-2xl border border-dashed border-stone-200 text-center text-stone-400 text-xs italic">
-                  Aún no tienes informes disponibles
-                </div>
-              )}
-            </div>
-
-            <div>
-              <NotificationList
-                notifications={visibleNotifications}
-                onMarkRead={markNotificationRead}
-                deleteNotification={deleteNotification}
-                onAction={onNotificationAction}
-              />
-            </div>
 
             {user.methodStartDate && (
               <button
@@ -1071,117 +1080,17 @@ const ProfileView = ({
                 </div>
               )}
 
-              {/* Mostrar F0 si existe, con botón para ir a Consultas si no existe */}
-              {!f0Form ? (
-                <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
-                  <FileText size={48} className="mx-auto text-stone-300 mb-4" />
-                  <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
-                  <button
-                    onClick={() => setView('CONSULTATIONS')}
-                    className="mt-4 bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#95706B] transition-colors"
-                  >
-                    Completar F0
-                  </button>
-                </div>
-              ) : (
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED]">
-                  <div className="flex justify-between items-end mb-3">
-                    <div>
-                      <h3 className="font-bold text-[#4A4A4A] text-sm">Ficha Personal (F0)</h3>
-                      <p className="text-[10px] text-[#5D7180] mt-0.5">
-                        Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
-                      </p>
-                      {f0Form.pdf_generated_at && (
-                        <p className="text-[10px] text-[#5D7180] mt-0.5">
-                          Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setView('CONSULTATIONS')}
-                      className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
-                      title="Editar F0"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                  </div>
+              {/* Eliminado: segundo bloque de Ficha Personal */}
 
-                  {/* Campos en dos columnas: Altura/Peso, Nivel estrés/Horas sueño, Consumo alcohol */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {['q2_height', 'q2_weight', 'q15_stress', 'q16_sleep', 'q18_alcohol'].map(questionId => {
-                      const answer = f0Form.answers.find(a => a.questionId === questionId);
-                      if (!answer) return null;
-                      const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
-                      if (!question) return null;
-
-                      let displayValue = answer.answer;
-                      
-                      if (question.type === 'date' && typeof displayValue === 'string') {
-                        displayValue = formatDate(displayValue, 'long');
-                      }
-                      
-                      if (Array.isArray(displayValue)) {
-                        displayValue = displayValue.join(', ');
-                      }
-
-                      // Formatear valores numéricos con unidades
-                      if (questionId === 'q2_height' && typeof displayValue === 'number') {
-                        displayValue = `${displayValue} cm`;
-                      } else if (questionId === 'q2_weight' && typeof displayValue === 'number') {
-                        displayValue = `${displayValue} kg`;
-                      } else if (questionId === 'q16_sleep' && typeof displayValue === 'number') {
-                        displayValue = `${displayValue} h`;
-                      }
-
-                      return (
-                        <div key={questionId} className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{question.text}</p>
-                          <p className="text-sm text-[#4A4A4A]">{displayValue || '-'}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Resto de campos en una columna */}
-                  <div className="space-y-4">
-                    {f0Form.answers
-                      .filter(answer => !['q2_height', 'q2_weight', 'q15_stress', 'q16_sleep', 'q18_alcohol'].includes(answer.questionId))
-                      .map((answer) => {
-                        const question = FORM_DEFINITIONS.F0.questions.find(q => q.id === answer.questionId);
-                        if (!question) return null;
-
-                        let displayValue = answer.answer;
-                        
-                        // Special handling for "Tiempo buscando embarazo" - show calculated value
-                        if (answer.questionId === 'q3_time_trying') {
-                          const initialMonths = parseInt(answer.answer as string);
-                          if (!isNaN(initialMonths) && f0Form.submitted_at) {
-                            const submittedDate = new Date(f0Form.submitted_at);
-                            if (!isNaN(submittedDate.getTime())) {
-                              const today = new Date();
-                              const monthsDiff = (today.getFullYear() - submittedDate.getFullYear()) * 12 + 
-                                               (today.getMonth() - submittedDate.getMonth());
-                              displayValue = `${initialMonths + monthsDiff} meses`;
-                            }
-                          }
-                        } else if (question.type === 'date' && typeof displayValue === 'string') {
-                          displayValue = formatDate(displayValue, 'long');
-                        }
-                        
-                        if (Array.isArray(displayValue)) {
-                          displayValue = displayValue.join(', ');
-                        }
-
-                        return (
-                          <div key={answer.questionId} className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                            <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{question.text}</p>
-                            <p className="text-sm text-[#4A4A4A] whitespace-pre-line">{displayValue || '-'}</p>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
+              {/* Bloque de notificaciones */}
+              <div className="mt-6">
+                <NotificationList
+                  notifications={visibleNotifications}
+                  onMarkRead={markNotificationRead}
+                  deleteNotification={deleteNotification}
+                  onAction={onNotificationAction}
+                />
+              </div>
             </div>
           );
         })()}
