@@ -4,6 +4,7 @@ import { ConsultationForm, DailyLog, UserProfile } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { calculateAverages } from '../../services/dataService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
+import { FertyFitChat } from '../../components/chat/FertyFitChat';
 import { formatDate } from '../../services/utils';
 import { PILLAR_ICONS } from '../../constants/api';
 import { savePillarForm } from '../../services/pillarService';
@@ -934,6 +935,11 @@ const ConsultationsView = ({ user, logs, submittedForms, showNotif, fetchUserFor
           );
         })}
       </div>
+
+      {/* Chat FertyFit */}
+      {user?.id && (
+        <FertyFitChat userId={user.id} dailyLimit={5} />
+      )}
 
       {/* Bloque global de subida de analíticas/ecografías */}
       <div className="bg-white border border-[#F4F0ED] rounded-3xl p-4 shadow-sm mb-6">
