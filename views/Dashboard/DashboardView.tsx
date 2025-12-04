@@ -1,11 +1,10 @@
-import { useMemo } from 'react';
 import { Activity, BookOpen, Plus } from 'lucide-react';
 import { NotificationList } from '../../components/NotificationSystem';
 import { MedicalReport } from '../../components/MedicalReport';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
 import FertyScoreCircular from '../../components/common/FertyScoreCircular';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
-import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
+import { useMethodProgress } from '../../hooks/useMethodProgress';
 import {
   AppNotification,
   ConsultationForm,
@@ -58,18 +57,8 @@ const DashboardView = ({
 }: DashboardViewProps) => {
   const medicalData = generarDatosInformeMedico(user, logs, todayLog.cycleDay);
 
-  // Calcular día y semana usando las funciones existentes (consistente con ProfileView)
-  const methodDay = useMemo(() => {
-    return calculateDaysOnMethod(user.methodStartDate);
-  }, [user.methodStartDate]);
-
-  const methodWeek = useMemo(() => {
-    return calculateCurrentWeek(methodDay);
-  }, [methodDay]);
-
-  // Aplicar límite de 90 días (el método se detiene en 90 días = 12 semanas)
-  const displayDay = Math.min(methodDay, 90);
-  const displayWeek = Math.min(methodWeek, 12);
+  // Calcular día y semana usando hook compartido (consistente con ProfileView)
+  const { displayDay, displayWeek, isStarted, isCompleted } = useMethodProgress(user.methodStartDate);
 
   const handleQuickAccess = () => {
     onNavigate('TRACKER');
@@ -84,12 +73,12 @@ const DashboardView = ({
           <div className="flex items-center gap-2 mt-1">
             <span className={`w-2 h-2 rounded-full ${user.methodStartDate ? 'bg-[#C7958E] animate-pulse' : 'bg-stone-300'}`}></span>
             <div className="flex flex-col gap-0.5">
-              {user.methodStartDate && methodDay > 0 ? (
+              {isStarted ? (
                 <>
                   <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
                     Día: {displayDay} - Semana: {displayWeek}
                   </p>
-                  {methodDay >= 90 && (
+                  {isCompleted && (
                     <p className="text-[10px] text-emerald-600 font-semibold">
                       Método Finalizado
                     </p>

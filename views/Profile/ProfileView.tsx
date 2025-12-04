@@ -9,7 +9,7 @@ import { calcularDiaDelCiclo, calcularFechaInicioCicloActual } from '../../servi
 import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
 import { supabase } from '../../services/supabase';
 import { formatDate } from '../../services/utils';
-import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
+import { useMethodProgress } from '../../hooks/useMethodProgress';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
 
 interface ProfileHeaderProps {
@@ -21,18 +21,8 @@ interface ProfileHeaderProps {
 }
 
 const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: ProfileHeaderProps) => {
-  // Calcular día y semana usando las funciones existentes (consistente con DashboardView)
-  const methodDay = useMemo(() => {
-    return calculateDaysOnMethod(user.methodStartDate);
-  }, [user.methodStartDate]);
-
-  const methodWeek = useMemo(() => {
-    return calculateCurrentWeek(methodDay);
-  }, [methodDay]);
-
-  // Aplicar límite de 90 días (el método se detiene en 90 días = 12 semanas)
-  const displayDay = Math.min(methodDay, 90);
-  const displayWeek = Math.min(methodWeek, 12);
+  // Calcular día y semana usando hook compartido (consistente con DashboardView)
+  const { displayDay, displayWeek, isStarted, isCompleted } = useMethodProgress(user.methodStartDate);
 
   const level = logsCount > 30 ? 'Experta' : logsCount > 7 ? 'Comprometida' : 'Iniciada';
 
@@ -60,7 +50,7 @@ const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: Profil
         </div>
         <div className="mb-4 text-sm text-white/90 ml-1">
           <p className="flex items-center gap-2">
-            {user.methodStartDate && methodDay > 0 ? (
+            {isStarted ? (
               <>
                 <span className="opacity-75">Día:</span>
                 <span className="font-semibold">{displayDay}</span>
@@ -73,6 +63,9 @@ const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: Profil
               </>
             ) : (
               <>
+                <span className="opacity-75">Método:</span>
+                <span className="font-semibold">No iniciado</span>
+                <span className="opacity-50">•</span>
                 <span className="opacity-75">Registros:</span>
                 <span className="font-semibold">{logsCount}</span>
               </>
