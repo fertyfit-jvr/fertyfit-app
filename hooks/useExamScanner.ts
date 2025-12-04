@@ -27,6 +27,8 @@ interface UseExamScannerReturn {
   warnings: string[];
   validationErrors: string[];
   detectedTypes: string[];
+  ragExplanation: string | null;
+  isGeneratingExplanation: boolean;
   setImageBase64: (base64: string | null) => void;
   setError: (message: string | null) => void;
   reset: () => void;
@@ -52,6 +54,8 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
   const [warnings, setWarnings] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [detectedTypes, setDetectedTypes] = useState<string[]>([]);
+  const [ragExplanation, setRagExplanation] = useState<string | null>(null);
+  const [isGeneratingExplanation, setIsGeneratingExplanation] = useState(false);
 
   const reset = () => {
     setImage(null);
@@ -61,6 +65,8 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
     setWarnings([]);
     setValidationErrors([]);
     setDetectedTypes([]);
+    setRagExplanation(null);
+    setIsGeneratingExplanation(false);
   };
 
   const processImage = async () => {
@@ -196,6 +202,61 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         hasText: !!ocrResult.text,
         textLength: ocrResult.text?.length || 0
       });
+
+      // Generar explicación RAG si hay datos válidos extraídos
+      if (parsed && Object.keys(parsed).length > 0 && user?.id) {
+        // Solo para exámenes de laboratorio (no ecografías/HSG)
+        const labExamTypes = ['hormonal', 'metabolic', 'vitamin_d', 'espermio'];
+        const examTypeKey = (finalExamType || examType || '').toLowerCase();
+
+        if (labExamTypes.includes(examTypeKey)) {
+          setIsGeneratingExplanation(true);
+          try {
+            // Mapear los datos extraídos al formato que espera labs-rag
+            const labs: Record<string, number> = {};
+            Object.entries(parsed).forEach(([key, value]) => {
+              // Extraer nombre del parámetro (ej: function_fsh -> fsh, function_amh -> amh)
+              const paramName = key.replace('function_', '').toLowerCase();
+              // Convertir a número si es posible
+              if (typeof value === 'number') {
+                labs[paramName] = value;
+              } else if (typeof value === 'string') {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                  labs[paramName] = numValue;
+                }
+              }
+            });
+
+            if (Object.keys(labs).length > 0) {
+              logger.log('🔍 Generating RAG explanation for labs...', { labsCount: Object.keys(labs).length });
+              
+              const response = await fetch('/api/analysis/labs-rag', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: user.id,
+                  labs,
+                  filters: { pillar_category: 'FUNCTION' }
+                })
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                setRagExplanation(data.explanation || null);
+                logger.log('✅ RAG explanation generated successfully');
+              } else {
+                logger.warn('⚠️ Failed to generate RAG explanation:', response.status);
+              }
+            }
+          } catch (ragError) {
+            logger.warn('⚠️ Failed to generate RAG explanation:', ragError);
+            // No mostramos error al usuario, solo no mostramos explicación
+          } finally {
+            setIsGeneratingExplanation(false);
+          }
+        }
+      }
     } catch (err: any) {
       logger.error('❌ Error processing exam:', {
         error: err,
@@ -239,6 +300,8 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
     warnings,
     validationErrors,
     detectedTypes,
+    ragExplanation,
+    isGeneratingExplanation,
     setImageBase64: setImage,
     setError,
     reset,

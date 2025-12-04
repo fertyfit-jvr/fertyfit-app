@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Camera, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { fileToBase64 } from '../../services/googleCloud/visionService';
 import { useExamScanner, ExamType } from '../../hooks/useExamScanner';
+import { logger } from '../../lib/logger';
 
 interface ExamScannerProps {
   examType?: ExamType; // Opcional: si no se proporciona, detecta automáticamente
@@ -31,6 +32,8 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
     warnings,
     validationErrors,
     detectedTypes,
+    ragExplanation,
+    isGeneratingExplanation,
     setImageBase64,
     setError,
     reset,
@@ -302,6 +305,26 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                   </>
                 )}
               </div>
+
+              {/* Mostrar explicación RAG si está disponible */}
+              {ragExplanation && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-xs font-bold text-blue-800 mb-2">Explicación de resultados:</p>
+                  <div className="bg-white rounded-lg p-3 max-h-64 overflow-y-auto">
+                    <p className="text-xs text-[#4A4A4A] whitespace-pre-wrap leading-relaxed">{ragExplanation}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Mostrar indicador de carga mientras se genera la explicación */}
+              {isGeneratingExplanation && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin text-blue-600" />
+                    <p className="text-xs text-blue-800">Generando explicación de resultados...</p>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
