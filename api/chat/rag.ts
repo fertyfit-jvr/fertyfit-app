@@ -41,6 +41,8 @@ type ChatRagResponse = {
     document_title: string;
     chunk_index: number;
   }>;
+  rag_used: boolean;
+  rag_chunks_count: number;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -101,6 +103,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       document_title: string;
       chunk_index: number;
     }> = [];
+    let ragUsed = false;
+    let ragChunksCount = 0;
 
     try {
       const vercelUrl = process.env.VERCEL_URL
@@ -128,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
         if (ragData.chunks && ragData.chunks.length > 0) {
           ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
+          ragChunksCount = ragData.chunks.length;
           ragSources = ragData.chunks
             .map((c) => ({
               document_id: c.metadata?.document_id || '',
@@ -135,11 +140,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               chunk_index: c.metadata?.chunk_index || 0,
             }))
             .filter((s) => s.document_id);
+          ragUsed = ragContext.length > 0;
+          
+          if (ragUsed) {
+            console.log(`✅ RAG usado en chat: ${ragChunksCount} chunks encontrados para query: "${query.substring(0, 50)}..."`);
+          }
+        } else {
+          console.warn(`⚠️ RAG NO disponible en chat: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
         }
+      } else {
+        console.warn(`⚠️ RAG NO disponible en chat: Error en respuesta RAG (status: ${ragResponse.status})`);
       }
     } catch (ragError) {
       // Si falla el RAG, continuamos sin él (pero avisamos)
-      console.warn('No se pudo obtener contexto RAG:', ragError);
+      console.warn('⚠️ RAG NO disponible en chat - Error al obtener contexto RAG:', ragError);
     }
 
     // Construir prompt para Gemini
@@ -151,10 +165,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const prompt = `
 Eres el consultor experto de FertyFit.
-${ragContext ? `Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
+${ragContext ? `IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
 Si la pregunta no se puede responder con este contexto, dilo explícitamente.
+NO uses conocimiento general que no esté en este contexto.
 
-CONTEXTO FERTYFIT:
+CONTEXTO FERTYFIT (${ragChunksCount} fragmentos de documentación):
 ${ragContext}
 
 ` : 'Responde basándote en tu conocimiento general sobre fertilidad y salud femenina, pero siempre desde la perspectiva de FertyFit.\n\n'}
@@ -165,6 +180,7 @@ ${historyText}
 ${query}
 
 Responde en español, de forma clara, empática y sin dar diagnósticos médicos.
+${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporcionado arriba.' : ''}
 `;
 
     const response = await ai.models.generateContent({
@@ -203,6 +219,9 @@ Responde en español, de forma clara, empática y sin dar diagnósticos médicos
           metadata: {
             input: { query, filters },
             sources: ragSources,
+            rag_used: ragUsed,
+            rag_chunks_count: ragChunksCount,
+            rag_context_length: ragContext.length,
             conversation_turn: conversationTurn,
             generated_at: new Date().toISOString(),
           },
@@ -219,6 +238,8 @@ Responde en español, de forma clara, empática y sin dar diagnósticos médicos
 
     const responseData: ChatRagResponse = {
       answer,
+      rag_used: ragUsed,
+      rag_chunks_count: ragChunksCount,
       ...(ragSources.length > 0 && { sources: ragSources }),
     };
 

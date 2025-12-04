@@ -27,6 +27,8 @@ type LabsRagRequest = {
 type LabsRagResponse = {
   explanation: string;
   rawLabs: Record<string, number | undefined>;
+  rag_used: boolean;
+  rag_chunks_count: number;
   context_used?: {
     chunks: Array<{ content: string; metadata: Record<string, any> }>;
   };
@@ -131,6 +133,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Obtener contexto RAG sobre analíticas
     let ragContext = '';
     let ragChunks: Array<{ content: string; metadata: Record<string, any> }> = [];
+    let ragUsed = false;
+    let ragChunksCount = 0;
 
     try {
       const vercelUrl = process.env.VERCEL_URL
@@ -166,19 +170,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
         if (ragData.chunks && ragData.chunks.length > 0) {
           ragChunks = ragData.chunks;
+          ragChunksCount = ragData.chunks.length;
           ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
+          ragUsed = ragContext.length > 0;
+          
+          if (ragUsed) {
+            console.log(`✅ RAG usado en analíticas: ${ragChunksCount} chunks encontrados para labs: ${labValues.substring(0, 100)}...`);
+          }
+        } else {
+          console.warn(`⚠️ RAG NO disponible en analíticas: No se encontraron chunks para labs: ${labValues.substring(0, 100)}...`);
         }
+      } else {
+        console.warn(`⚠️ RAG NO disponible en analíticas: Error en respuesta RAG (status: ${ragResponse.status})`);
       }
     } catch (ragError) {
       // Si falla el RAG, continuamos sin él
-      console.warn('No se pudo obtener contexto RAG:', ragError);
+      console.warn('⚠️ RAG NO disponible en analíticas - Error al obtener contexto RAG:', ragError);
     }
 
     // Construir prompt para Gemini
     const prompt = `
 Eres experto en fertilidad siguiendo la metodología FertyFit.
 
-${ragContext ? `CONTEXTO MÉDICO FERTYFIT:
+${ragContext ? `IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
+NO uses conocimiento general que no esté en este contexto.
+Si la información no está en este contexto, dilo explícitamente.
+
+CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de documentación):
 ${ragContext}
 
 ` : ''}RESULTADOS ANALÍTICOS DE LA PACIENTE:
@@ -189,7 +207,7 @@ TAREA:
 - Comenta posibles implicaciones en fertilidad a nivel educativo.
 - Sugiere preguntas que la paciente puede hacer a su médico.
 - No hagas recomendaciones médicas directas ni ajustes de medicación.
-- ${ragContext ? 'Usa solo el contexto FertyFit proporcionado. Si la información no está en ese contexto, dilo explícitamente.' : 'Sé claro y educativo.'}
+- ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporcionado arriba.' : 'Sé claro y educativo.'}
 - Escribe TODO en español y dirigido en segunda persona ("tú").
 `;
 
@@ -221,6 +239,9 @@ TAREA:
               document_title: c.metadata?.document_title || '',
               chunk_index: c.metadata?.chunk_index || 0,
             })),
+            rag_used: ragUsed,
+            rag_chunks_count: ragChunksCount,
+            rag_context_length: ragContext.length,
             generated_at: new Date().toISOString(),
           },
         });
@@ -237,6 +258,8 @@ TAREA:
     const responseData: LabsRagResponse = {
       explanation,
       rawLabs: labs,
+      rag_used: ragUsed,
+      rag_chunks_count: ragChunksCount,
       ...(ragChunks.length > 0 && {
         context_used: {
           chunks: ragChunks.map((c) => ({

@@ -98,6 +98,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         similarity_score: typeof row.similarity === 'number' ? row.similarity : undefined,
       })) ?? [];
 
+    // Logging para verificar que RAG funciona
+    if (chunks.length > 0) {
+      console.log(`✅ RAG search exitoso: ${chunks.length} chunks encontrados para query: "${query.substring(0, 50)}..."`);
+      console.log(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
+    } else {
+      console.warn(`⚠️ RAG search sin resultados: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
+      console.warn(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
+    }
+
     const response: SearchRagResponse = {
       chunks,
     };

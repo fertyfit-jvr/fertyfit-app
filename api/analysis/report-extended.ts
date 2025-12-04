@@ -198,6 +198,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Obtener contexto metodológico FertyFit desde RAG
     let ragContext = '';
+    let ragChunks: Array<{ content: string; metadata?: Record<string, any> }> = [];
+    let ragUsed = false;
+    let ragChunksCount = 0;
+
     try {
       const vercelUrl = process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
@@ -224,18 +228,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           chunks?: Array<{ content: string; metadata?: Record<string, any> }>;
         };
         if (ragData.chunks && ragData.chunks.length > 0) {
+          ragChunks = ragData.chunks;
+          ragChunksCount = ragData.chunks.length;
           ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
+          ragUsed = ragContext.length > 0;
+          
+          if (ragUsed) {
+            console.log(`✅ RAG usado en informe: ${ragChunksCount} chunks encontrados para informe de paciente ${userProfile.age} años`);
+          }
+        } else {
+          console.warn(`⚠️ RAG NO disponible en informe: No se encontraron chunks para informe de paciente ${userProfile.age} años`);
         }
+      } else {
+        console.warn(`⚠️ RAG NO disponible en informe: Error en respuesta RAG (status: ${ragResponse.status})`);
       }
     } catch (ragError) {
       // Si falla el RAG, continuamos sin él (no rompemos el informe)
-      console.warn('No se pudo obtener contexto RAG:', ragError);
+      console.warn('⚠️ RAG NO disponible en informe - Error al obtener contexto RAG:', ragError);
     }
 
     const prompt = `
 Eres un experto en fertilidad y salud integral femenina siguiendo la metodología FertyFit.
 
-${ragContext ? `CONTEXTO METODOLÓGICO FERTYFIT (fuente autorizada):
+${ragContext ? `IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
+NO uses conocimiento general que no esté en este contexto.
+PRIORIZA SIEMPRE el contexto metodológico FertyFit sobre cualquier conocimiento general.
+Si la información no está en este contexto, dilo explícitamente.
+
+CONTEXTO METODOLÓGICO FERTYFIT (${ragChunksCount} fragmentos de documentación - fuente autorizada):
 ${ragContext}
 
 ` : ''}DATOS DE LA PACIENTE:
@@ -254,10 +274,9 @@ TAREA:
    - Síntesis de riesgos y fortalezas.
    - Recomendaciones prácticas (3–5 puntos concretos).
 
-3. ${ragContext ? 'PRIORIZA SIEMPRE el contexto metodológico FertyFit sobre cualquier conocimiento general. ' : ''}Usa un tono empático, claro y no alarmista.
+3. ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporcionado arriba. ' : ''}Usa un tono empático, claro y no alarmista.
 4. No inventes diagnósticos médicos; describe riesgos y patrones como "sugiere", "podría indicar".
 5. Escribe TODO el informe en español y dirigido en segunda persona ("tú").
-${ragContext ? '6. Si la información no está en el contexto FertyFit proporcionado, dilo explícitamente.' : ''}
 
 A continuación tienes el JSON de contexto de la paciente:
 `;
@@ -285,6 +304,13 @@ A continuación tienes el JSON de contexto de la paciente:
           is_read: false,
           metadata: {
             input: { userId },
+            sources: ragChunks.map((c) => ({
+              document_id: c.metadata?.document_id || '',
+              document_title: c.metadata?.document_title || '',
+              chunk_index: c.metadata?.chunk_index || 0,
+            })),
+            rag_used: ragUsed,
+            rag_chunks_count: ragChunksCount,
             rag_context_length: ragContext.length,
             generated_at: new Date().toISOString(),
           },
@@ -301,6 +327,8 @@ A continuación tienes el JSON de contexto de la paciente:
 
     return res.status(200).json({
       report: reportText,
+      rag_used: ragUsed,
+      rag_chunks_count: ragChunksCount,
     });
   } catch (error) {
     // Aseguramos CORS también en errores
