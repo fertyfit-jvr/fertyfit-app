@@ -21,12 +21,20 @@ interface ProfileHeaderProps {
 }
 
 const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: ProfileHeaderProps) => {
-  const daysActive = useMemo(() => {
+  // Calcular día y semana usando las funciones existentes (consistente con DashboardView)
+  const methodDay = useMemo(() => {
     return calculateDaysOnMethod(user.methodStartDate);
   }, [user.methodStartDate]);
 
+  const methodWeek = useMemo(() => {
+    return calculateCurrentWeek(methodDay);
+  }, [methodDay]);
+
+  // Aplicar límite de 90 días (el método se detiene en 90 días = 12 semanas)
+  const displayDay = Math.min(methodDay, 90);
+  const displayWeek = Math.min(methodWeek, 12);
+
   const level = logsCount > 30 ? 'Experta' : logsCount > 7 ? 'Comprometida' : 'Iniciada';
-  const currentWeek = calculateCurrentWeek(daysActive);
 
   // Calculate months trying dynamically using new service
   const monthsTrying = useMemo(() => {
@@ -52,14 +60,23 @@ const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: Profil
         </div>
         <div className="mb-4 text-sm text-white/90 ml-1">
           <p className="flex items-center gap-2">
-            <span className="opacity-75">Días Método:</span>
-            <span className="font-semibold">{daysActive}</span>
-            <span className="opacity-50">•</span>
-            <span className="opacity-75">Registros:</span>
-            <span className="font-semibold">{logsCount}</span>
-            <span className="opacity-50">•</span>
-            <span className="opacity-75">Semana:</span>
-            <span className="font-semibold">{currentWeek}</span>
+            {user.methodStartDate && methodDay > 0 ? (
+              <>
+                <span className="opacity-75">Día:</span>
+                <span className="font-semibold">{displayDay}</span>
+                <span className="opacity-50">•</span>
+                <span className="opacity-75">Semana:</span>
+                <span className="font-semibold">{displayWeek}</span>
+                <span className="opacity-50">•</span>
+                <span className="opacity-75">Registros:</span>
+                <span className="font-semibold">{logsCount}</span>
+              </>
+            ) : (
+              <>
+                <span className="opacity-75">Registros:</span>
+                <span className="font-semibold">{logsCount}</span>
+              </>
+            )}
           </p>
           {monthsTrying !== null && (
             <p className="text-[11px] opacity-75 mt-1">

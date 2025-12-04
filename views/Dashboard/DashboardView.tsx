@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { Activity, BookOpen, Plus } from 'lucide-react';
 import { NotificationList } from '../../components/NotificationSystem';
 import { MedicalReport } from '../../components/MedicalReport';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
 import FertyScoreCircular from '../../components/common/FertyScoreCircular';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
+import { calculateDaysOnMethod, calculateCurrentWeek } from '../../services/dataService';
 import {
   AppNotification,
   ConsultationForm,
@@ -56,6 +58,19 @@ const DashboardView = ({
 }: DashboardViewProps) => {
   const medicalData = generarDatosInformeMedico(user, logs, todayLog.cycleDay);
 
+  // Calcular día y semana usando las funciones existentes (consistente con ProfileView)
+  const methodDay = useMemo(() => {
+    return calculateDaysOnMethod(user.methodStartDate);
+  }, [user.methodStartDate]);
+
+  const methodWeek = useMemo(() => {
+    return calculateCurrentWeek(methodDay);
+  }, [methodDay]);
+
+  // Aplicar límite de 90 días (el método se detiene en 90 días = 12 semanas)
+  const displayDay = Math.min(methodDay, 90);
+  const displayWeek = Math.min(methodWeek, 12);
+
   const handleQuickAccess = () => {
     onNavigate('TRACKER');
   };
@@ -69,12 +84,12 @@ const DashboardView = ({
           <div className="flex items-center gap-2 mt-1">
             <span className={`w-2 h-2 rounded-full ${user.methodStartDate ? 'bg-[#C7958E] animate-pulse' : 'bg-stone-300'}`}></span>
             <div className="flex flex-col gap-0.5">
-              {user.methodStartDate ? (
+              {user.methodStartDate && methodDay > 0 ? (
                 <>
                   <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
-                    Día: {Math.min(daysActive, 90)} - Semana: {Math.ceil(Math.min(daysActive, 90) / 7)}
+                    Día: {displayDay} - Semana: {displayWeek}
                   </p>
-                  {daysActive >= 90 && (
+                  {methodDay >= 90 && (
                     <p className="text-[10px] text-emerald-600 font-semibold">
                       Método Finalizado
                     </p>
@@ -139,7 +154,7 @@ const DashboardView = ({
               <div className="h-full bg-[#9ECCB4] rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
             </div>
             <div className="flex justify-between text-[10px] text-[#5D7180] mt-1">
-              <span>{Math.min(daysActive, 90)}/90 días</span>
+              <span>{displayDay}/90 días</span>
             </div>
           </div>
         </div>
