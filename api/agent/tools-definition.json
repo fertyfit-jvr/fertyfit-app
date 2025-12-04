@@ -1,0 +1,122 @@
+{
+  "tools": [
+    {
+      "name": "search_fertyfit_knowledge",
+      "description": "Busca información específica en la base de conocimiento FertyFit (201 documentos PDF indexados sobre metodología, guías clínicas, artículos científicos y documentación de fertilidad). Úsala cuando necesites información precisa sobre conceptos médicos, metodología FertyFit, o cualquier tema relacionado con fertilidad y salud femenina.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Texto de búsqueda que describe la información que necesitas encontrar en la base de conocimiento FertyFit"
+          },
+          "pillar_category": {
+            "type": "string",
+            "enum": ["FUNCTION", "FOOD", "FLORA", "FLOW"],
+            "description": "Filtro opcional para buscar solo en documentos de un pilar específico: FUNCTION (función hormonal), FOOD (alimentación), FLORA (microbiota), FLOW (sueño, estrés, flujo)"
+          },
+          "doc_type": {
+            "type": "string",
+            "description": "Filtro opcional para buscar solo en un tipo de documento específico (ej: 'Guía_Clínica', 'Artículo_Científico', 'Informe_Global')"
+          },
+          "limit": {
+            "type": "number",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Número máximo de fragmentos de texto relevantes a devolver (por defecto 5, máximo 20)"
+          }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "generate_fertility_report",
+      "description": "Genera un informe narrativo completo y personalizado de fertilidad para una paciente específica. El informe incluye análisis de su perfil, historial de registros diarios, exámenes médicos y recomendaciones prácticas basadas en la metodología FertyFit.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "ID único de la usuaria en el sistema (UUID)"
+          }
+        },
+        "required": ["userId"]
+      }
+    },
+    {
+      "name": "explain_lab_results",
+      "description": "Explica resultados de analíticas de fertilidad (AMH, FSH, LH, estradiol, etc.) en términos educativos y generales, basándose en la metodología FertyFit. NO proporciona diagnósticos médicos individualizados, sino explicaciones educativas sobre qué significan los valores.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "ID único de la usuaria en el sistema (UUID)"
+          },
+          "labs": {
+            "type": "object",
+            "description": "Objeto con los valores de analítica. Ejemplo: { 'amh': 1.2, 'fsh': 11.5, 'lh': 7.3, 'estradiol': 80 }",
+            "properties": {
+              "amh": { "type": "number" },
+              "fsh": { "type": "number" },
+              "lh": { "type": "number" },
+              "estradiol": { "type": "number" },
+              "prolactina": { "type": "number" },
+              "tsh": { "type": "number" },
+              "t4": { "type": "number" },
+              "t3": { "type": "number" }
+            }
+          },
+          "pillar_category": {
+            "type": "string",
+            "enum": ["FUNCTION", "FOOD", "FLORA", "FLOW"],
+            "description": "Filtro opcional para enfocar la explicación en un pilar específico (por defecto FUNCTION)"
+          }
+        },
+        "required": ["userId", "labs"]
+      }
+    },
+    {
+      "name": "answer_fertility_question",
+      "description": "Responde preguntas sobre fertilidad, salud femenina y metodología FertyFit usando la base de conocimiento indexada. Esta herramienta busca información relevante en los 201 documentos PDF y genera una respuesta contextualizada y precisa.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Pregunta del usuario sobre fertilidad, salud femenina o metodología FertyFit"
+          },
+          "pillar_category": {
+            "type": "string",
+            "enum": ["FUNCTION", "FOOD", "FLORA", "FLOW"],
+            "description": "Filtro opcional para buscar solo en documentos de un pilar específico"
+          },
+          "doc_type": {
+            "type": "string",
+            "description": "Filtro opcional para buscar solo en un tipo de documento específico"
+          },
+          "conversation_history": {
+            "type": "array",
+            "description": "Historial opcional de la conversación para mantener contexto",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": ["user", "assistant"]
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "required": ["role", "content"]
+            }
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,115 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
+import { ai } from '../lib/ai.js';
+import { applySecurityHeaders } from '../lib/security.js';
+import { sendErrorResponse, createError } from '../lib/errorHandler.js';
+
+type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
+
+type SearchRagRequest = {
+  query?: string;
+  filters?: {
+    pillar_category?: PillarCategory;
+    doc_type?: string;
+    document_id?: string;
+  };
+  limit?: number;
+};
+
+type KnowledgeChunk = {
+  content: string;
+  metadata: Record<string, any>;
+  similarity_score?: number;
+};
+
+type SearchRagResponse = {
+  chunks: KnowledgeChunk[];
+};
+
+// Supabase client (igual patrón que en report-extended)
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  throw new Error('Supabase URL o SERVICE ROLE KEY no están configuradas en las variables de entorno');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+});
+
+async function embedQuery(query: string): Promise<number[]> {
+  const resp = await ai.models.embedContent({
+    model: 'text-embedding-004',
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: query }],
+      },
+    ],
+  } as any);
+
+  const embedding =
+    (resp as any).embeddings?.[0]?.values ||
+    (resp as any).embedding?.values;
+
+  if (!embedding || embedding.length === 0) {
+    throw createError('No se pudo generar el embedding de la consulta', 500, 'EMBEDDING_ERROR');
+  }
+
+  return embedding;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    applySecurityHeaders(res);
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    const { query, filters, limit }: SearchRagRequest = req.body || {};
+
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      throw createError('Falta la query de búsqueda', 400, 'BAD_REQUEST');
+    }
+
+    const matchCount = Math.min(Math.max(limit ?? 5, 1), 20); // 1–20
+
+    // 1) Obtener embedding de la query
+    const queryEmbedding = await embedQuery(query);
+
+    // 2) Llamar a la función RPC en Supabase
+    const { data, error } = await supabase.rpc('match_fertyfit_knowledge', {
+      query_embedding: queryEmbedding,
+      match_count: matchCount,
+      filter_pillar_category: filters?.pillar_category ?? null,
+      filter_doc_type: filters?.doc_type ?? null,
+      filter_document_id: filters?.document_id ?? null,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const chunks: KnowledgeChunk[] =
+      (data || []).map((row: any) => ({
+        content: row.content_chunk,
+        metadata: row.metadata_json,
+        similarity_score: typeof row.similarity === 'number' ? row.similarity : undefined,
+      })) ?? [];
+
+    const response: SearchRagResponse = {
+      chunks,
+    };
+
+    return res.status(200).json(response);
+  } catch (error) {
+    sendErrorResponse(res, error, req);
+  }
+}
+
+

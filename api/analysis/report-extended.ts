@@ -196,9 +196,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fecha_informe: new Date().toISOString(),
     };
 
-    const prompt = `
-Eres un experto en fertilidad y salud integral femenina.
+    // Obtener contexto metodológico FertyFit desde RAG
+    let ragContext = '';
+    try {
+      const vercelUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
 
+      const ragQuery = `contexto metodológico FertyFit para un informe integral de fertilidad de una paciente de ${userProfile.age} años`;
+      
+      const ragResponse = await fetch(`${vercelUrl}/api/knowledge/search-rag`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: ragQuery,
+          filters: {
+            doc_type: 'Informe_Global',
+          },
+          limit: 5,
+        }),
+      });
+
+      if (ragResponse.ok) {
+        const ragData = (await ragResponse.json()) as {
+          chunks?: Array<{ content: string; metadata?: Record<string, any> }>;
+        };
+        if (ragData.chunks && ragData.chunks.length > 0) {
+          ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
+        }
+      }
+    } catch (ragError) {
+      // Si falla el RAG, continuamos sin él (no rompemos el informe)
+      console.warn('No se pudo obtener contexto RAG:', ragError);
+    }
+
+    const prompt = `
+Eres un experto en fertilidad y salud integral femenina siguiendo la metodología FertyFit.
+
+${ragContext ? `CONTEXTO METODOLÓGICO FERTYFIT (fuente autorizada):
+${ragContext}
+
+` : ''}DATOS DE LA PACIENTE:
 Recibirás un JSON con:
 - Perfil de la usuaria.
 - Historial de registros diarios (temperatura, moco, sueño, estrés, hábitos).
@@ -214,11 +254,12 @@ TAREA:
    - Síntesis de riesgos y fortalezas.
    - Recomendaciones prácticas (3–5 puntos concretos).
 
-3. Usa un tono empático, claro y no alarmista.
+3. ${ragContext ? 'PRIORIZA SIEMPRE el contexto metodológico FertyFit sobre cualquier conocimiento general. ' : ''}Usa un tono empático, claro y no alarmista.
 4. No inventes diagnósticos médicos; describe riesgos y patrones como "sugiere", "podría indicar".
 5. Escribe TODO el informe en español y dirigido en segunda persona ("tú").
+${ragContext ? '6. Si la información no está en el contexto FertyFit proporcionado, dilo explícitamente.' : ''}
 
-A continuación tienes el JSON de contexto:
+A continuación tienes el JSON de contexto de la paciente:
 `;
 
     const response = await ai.models.generateContent({
