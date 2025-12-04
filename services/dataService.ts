@@ -120,9 +120,20 @@ export const calculateVitalityStats = (logs: DailyLog[]): string => {
 };
 
 export const calculateDaysOnMethod = (startDateStr: string | undefined | null): number => {
-    if (!startDateStr) return 0; // Returns 0 if not started
+    if (!startDateStr) {
+        console.warn('[calculateDaysOnMethod] No start date provided');
+        return 0; // Returns 0 if not started
+    }
     
-    const start = parseLocalDate(startDateStr) ?? new Date();
+    // Normalize date string: if it includes time, extract only the date part
+    const dateOnlyStr = startDateStr.split('T')[0].split(' ')[0]; // Handle both ISO and space-separated formats
+    
+    const start = parseLocalDate(dateOnlyStr);
+    if (!start) {
+        console.error('[calculateDaysOnMethod] Failed to parse start date:', startDateStr, '-> extracted:', dateOnlyStr);
+        return 0;
+    }
+    
     const now = new Date();
     
     // Force strict day calculation ignoring hours to fix timezone issues
@@ -130,7 +141,21 @@ export const calculateDaysOnMethod = (startDateStr: string | undefined | null): 
     const utc2 = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
     
     const diffDays = Math.floor((utc2 - utc1) / (1000 * 60 * 60 * 24));
-    return Math.max(1, diffDays + 1);
+    const result = Math.max(1, diffDays + 1);
+    
+    // Debug logging (only in development)
+    if (process.env.NODE_ENV !== 'production') {
+        console.log('[calculateDaysOnMethod]', {
+            startDateStr,
+            dateOnlyStr,
+            start: start.toISOString().split('T')[0],
+            now: now.toISOString().split('T')[0],
+            diffDays,
+            result
+        });
+    }
+    
+    return result;
 };
 
 export const calculateCurrentWeek = (daysActive: number): number => {
