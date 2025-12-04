@@ -148,13 +148,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`[RAG] Buscando contexto para analíticas de paciente ${age || 'edad no especificada'} años`);
       console.log(`[RAG] Query: "${ragQuery.substring(0, 100)}..."`);
-      console.log(`[RAG] Filtros: doc_type=Analitica, pillar_category=${filters?.pillar_category || 'FUNCTION'}`);
+      console.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
 
-      // Usar función directa en lugar de fetch HTTP para evitar problemas de autenticación
-      ragChunks = await searchRagDirect(ragQuery, {
-        doc_type: 'Analitica',
-        pillar_category: filters?.pillar_category || 'FUNCTION',
-      }, 5);
+      // Buscar sin filtros restrictivos - los documentos no tienen doc_type='Analitica' exacto
+      // Solo aplicar pillar_category si se especifica explícitamente
+      ragChunks = await searchRagDirect(ragQuery, 
+        filters?.pillar_category ? { pillar_category: filters.pillar_category } : undefined, 
+        5
+      );
       
       console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
       
@@ -168,18 +169,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       } else {
         console.warn(`⚠️ RAG NO disponible en analíticas: No se encontraron chunks para labs: ${labValues.substring(0, 100)}...`);
-        console.warn(`[RAG] Intentando sin filtros para ver si hay documentos disponibles...`);
-        
-        // Intentar sin filtros para ver si hay documentos
-        try {
-          const ragChunksNoFilter = await searchRagDirect(ragQuery, undefined, 5);
-          console.log(`[RAG] Sin filtros: ${ragChunksNoFilter.length} chunks encontrados`);
-          if (ragChunksNoFilter.length > 0) {
-            console.warn(`[RAG] ⚠️ Hay documentos disponibles pero NO coinciden con los filtros (doc_type='Analitica' o pillar_category='${filters?.pillar_category || 'FUNCTION'}')`);
-          }
-        } catch (e) {
-          // Ignorar error del segundo intento
-        }
       }
     } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él

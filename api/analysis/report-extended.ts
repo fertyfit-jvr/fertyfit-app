@@ -208,10 +208,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       console.log(`[RAG] Buscando contexto para informe de paciente ${userProfile.age} años`);
       console.log(`[RAG] Query: "${ragQuery}"`);
-      console.log(`[RAG] Filtros: doc_type=Informe_Global`);
+      console.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
       
-      // Usar función directa en lugar de fetch HTTP para evitar problemas de autenticación
-      ragChunks = await searchRagDirect(ragQuery, { doc_type: 'Informe_Global' }, 5);
+      // Buscar sin filtros restrictivos - los documentos no tienen doc_type='Informe_Global' exacto
+      // La búsqueda vectorial encontrará los documentos más relevantes automáticamente
+      ragChunks = await searchRagDirect(ragQuery, undefined, 5);
       
       console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
       
@@ -225,18 +226,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       } else {
         console.warn(`⚠️ RAG NO disponible en informe: No se encontraron chunks para informe de paciente ${userProfile.age} años`);
-        console.warn(`[RAG] Intentando sin filtro doc_type para ver si hay documentos disponibles...`);
-        
-        // Intentar sin filtro doc_type para ver si hay documentos
-        try {
-          const ragChunksNoFilter = await searchRagDirect(ragQuery, undefined, 5);
-          console.log(`[RAG] Sin filtro doc_type: ${ragChunksNoFilter.length} chunks encontrados`);
-          if (ragChunksNoFilter.length > 0) {
-            console.warn(`[RAG] ⚠️ Hay documentos disponibles pero NO tienen doc_type='Informe_Global'`);
-          }
-        } catch (e) {
-          // Ignorar error del segundo intento
-        }
       }
     } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él (no rompemos el informe)
