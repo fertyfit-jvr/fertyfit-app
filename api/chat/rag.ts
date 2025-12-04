@@ -115,7 +115,23 @@ Responde en máximo 2 párrafos cortos. Sé conciso y directo.
         ],
       } as any);
 
-      answer = (response as any).text ?? 'No se pudo generar una respuesta.';
+      // Validar respuesta de Gemini de forma segura (preservar contexto RAG)
+      if (response && typeof response === 'object') {
+        const responseText = (response as { text?: string }).text;
+        if (typeof responseText === 'string' && responseText.length > 0) {
+          answer = responseText;
+        } else {
+          console.error('❌ Respuesta de Gemini sin texto válido para chat:', {
+            hasText: 'text' in response,
+            textType: typeof (response as { text?: unknown }).text,
+            responseKeys: Object.keys(response),
+          });
+          answer = 'No se pudo generar una respuesta. Por favor, intenta de nuevo.';
+        }
+      } else {
+        console.error('❌ Respuesta de Gemini inválida para chat:', typeof response);
+        answer = 'No se pudo generar una respuesta. Por favor, intenta de nuevo.';
+      }
       console.log(`[CHAT] Respuesta generada exitosamente (${answer.length} caracteres)`);
     } catch (geminiError: any) {
       console.error(`[CHAT] ERROR al generar respuesta con Gemini:`, geminiError?.message || geminiError);

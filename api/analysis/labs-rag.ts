@@ -206,7 +206,24 @@ TAREA:
       ],
     } as any);
 
-    const explanation = (response as any).text ?? 'No se pudo generar la explicación.';
+    // Validar respuesta de Gemini de forma segura (preservar contexto RAG)
+    let explanation: string;
+    if (response && typeof response === 'object') {
+      const responseText = (response as { text?: string }).text;
+      if (typeof responseText === 'string' && responseText.length > 0) {
+        explanation = responseText;
+      } else {
+        console.error('❌ Respuesta de Gemini sin texto válido:', {
+          hasText: 'text' in response,
+          textType: typeof (response as { text?: unknown }).text,
+          responseKeys: Object.keys(response),
+        });
+        explanation = 'No se pudo generar la explicación. Por favor, intenta de nuevo.';
+      }
+    } else {
+      console.error('❌ Respuesta de Gemini inválida:', typeof response);
+      explanation = 'No se pudo generar la explicación. Por favor, intenta de nuevo.';
+    }
 
     // Guardar la explicación en notifications
     try {

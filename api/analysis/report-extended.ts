@@ -275,7 +275,24 @@ A continuación tienes el JSON de contexto de la paciente:
       ],
     } as any);
 
-    const reportText = (response as any).text ?? 'No se pudo generar el informe.';
+    // Validar respuesta de Gemini de forma segura (preservar contexto RAG)
+    let reportText: string;
+    if (response && typeof response === 'object') {
+      const responseText = (response as { text?: string }).text;
+      if (typeof responseText === 'string' && responseText.length > 0) {
+        reportText = responseText;
+      } else {
+        console.error('❌ Respuesta de Gemini sin texto válido para informe:', {
+          hasText: 'text' in response,
+          textType: typeof (response as { text?: unknown }).text,
+          responseKeys: Object.keys(response),
+        });
+        reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
+      }
+    } else {
+      console.error('❌ Respuesta de Gemini inválida para informe:', typeof response);
+      reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
+    }
 
     // Guardar el informe en notifications
     try {

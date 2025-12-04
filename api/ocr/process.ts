@@ -65,8 +65,45 @@ No añadas nada fuera del JSON (ni explicaciones, ni texto adicional).`;
     },
   } as any);
 
-  const jsonText = (response as any).text ?? JSON.stringify(response);
-  return JSON.parse(jsonText);
+  // Validar y extraer texto de respuesta de forma segura
+  let jsonText: string;
+  if (response && typeof response === 'object') {
+    // Intentar acceder a .text de forma segura
+    const responseText = (response as { text?: string }).text;
+    if (typeof responseText === 'string' && responseText.length > 0) {
+      jsonText = responseText;
+    } else {
+      // Fallback: intentar stringify si no hay .text
+      jsonText = JSON.stringify(response);
+    }
+  } else {
+    throw new Error('Respuesta inválida de Gemini: formato desconocido');
+  }
+
+  // Validar y parsear JSON de forma segura
+  try {
+    const parsed = JSON.parse(jsonText);
+    
+    // Validar estructura mínima esperada (permitir campos adicionales para RAG)
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('Respuesta de Gemini no es un objeto JSON válido');
+    }
+    
+    // Si tiene resultados, validar que sea un array (pero permitir otros campos)
+    if (parsed.resultados !== undefined && !Array.isArray(parsed.resultados)) {
+      logger.warn('Gemini response: resultados no es un array, convirtiendo a array vacío');
+      parsed.resultados = [];
+    }
+    
+    return parsed;
+  } catch (parseError) {
+    logger.error('Error parsing Gemini JSON response:', {
+      error: parseError instanceof Error ? parseError.message : String(parseError),
+      jsonTextLength: jsonText.length,
+      jsonTextPreview: jsonText.substring(0, 200),
+    });
+    throw new Error('Error al procesar respuesta del servidor: formato JSON inválido');
+  }
 }
 
 // Helper function to set CORS headers
@@ -199,8 +236,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     for (const item of resultados) {
-      const parametro = String(item.parametro || '').toLowerCase().trim();
+      // Validar estructura del item antes de procesar (preservar datos para RAG)
+      if (!item || typeof item !== 'object') {
+        logger.warn('Item inválido en resultados de Gemini, saltando:', item);
+        continue;
+      }
+
+      // Validar y extraer parametro de forma segura
+      const parametroRaw = item.parametro;
+      if (parametroRaw === undefined || parametroRaw === null) {
+        logger.warn('Item sin parametro, saltando:', item);
+        continue;
+      }
+      const parametro = String(parametroRaw).toLowerCase().trim();
+      if (parametro.length === 0) {
+        logger.warn('Item con parametro vacío, saltando:', item);
+        continue;
+      }
+
+      // Validar y extraer valor (puede ser number o string)
       const valor = item.valor;
+      if (valor === undefined || valor === null) {
+        logger.warn(`Item sin valor para parametro "${parametro}", saltando:`, item);
+        continue;
+      }
 
       // Mapear nombres de parámetro a keys internas usadas en MEDICAL_RANGES
       // (simplificado; se puede refinar con más reglas)
