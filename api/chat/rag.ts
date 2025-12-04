@@ -167,14 +167,28 @@ Responde en español, de forma clara, empática y sin dar diagnósticos médicos
 ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporcionado arriba.' : ''}
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        { text: prompt },
-      ],
-    } as any);
+    let answer = 'No se pudo generar una respuesta.';
+    
+    try {
+      console.log(`[CHAT] Generando respuesta con Gemini para query: "${query.substring(0, 50)}..."`);
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          { text: prompt },
+        ],
+      } as any);
 
-    const answer = (response as any).text ?? 'No se pudo generar una respuesta.';
+      answer = (response as any).text ?? 'No se pudo generar una respuesta.';
+      console.log(`[CHAT] Respuesta generada exitosamente (${answer.length} caracteres)`);
+    } catch (geminiError: any) {
+      console.error(`[CHAT] ERROR al generar respuesta con Gemini:`, geminiError?.message || geminiError);
+      console.error(`[CHAT] Stack:`, geminiError?.stack);
+      throw createError(
+        `Error al generar respuesta: ${geminiError?.message || 'Error desconocido'}`,
+        500,
+        'GEMINI_ERROR'
+      );
+    }
 
     // Guardar la interacción de chat en notifications
     try {
