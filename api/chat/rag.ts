@@ -111,6 +111,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:3000';
 
+      console.log(`[RAG] Buscando contexto para: "${query.substring(0, 80)}..."`);
+      console.log(`[RAG] Filtros:`, filters || 'NINGUNO (búsqueda en todos los pilares)`);
+
       const ragResponse = await fetch(`${vercelUrl}/api/knowledge/search-rag`, {
         method: 'POST',
         headers: {
@@ -118,10 +121,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         body: JSON.stringify({
           query,
-          filters,
+          filters: filters || undefined, // No enviar filters si es undefined
           limit: 5,
         }),
       });
+
+      console.log(`[RAG] Status respuesta: ${ragResponse.status}`);
 
       if (ragResponse.ok) {
         const ragData = (await ragResponse.json()) as {
@@ -130,6 +135,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             metadata?: Record<string, any>;
           }>;
         };
+        
+        console.log(`[RAG] Chunks recibidos: ${ragData.chunks?.length || 0}`);
+        
         if (ragData.chunks && ragData.chunks.length > 0) {
           ragContext = ragData.chunks.map((c) => c.content).join('\n\n');
           ragChunksCount = ragData.chunks.length;
@@ -149,11 +157,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.warn(`⚠️ RAG NO disponible en chat: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
         }
       } else {
-        console.warn(`⚠️ RAG NO disponible en chat: Error en respuesta RAG (status: ${ragResponse.status})`);
+        const errorText = await ragResponse.text().catch(() => 'Error desconocido');
+        console.error(`❌ RAG ERROR en chat: Status ${ragResponse.status} - ${errorText.substring(0, 200)}`);
       }
-    } catch (ragError) {
+    } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él (pero avisamos)
-      console.warn('⚠️ RAG NO disponible en chat - Error al obtener contexto RAG:', ragError);
+      console.error('❌ RAG EXCEPTION en chat:', ragError?.message || ragError);
+      console.error('Stack:', ragError?.stack);
     }
 
     // Construir prompt para Gemini

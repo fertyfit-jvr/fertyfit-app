@@ -42,21 +42,30 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
 });
 
 async function embedQuery(query: string): Promise<number[]> {
-  // El SDK nuevo usa ai.models.embedContent directamente
-  const resp = await (ai as any).models.embedContent({
-    model: 'text-embedding-004',
-    contents: [query], // Array de strings
-  });
+  try {
+    console.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
+    
+    // El SDK nuevo usa ai.models.embedContent directamente
+    const resp = await (ai as any).models.embedContent({
+      model: 'text-embedding-004',
+      contents: [query], // Array de strings
+    });
 
-  // La respuesta tiene embeddings array, cada uno con values
-  const embedding =
-    resp?.embeddings?.[0]?.values;
+    // La respuesta tiene embeddings array, cada uno con values
+    const embedding =
+      resp?.embeddings?.[0]?.values;
 
-  if (!embedding || embedding.length === 0) {
-    throw createError('No se pudo generar el embedding de la consulta', 500, 'EMBEDDING_ERROR');
+    if (!embedding || embedding.length === 0) {
+      console.error(`[RAG] ERROR: Embedding vacío o inválido`);
+      throw createError('No se pudo generar el embedding de la consulta', 500, 'EMBEDDING_ERROR');
+    }
+
+    console.log(`[RAG] Embedding OK: ${embedding.length} dimensiones`);
+    return embedding;
+  } catch (error: any) {
+    console.error(`[RAG] ERROR en embedding:`, error?.message || error);
+    throw error;
   }
-
-  return embedding;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -79,6 +88,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const queryEmbedding = await embedQuery(query);
 
     // 2) Llamar a la función RPC en Supabase
+    console.log(`[RAG] Llamando RPC match_fertyfit_knowledge con match_count=${matchCount}`);
+    console.log(`[RAG] Filtros: pillar_category=${filters?.pillar_category || 'null'}, doc_type=${filters?.doc_type || 'null'}, document_id=${filters?.document_id || 'null'}`);
+    
     const { data, error } = await supabase.rpc('match_fertyfit_knowledge', {
       query_embedding: queryEmbedding,
       match_count: matchCount,
@@ -88,7 +100,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (error) {
+      console.error(`[RAG] ERROR en RPC:`, error);
       throw error;
+    }
+
+    console.log(`[RAG] RPC devolvió ${data?.length || 0} resultados`);
+    if (data && data.length > 0) {
+      console.log(`[RAG] Primer resultado: similarity=${data[0]?.similarity}, doc_id=${data[0]?.document_id}, chunk_id=${data[0]?.chunk_id}`);
     }
 
     const chunks: KnowledgeChunk[] =
