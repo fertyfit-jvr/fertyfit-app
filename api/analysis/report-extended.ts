@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ai } from '../lib/ai.js';
 import { applySecurityHeaders } from '../lib/security.js';
 import { sendErrorResponse, createError } from '../lib/errorHandler.js';
-import { searchRagDirect } from '../knowledge/search-rag.js';
+import { searchRagDirect } from '../lib/ragUtils.js';
 
 import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
 
