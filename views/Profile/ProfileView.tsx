@@ -191,6 +191,13 @@ const ProfileView = ({
   const originalAnswers = useRef<Record<string, any>>({});
   const autoSaveTimeoutPillarRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Estados para scanner global de analíticas/ecografías
+  const [globalScannerOpen, setGlobalScannerOpen] = useState(false);
+  const [globalExamType, setGlobalExamType] = useState<
+    'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'
+  >('hormonal');
+  const [globalExamName, setGlobalExamName] = useState('');
+  
   // Guardar valores originales para poder cancelar
   const originalEditName = useRef<string>(user.name);
   const originalF0Answers = useRef<Record<string, any>>({});
@@ -638,6 +645,12 @@ const ProfileView = ({
   const handleDataExtracted = (data: Record<string, any>) => {
     setAnswers(prev => ({ ...prev, ...data }));
     showNotif('Datos extraídos correctamente. Revisa y confirma los valores.', 'success');
+  };
+
+  // Handler para datos extraídos del scanner global (no afecta pilares)
+  const handleGlobalDataExtracted = (data: Record<string, any>) => {
+    showNotif('Datos extraídos correctamente. Revisa los valores en tus formularios de pilares.', 'success');
+    // Los datos ya están guardados por el backend, solo notificamos
   };
 
   const renderNumberControl = (question: any) => {
@@ -1708,6 +1721,50 @@ const ProfileView = ({
                 : renderFormCard()}
             </div>
 
+            {/* Bloque global de subida de analíticas/ecografías */}
+            <div className="bg-white border border-[#F4F0ED] rounded-3xl p-4 shadow-sm mb-6 mt-6">
+              <p className="text-sm font-bold text-[#4A4A4A] mb-3">Subir analítica / Eco</p>
+              <div className="flex flex-col md:flex-row gap-3 items-stretch">
+                <select
+                  value={globalExamType}
+                  onChange={e => {
+                    setGlobalExamType(e.target.value as any);
+                    if (e.target.value !== 'other') {
+                      setGlobalExamName('');
+                    }
+                  }}
+                  className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-white focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+                >
+                  <option value="hormonal">Panel hormonal</option>
+                  <option value="metabolic">Panel metabólico</option>
+                  <option value="vitamin_d">Vitamina D</option>
+                  <option value="espermio">Espermiograma</option>
+                  <option value="ecografia">Ecografía transvaginal + AFC</option>
+                  <option value="hsg">Histerosalpingografía</option>
+                  <option value="other">Otro (especificar)</option>
+                </select>
+
+                {globalExamType === 'other' && (
+                  <input
+                    type="text"
+                    value={globalExamName}
+                    onChange={e => setGlobalExamName(e.target.value)}
+                    placeholder="¿Qué examen estás subiendo?"
+                    className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+                  />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setGlobalScannerOpen(true)}
+                  className="px-6 py-3 rounded-2xl bg-[#C7958E] text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#B5847D] transition-colors shadow-sm"
+                >
+                  <Camera size={18} />
+                  Escanear examen
+                </button>
+              </div>
+            </div>
+
             {/* Exam Scanner Modal para pilares */}
             {pillarScannerOpen && (
               <ExamScanner
@@ -1724,6 +1781,25 @@ const ProfileView = ({
                 sectionTitle={pillarExamType === 'other' ? pillarExamName || 'Examen' : undefined}
                 autoDetect={pillarExamType === 'other'}
                 examName={pillarExamType === 'other' ? pillarExamName : undefined}
+              />
+            )}
+
+            {/* Exam Scanner Modal Global */}
+            {globalScannerOpen && (
+              <ExamScanner
+                examType={
+                  globalExamType === 'other'
+                    ? undefined
+                    : (globalExamType as 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio')
+                }
+                onDataExtracted={handleGlobalDataExtracted}
+                onClose={() => {
+                  setGlobalScannerOpen(false);
+                  setGlobalExamName('');
+                }}
+                sectionTitle={globalExamType === 'other' ? globalExamName || 'Examen' : undefined}
+                autoDetect={globalExamType === 'other'}
+                examName={globalExamType === 'other' ? globalExamName : undefined}
               />
             )}
 
