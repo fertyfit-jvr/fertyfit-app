@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Clock, Camera } from 'lucide-react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Camera } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS, FUNCTION_SECTIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
@@ -1244,30 +1244,6 @@ const ProfileView = ({
             );
           })()}
         </div>
-        {submittedForm?.status === 'pending' && (
-          <div className="mt-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-start gap-3">
-            <div className="bg-yellow-100 p-2 rounded-full text-yellow-600">
-              <Clock size={16} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-yellow-800">En revisión</p>
-              <p className="text-[11px] text-yellow-700 mt-1">Recibirás una notificación cuando el equipo cargue tu informe.</p>
-            </div>
-          </div>
-        )}
-        {submittedForm?.status === 'reviewed' && submittedForm.generated_pdf_url && (
-          <div className="mt-6 bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-center">
-            <p className="text-sm font-bold text-emerald-700 mb-2">¡Informe listo!</p>
-            <a
-              href={submittedForm.generated_pdf_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-lg hover:bg-emerald-700 transition-colors"
-            >
-              <Download size={16} /> Descargar PDF
-            </a>
-          </div>
-        )}
       </div>
     );
   };
@@ -1623,11 +1599,6 @@ const ProfileView = ({
                               <p className="text-[10px] text-ferty-gray">
                                 Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
                               </p>
-                              {f0Form.pdf_generated_at && (
-                                <p className="text-[10px] text-ferty-gray">
-                                  Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
-                                </p>
-                              )}
                             </div>
                           )}
                         </button>

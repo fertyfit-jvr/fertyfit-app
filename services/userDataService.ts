@@ -3,7 +3,7 @@
  * Single source of truth for all data fetching operations with retry logic
  */
 
-import { DailyLog, ConsultationForm, AppNotification, AdminReport, CourseModule } from '../types';
+import { DailyLog, ConsultationForm, AppNotification, CourseModule } from '../types';
 import { supabase } from './supabase';
 import { formatDateForDB } from './dataService';
 import { withRetry } from './utils';
@@ -191,35 +191,6 @@ export async function fetchUserFormsForUser(userId: string): Promise<Result<Cons
     return {
       success: false,
       error: 'No pudimos cargar tus formularios. Intenta recargar la página.'
-    };
-  }
-}
-
-/**
- * Fetches admin reports for user
- * @param userId - User ID
- * @returns Result with AdminReport array or error message
- */
-export async function fetchReportsForUser(userId: string): Promise<Result<AdminReport[]>> {
-  try {
-    const { data, error } = await supabase
-      .from('admin_reports')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (data) {
-      return { success: true, data };
-    }
-    return {
-      success: false,
-      error: 'No pudimos cargar tus informes. Intenta recargar la página.'
-    };
-  } catch (error) {
-    logger.error('❌ Error fetching reports:', error);
-    return {
-      success: false,
-      error: 'No pudimos cargar tus informes. Intenta recargar la página.'
     };
   }
 }

@@ -32,7 +32,6 @@ function AppContent() {
     dashboardScores,
     notifications,
     submittedForms,
-    reports,
     showPhaseModal,
     currentPhase,
     email, setEmail,

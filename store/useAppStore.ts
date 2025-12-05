@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import {
-  AdminReport,
   AppNotification,
   ConsultationForm,
   CourseModule,
@@ -17,7 +16,6 @@ import {
   fetchEducationForUser,
   fetchLogsForUser,
   fetchNotificationsForUser,
-  fetchReportsForUser,
   fetchUserFormsForUser
 } from '../services/userDataService';
 import { logger } from '../lib/logger';
@@ -58,7 +56,6 @@ interface AppStore {
   dashboardScores: DashboardScores;
   notifications: AppNotification[];
   submittedForms: ConsultationForm[];
-  reports: AdminReport[];
   showPhaseModal: boolean;
   currentPhase: number;
   email: string;
@@ -78,7 +75,6 @@ interface AppStore {
   setLogs: (logs: DailyLog[]) => void;
   setNotifications: (notifications: AppNotification[]) => void;
   setSubmittedForms: (forms: ConsultationForm[]) => void;
-  setReports: (reports: AdminReport[]) => void;
   setShowPhaseModal: (open: boolean) => void;
   setCurrentPhase: (phase: number) => void;
   setEmail: (email: string) => void;
@@ -101,7 +97,6 @@ interface AppStore {
   fetchLogs: (userId: string, daysLimit?: number) => Promise<DailyLog[]>;
   fetchAllLogs: (userId: string) => Promise<DailyLog[]>;
   fetchNotifications: (userId: string) => Promise<void>;
-  fetchReports: (userId: string) => Promise<void>;
   fetchUserForms: (userId: string) => Promise<void>;
   fetchEducation: (userId: string, methodStart?: string) => Promise<void>;
   markNotificationRead: (notifId: number) => Promise<void>;
@@ -122,7 +117,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   dashboardScores: emptyDashboardScores,
   notifications: [],
   submittedForms: [],
-  reports: [],
   showPhaseModal: false,
   currentPhase: 0,
   email: '',
@@ -142,7 +136,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setLogs: (logs) => set({ logs }),
   setNotifications: (notifications) => set({ notifications }),
   setSubmittedForms: (forms) => set({ submittedForms: forms }),
-  setReports: (reports) => set({ reports }),
   setShowPhaseModal: (open) => set({ showPhaseModal: open }),
   setCurrentPhase: (phase) => set({ currentPhase: phase }),
   setEmail: (email) => set({ email }),
@@ -290,20 +283,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch (error) {
       logger.error('❌ Error fetching notifications:', error);
       setNotifications([]);
-    }
-  },
-
-  fetchReports: async (userId: string) => {
-    const { setReports, showNotif } = get();
-    try {
-      const result = await fetchReportsForUser(userId);
-      if (!result.success) {
-        showNotif(result.error, 'error');
-        return;
-      }
-      setReports(result.data);
-    } catch (error) {
-      logger.error('❌ Error fetching reports:', error);
     }
   },
 

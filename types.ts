@@ -107,23 +107,7 @@ export interface ConsultationForm {
   observations: string;
   status: 'pending' | 'reviewed';
   snapshot_stats?: any;
-  generated_pdf_url?: string;
-  pdf_generated_at?: string;
-  report_url?: string; // URL to the PDF report if reviewed
 }
-
-export interface AdminReport {
-  id: number;
-  user_id: string;
-  title: string;
-  report_url: string; // Main URL
-  pdf_url?: string; // Alias
-  created_at: string;
-  summary?: string;
-  recommendations?: string;
-  form_type?: string;
-}
-
 
 
 export type NotificationType = 'insight' | 'alert' | 'tip' | 'celebration' | 'opportunity' | 'confirmation';
