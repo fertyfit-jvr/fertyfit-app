@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { processImageOCR } from '../services/googleCloud/visionService';
-import { saveExamToConsultationForms, saveFunctionFromExam } from '../services/examService';
+import { saveExamToConsultationForms } from '../services/examService';
 import { logger } from '../lib/logger';
 import { useAppStore } from '../store/useAppStore';
 
@@ -170,17 +170,6 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
             logger.log('✅ Exam saved successfully', { formId: saveResult.formId });
           } else {
             logger.warn('⚠️ Failed to save exam:', saveResult.error);
-          }
-
-          // Actualizar pilar FUNCTION solo para exámenes de tipo función/metabólico
-          const functionExamTypes = ['hormonal', 'metabolic', 'vitamin_d', 'espermio'];
-          const examTypeKey = (finalExamType || examType || '').toLowerCase();
-
-          if (functionExamTypes.includes(examTypeKey)) {
-            const pillarResult = await saveFunctionFromExam(user.id, parsed);
-            if (!pillarResult.success) {
-              logger.warn('⚠️ Failed to update FUNCTION pillar from exam:', pillarResult.error);
-            }
           }
         } catch (saveError) {
           logger.error('❌ Error saving exam:', saveError);
