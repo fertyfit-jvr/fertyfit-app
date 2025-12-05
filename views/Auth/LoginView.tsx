@@ -33,17 +33,17 @@ export default function LoginView({
   onCloseNotif,
 }: LoginViewProps) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F4F0ED] p-6 font-sans relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-ferty-beige p-6 font-sans relative overflow-hidden">
       {notif && <Notification message={notif.msg} type={notif.type} onClose={onCloseNotif} />}
 
       {/* Background decorations */}
-      <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#C7958E]/10 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-[#95706B]/10 rounded-full blur-3xl"></div>
+      <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-ferty-rose/10 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-ferty-coral/10 rounded-full blur-3xl"></div>
 
       <div className="bg-white/80 backdrop-blur-lg p-8 rounded-[2rem] shadow-xl w-full max-w-sm border border-white relative z-10">
         <div className="flex flex-col items-center mb-8">
           <img src={BRAND_ASSETS.logo} alt="FertyFit" className="h-20 object-contain mb-2" />
-          <p className="text-[10px] uppercase tracking-[0.3em] text-[#95706B] font-medium text-center">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-ferty-coral font-medium text-center">
             Function • Food • Flora • Flow
           </p>
         </div>
@@ -51,32 +51,32 @@ export default function LoginView({
         <div className="space-y-4">
           {isSignUp && (
             <div className="relative group animate-in slide-in-from-top duration-300">
-              <User className="absolute left-4 top-4 text-[#95706B] group-focus-within:text-[#C7958E] transition-colors" size={20} />
+              <User className="absolute left-4 top-4 text-ferty-coral group-focus-within:text-ferty-rose transition-colors" size={20} />
               <input
                 type="text"
                 placeholder="Tu Nombre"
-                className="w-full bg-[#F4F0ED] border-transparent focus:bg-white border focus:border-[#C7958E] rounded-2xl py-4 pl-12 pr-4 text-sm outline-none transition-all text-[#4A4A4A]"
+                className="w-full bg-ferty-beige border-transparent focus:bg-white border focus:border-ferty-rose rounded-2xl py-4 pl-12 pr-4 text-sm outline-none transition-all text-ferty-dark"
                 value={name}
                 onChange={e => onNameChange(e.target.value)}
               />
             </div>
           )}
           <div className="relative group">
-            <Mail className="absolute left-4 top-4 text-[#95706B] group-focus-within:text-[#C7958E] transition-colors" size={20} />
+            <Mail className="absolute left-4 top-4 text-ferty-coral group-focus-within:text-ferty-rose transition-colors" size={20} />
             <input
               type="email"
               placeholder="Tu Email"
-              className="w-full bg-[#F4F0ED] border-transparent focus:bg-white border focus:border-[#C7958E] rounded-2xl py-4 pl-12 pr-4 text-sm outline-none transition-all text-[#4A4A4A]"
+              className="w-full bg-ferty-beige border-transparent focus:bg-white border focus:border-ferty-rose rounded-2xl py-4 pl-12 pr-4 text-sm outline-none transition-all text-ferty-dark"
               value={email}
               onChange={e => onEmailChange(e.target.value)}
             />
           </div>
           <div className="relative group">
-            <Key className="absolute left-4 top-4 text-[#95706B] group-focus-within:text-[#C7958E] transition-colors" size={20} />
+            <Key className="absolute left-4 top-4 text-ferty-coral group-focus-within:text-ferty-rose transition-colors" size={20} />
             <input
               type="password"
               placeholder="Tu Contraseña"
-              className="w-full bg-[#F4F0ED] border-transparent focus:bg-white border focus:border-[#C7958E] rounded-2xl py-4 pl-12 pr-4 text-sm outline-none transition-all text-[#4A4A4A]"
+              className="w-full bg-ferty-beige border-transparent focus:bg-white border focus:border-ferty-rose rounded-2xl py-4 pl-12 pr-4 text-sm outline-none transition-all text-ferty-dark"
               value={password}
               onChange={e => onPasswordChange(e.target.value)}
             />
@@ -93,16 +93,16 @@ export default function LoginView({
         <button
           onClick={onAuth}
           disabled={!email || !password || (isSignUp && !name)}
-          className="w-full bg-gradient-to-r from-[#C7958E] to-[#95706B] text-white py-4 rounded-2xl font-bold shadow-lg shadow-rose-200/50 mt-6 hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          className="w-full bg-gradient-to-r from-ferty-rose to-ferty-coral text-white py-4 rounded-2xl font-bold shadow-lg shadow-rose-200/50 mt-6 hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           {isSignUp ? 'Crear Cuenta Gratis' : 'Iniciar Sesión'}
         </button>
 
-        <div className="text-center mt-8 pt-6 border-t border-[#F4F0ED]">
-          <p className="text-xs text-[#5D7180] mb-2">
+        <div className="text-center mt-8 pt-6 border-t border-ferty-beige">
+          <p className="text-xs text-ferty-gray mb-2">
             {isSignUp ? '¿Ya tienes cuenta?' : '¿Aún no tienes cuenta?'}
           </p>
-          <button onClick={onToggleSignUp} className="text-[#C7958E] font-bold text-sm hover:underline">
+          <button onClick={onToggleSignUp} className="text-ferty-rose font-bold text-sm hover:underline">
             {isSignUp ? 'Entra aquí' : 'Regístrate ahora'}
           </button>
         </div>

@@ -23,6 +23,17 @@ const PILLAR_TABS: { id: PillarFormType; label: string; iconUrl: string; accent:
   { id: 'FLOW', label: 'Flow', iconUrl: PILLAR_ICONS.FLOW, accent: '#5B7A92' }
 ];
 
+// Helper para mapear colores de acento a clases de Tailwind con opacidad
+const getPillarAccentClass = (accent: string) => {
+  const accentMap: Record<string, string> = {
+    '#C7958E': 'bg-ferty-rose/10',
+    '#B67977': 'bg-ferty-food-accent/10',
+    '#6F8A6E': 'bg-ferty-flora-accent/10',
+    '#5B7A92': 'bg-ferty-flow-accent/10',
+  };
+  return accentMap[accent] || 'bg-ferty-rose/10';
+};
+
 const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {
   F1: 'FUNCTION',
   F2: 'FOOD',
@@ -60,11 +71,11 @@ const ProfileHeader = ({ user, logs, logsCount, scores, submittedForms }: Profil
   }, [user.timeTryingStartDate, user.timeTryingInitialMonths]);
 
   return (
-    <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] pt-10 pb-8 px-6 rounded-b-[2.5rem] shadow-lg mb-6 text-white relative overflow-hidden">
+    <div className="bg-gradient-to-br from-ferty-rose to-ferty-coral pt-10 pb-8 px-6 rounded-b-[2.5rem] shadow-lg mb-6 text-white relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
       <div className="relative z-10">
         <div className="flex items-center gap-5 mb-3">
-          <div className="w-18 h-18 bg-white text-[#C7958E] rounded-full flex items-center justify-center text-2xl font-bold border-4 border-white/20 shadow-inner">
+          <div className="w-18 h-18 bg-white text-ferty-rose rounded-full flex items-center justify-center text-2xl font-bold border-4 border-white/20 shadow-inner">
             {user.name.charAt(0).toUpperCase()}
           </div>
           <div>
@@ -680,14 +691,14 @@ const ProfileView = ({
 
     return (
       <div className="flex items-center gap-3">
-        <button onClick={() => handleAdjust(-1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
+        <button onClick={() => handleAdjust(-1)} className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige" type="button">
           -
         </button>
-        <div className="flex-1 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl py-2">
-          <p className="text-lg font-bold text-[#4A4A4A]">{numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}</p>
-          {question.unit && <p className="text-[11px] text-[#95706B] font-semibold">{question.unit}</p>}
+        <div className="flex-1 text-center bg-ferty-beigeLight border border-ferty-beige rounded-2xl py-2">
+          <p className="text-lg font-bold text-ferty-dark">{numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}</p>
+          {question.unit && <p className="text-[11px] text-ferty-coral font-semibold">{question.unit}</p>}
         </div>
-        <button onClick={() => handleAdjust(1)} className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]" type="button">
+        <button onClick={() => handleAdjust(1)} className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige" type="button">
           +
         </button>
       </div>
@@ -709,12 +720,12 @@ const ProfileView = ({
 
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-[11px] font-semibold text-[#95706B]">
+        <div className="flex items-center justify-between text-[11px] font-semibold text-ferty-coral">
           <span>
             {safeValue}
             {question.unit ? ` ${question.unit}` : ''}
           </span>
-          <span className="text-[#BBA49E]">
+          <span className="text-ferty-beigeMuted">
             {min}
             {question.unit ? ` ${question.unit}` : ''} – {max}
             {question.unit ? ` ${question.unit}` : ''}
@@ -726,7 +737,7 @@ const ProfileView = ({
           max={max}
           step={step}
           value={safeValue}
-          className="w-full accent-[#C7958E]"
+          className="w-full accent-ferty-rose"
           onChange={event => updateAnswer(question.id, Number(event.target.value))}
         />
       </div>
@@ -748,7 +759,7 @@ const ProfileView = ({
               type="button"
               onClick={() => updateAnswer(question.id, optionValue)}
               className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
-                isActive ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+                isActive ? 'bg-ferty-rose text-white border-ferty-rose' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
               }`}
             >
               {option}
@@ -769,7 +780,7 @@ const ProfileView = ({
             type="button"
             onClick={() => updateAnswer(question.id, option)}
             className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-              isActive ? 'bg-[#95706B] text-white border-[#95706B]' : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+              isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
             }`}
           >
             {option}
@@ -785,9 +796,9 @@ const ProfileView = ({
     const values = Array.from({ length: max - min + 1 }, (_, index) => min + index);
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-[11px] font-semibold text-[#95706B]">
+        <div className="flex items-center justify-between text-[11px] font-semibold text-ferty-coral">
           <span>Nivel: {answers[question.id] ?? min}</span>
-          <span className="text-[#BBA49E]">0 – {max}</span>
+          <span className="text-ferty-beigeMuted">0 – {max}</span>
         </div>
         <div className="flex gap-1">
           {values.map((value: number) => {
@@ -799,8 +810,8 @@ const ProfileView = ({
                 onClick={() => updateAnswer(question.id, value)}
                 className={`flex-1 h-8 rounded-lg border transition-all ${
                   isActive
-                    ? 'bg-[#C7958E] border-[#C7958E]'
-                    : 'bg-[#F4F0ED] border-[#E1D7D3] hover:bg-[#E1D7D3]'
+                    ? 'bg-ferty-rose border-ferty-rose'
+                    : 'bg-ferty-beige border-ferty-beigeBorder hover:bg-ferty-beigeBorder'
                 }`}
               />
             );
@@ -840,7 +851,7 @@ const ProfileView = ({
               value={answers[`${question.id}_otro`] || ''}
               placeholder="Especifica..."
               onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
-              className="w-full border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E]"
+              className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
             />
           )}
         </div>
@@ -851,7 +862,7 @@ const ProfileView = ({
       return (
         <textarea
           value={answers[question.id] || ''}
-          className="w-full border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+          className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
           rows={4}
           onChange={event => updateAnswer(question.id, event.target.value)}
         />
@@ -875,7 +886,7 @@ const ProfileView = ({
         <select
           value={answers[question.id] || ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
-          className="w-full border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-white focus:border-[#C7958E]"
+          className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose"
         >
           <option value="">Seleccionar…</option>
           {question.options?.map((option: string) => (
@@ -893,7 +904,7 @@ const ProfileView = ({
           type="date"
           value={answers[question.id] || ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
-          className="w-full border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E]"
+          className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
         />
       );
     }
@@ -911,7 +922,7 @@ const ProfileView = ({
         type="text"
         value={answers[question.id] || ''}
         onChange={event => updateAnswer(question.id, event.target.value)}
-        className="w-full border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E]"
+        className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
       />
     );
   };
@@ -923,20 +934,20 @@ const ProfileView = ({
       {definition.sections.map(section => {
         const isOpen = openSections[section.id];
         return (
-          <div key={section.id} className="bg-white border border-[#F4F0ED] rounded-3xl shadow-sm overflow-hidden">
+          <div key={section.id} className="bg-white border border-ferty-beige rounded-3xl shadow-sm overflow-hidden">
             <button
               type="button"
               onClick={() => toggleSection(section.id)}
               className="w-full flex items-center justify-between px-5 py-4 text-left"
             >
               <div>
-                <p className="text-sm font-bold text-[#4A4A4A]">{section.title}</p>
+                <p className="text-sm font-bold text-ferty-dark">{section.title}</p>
               </div>
               <div className="flex items-center gap-3">
                 {!section.optional && (
-                  <span className="text-[10px] px-3 py-1 rounded-full bg-[#F4F0ED] text-[#95706B] font-bold">Obligatorio</span>
+                  <span className="text-[10px] px-3 py-1 rounded-full bg-ferty-beige text-ferty-coral font-bold">Obligatorio</span>
                 )}
-                <ChevronDown className={`text-[#95706B] transition-transform ${isOpen ? 'rotate-180' : ''}`} size={18} />
+                <ChevronDown className={`text-ferty-coral transition-transform ${isOpen ? 'rotate-180' : ''}`} size={18} />
               </div>
             </button>
             {isOpen && (
@@ -944,17 +955,17 @@ const ProfileView = ({
                 {section.fields.map(field => {
                   const question = { ...field, text: field.label };
                   return (
-                    <div key={field.id} className="bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl p-4 space-y-3">
+                    <div key={field.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider">{field.label}</p>
+                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider">{field.label}</p>
                           {(field.recommendedValue || field.averageValue) && (
-                            <p className="text-[10px] text-[#5D7180] mt-0.5">
+                            <p className="text-[10px] text-ferty-gray mt-0.5">
                               {field.recommendedValue ? `Valor recomendado: ${field.recommendedValue}` : `Valor promedio: ${field.averageValue}`}
                             </p>
                           )}
                         </div>
-                        {field.unit && <span className="text-[10px] text-[#95706B]/80 font-semibold ml-2">{field.unit}</span>}
+                        {field.unit && <span className="text-[10px] text-ferty-coral/80 font-semibold ml-2">{field.unit}</span>}
                       </div>
                       {renderControl(question)}
                     </div>
@@ -972,10 +983,10 @@ const ProfileView = ({
   const renderGeneralForm = () => (
     <div className="space-y-4">
       {definition.questions.map(question => (
-        <div key={question.id} className="bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl p-4 space-y-3">
+        <div key={question.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-[#4A4A4A] uppercase tracking-wider">{question.text}</label>
-            {question.unit && <span className="text-[11px] text-[#95706B] font-semibold">{question.unit}</span>}
+            <label className="text-xs font-bold text-ferty-dark uppercase tracking-wider">{question.text}</label>
+            {question.unit && <span className="text-[11px] text-ferty-coral font-semibold">{question.unit}</span>}
           </div>
           {renderControl(question)}
         </div>
@@ -986,20 +997,20 @@ const ProfileView = ({
   const renderFormCard = () => {
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
     return (
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-        <div className="flex items-center justify-between mb-6 border-b border-[#F4F0ED] pb-4">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-ferty-beige">
+        <div className="flex items-center justify-between mb-6 border-b border-ferty-beige pb-4">
           <div className="flex items-center gap-3 flex-1">
             {currentTab && (
               <>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${currentTab.accent}1A` }}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${getPillarAccentClass(currentTab.accent)}`}>
                   <img src={currentTab.iconUrl} alt={`${currentTab.label} icono`} className="w-10 h-10 object-contain" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-bold text-[#4A4A4A]">{currentTab.label}</h4>
+                  <h4 className="text-lg font-bold text-ferty-dark">{currentTab.label}</h4>
                   {submittedForm?.submitted_at && (
                     <div className="mt-0.5">
-                      <p className="text-xs font-semibold text-[#5D7180]">Última Actualización:</p>
-                      <p className="text-xs text-[#5D7180]">{formatDate(submittedForm.submitted_at, 'long')}</p>
+                      <p className="text-xs font-semibold text-ferty-gray">Última Actualización:</p>
+                      <p className="text-xs text-ferty-gray">{formatDate(submittedForm.submitted_at, 'long')}</p>
                     </div>
                   )}
                 </div>
@@ -1012,14 +1023,14 @@ const ProfileView = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCancelEdit}
-                    className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                    className="text-ferty-coral hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                     title="Cancelar"
                   >
                     <X size={16} />
                   </button>
                   <button
                     onClick={handlePillarSubmit}
-                    className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                    className="text-ferty-rose hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                     title="Guardar"
                   >
                     <Check size={16} />
@@ -1032,7 +1043,7 @@ const ProfileView = ({
                     originalAnswers.current = JSON.parse(JSON.stringify(answers));
                     setIsEditMode(true);
                   }}
-                  className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                  className="text-ferty-rose hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                   title="Editar formulario"
                 >
                   <Edit2 size={18} />
@@ -1042,7 +1053,7 @@ const ProfileView = ({
           )}
         </div>
         {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
-        <button onClick={handlePillarSubmit} className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2">
+        <button onClick={handlePillarSubmit} className="w-full bg-ferty-gray text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-ferty-grayHover transition-all flex items-center justify-center gap-2">
           Guardar y enviar <Download size={16} />
         </button>
       </div>
@@ -1065,12 +1076,12 @@ const ProfileView = ({
             if (sectionAnswers.length === 0) return null;
             
             return (
-              <div key={section.id} className="bg-white border border-[#F4F0ED] rounded-3xl shadow-sm overflow-hidden">
-                <div className="px-5 py-4 bg-[#F9F6F4] border-b border-[#F4F0ED]">
+              <div key={section.id} className="bg-white border border-ferty-beige rounded-3xl shadow-sm overflow-hidden">
+                <div className="px-5 py-4 bg-ferty-beigeLight border-b border-ferty-beige">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-[#4A4A4A]">{section.title}</p>
+                    <p className="text-sm font-bold text-ferty-dark">{section.title}</p>
                     {!section.optional && (
-                      <span className="text-[10px] px-3 py-1 rounded-full bg-[#F4F0ED] text-[#95706B] font-bold">Obligatorio</span>
+                      <span className="text-[10px] px-3 py-1 rounded-full bg-ferty-beige text-ferty-coral font-bold">Obligatorio</span>
                     )}
                   </div>
                 </div>
@@ -1079,12 +1090,12 @@ const ProfileView = ({
                     {sectionAnswers.map((answer: any) => {
                       const field = section.fields.find(f => f.id === answer.questionId);
                       return (
-                        <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
-                          <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
-                          <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
+                        <div key={answer.questionId} className="bg-ferty-beige/50 p-3 rounded-xl">
+                          <p className="text-[11px] uppercase font-bold text-ferty-coral mb-1">{answer.question}</p>
+                          <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
                             {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
                             {(field as any)?.unit && answer.answer && (
-                              <span className="text-[10px] text-[#95706B]/80 ml-1">{(field as any).unit}</span>
+                              <span className="text-[10px] text-ferty-coral/80 ml-1">{(field as any).unit}</span>
                             )}
                           </p>
                         </div>
@@ -1100,20 +1111,20 @@ const ProfileView = ({
     };
     
     return (
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#F4F0ED]">
-        <div className="flex items-center justify-between mb-4 border-b border-[#F4F0ED] pb-4">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-ferty-beige">
+        <div className="flex items-center justify-between mb-4 border-b border-ferty-beige pb-4">
           <div className="flex items-center gap-3 flex-1">
             {currentTab && (
               <>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${currentTab.accent}1A` }}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${getPillarAccentClass(currentTab.accent)}`}>
                   <img src={currentTab.iconUrl} alt={`${currentTab.label} icono`} className="w-10 h-10 object-contain" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-bold text-[#4A4A4A]">{currentTab.label}</h4>
+                  <h4 className="text-lg font-bold text-ferty-dark">{currentTab.label}</h4>
                   {submittedForm?.submitted_at && (
                     <div className="mt-0.5">
-                      <p className="text-xs font-semibold text-[#5D7180]">Última Actualización:</p>
-                      <p className="text-xs text-[#5D7180]">{formatDate(submittedForm.submitted_at, 'long')}</p>
+                      <p className="text-xs font-semibold text-ferty-gray">Última Actualización:</p>
+                      <p className="text-xs text-ferty-gray">{formatDate(submittedForm.submitted_at, 'long')}</p>
                     </div>
                   )}
                 </div>
@@ -1124,7 +1135,7 @@ const ProfileView = ({
             {isEditMode && (
               <button
                 onClick={handleCancelEdit}
-                className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                className="text-ferty-coral hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                 title="Cancelar"
               >
                 <X size={16} />
@@ -1139,7 +1150,7 @@ const ProfileView = ({
                   setIsEditMode(true);
                 }
               }}
-              className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+              className="text-ferty-rose hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
               title={isEditMode ? "Guardar" : "Editar formulario"}
             >
               {isEditMode ? <Check size={16} /> : <Edit2 size={16} />}
@@ -1152,9 +1163,9 @@ const ProfileView = ({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {(submittedForm?.answers || []).map((answer: any) => (
-              <div key={answer.questionId} className="bg-[#F4F0ED]/50 p-3 rounded-xl">
-                <p className="text-[11px] uppercase font-bold text-[#95706B] mb-1">{answer.question}</p>
-                <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-[#4A4A4A]'}`}>
+              <div key={answer.questionId} className="bg-ferty-beige/50 p-3 rounded-xl">
+                <p className="text-[11px] uppercase font-bold text-ferty-coral mb-1">{answer.question}</p>
+                <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
                   {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
                 </p>
               </div>
@@ -1204,16 +1215,16 @@ const ProfileView = ({
           <button
             onClick={() => setProfileTab('HISTORIA')}
             className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${profileTab === 'HISTORIA'
-              ? 'bg-[#C7958E] text-white shadow-md'
-              : 'text-[#5D7180] hover:bg-[#F4F0ED]'}`}
+              ? 'bg-ferty-rose text-white shadow-md'
+              : 'text-ferty-gray hover:bg-ferty-beige'}`}
           >
             Historia
           </button>
           <button
             onClick={() => setProfileTab('PROFILE')}
             className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${profileTab === 'PROFILE'
-              ? 'bg-[#C7958E] text-white shadow-md'
-              : 'text-[#5D7180] hover:bg-[#F4F0ED]'}`}
+              ? 'bg-ferty-rose text-white shadow-md'
+              : 'text-ferty-gray hover:bg-ferty-beige'}`}
           >
             Mi Perfil
           </button>
@@ -1241,7 +1252,7 @@ const ProfileView = ({
                     setF0Answers(defaults);
                     originalF0Answers.current = JSON.parse(JSON.stringify(defaults));
                   }}
-                  className="mt-4 bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#95706B] transition-colors"
+                  className="mt-4 bg-ferty-rose text-white px-6 py-3 rounded-xl font-bold hover:bg-ferty-coral transition-colors"
                 >
                   Completar F0
                 </button>
@@ -1249,12 +1260,12 @@ const ProfileView = ({
             ) : (f0Form || isEditingF0) ? (
                 <div className="space-y-4">
                   {isEditingF0 ? (
-                    <div className="bg-white rounded-3xl shadow-sm border border-[#F4F0ED] overflow-hidden">
+                    <div className="bg-white rounded-3xl shadow-sm border border-ferty-beige overflow-hidden">
                       {/* Header con título y botones cuando está editando */}
-                      <div className="p-6 flex items-center justify-between border-b border-[#F4F0ED]">
+                      <div className="p-6 flex items-center justify-between border-b border-ferty-beige">
                         <div className="flex-1">
-                          <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
-                          <p className="text-xs text-[#5D7180]">
+                          <h3 className="font-bold text-lg text-ferty-rose mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                          <p className="text-xs text-ferty-gray">
                             {FORM_DEFINITIONS.F0.description}
                           </p>
                         </div>
@@ -1268,7 +1279,7 @@ const ProfileView = ({
                                 autoSaveTimeoutRef.current = null;
                               }
                             }}
-                            className="text-[#95706B] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            className="text-ferty-coral hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                             title="Cancelar"
                           >
                             <X size={16} />
@@ -1278,7 +1289,7 @@ const ProfileView = ({
                               const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
                               handleF0Save(currentF0Form);
                             }}
-                            className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            className="text-ferty-rose hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                             title="Guardar"
                           >
                             <Check size={16} />
@@ -1289,29 +1300,29 @@ const ProfileView = ({
                       <div className="p-6">
                       {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento en una sola columna */}
                       <div className="space-y-4 mb-6">
-                        <div className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
+                        <div className="border-b border-ferty-beige pb-3">
+                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Nombre</p>
                           <input
                             type="text"
                             value={editName}
                             onChange={e => setEditName(e.target.value)}
-                            className="w-full text-sm text-[#4A4A4A] border-b border-[#C7958E] focus:outline-none py-1 bg-transparent"
+                            className="w-full text-sm text-ferty-dark border-b border-ferty-rose focus:outline-none py-1 bg-transparent"
                           />
                         </div>
-                        <div className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
-                          <p className="text-sm text-[#4A4A4A] opacity-70">
+                        <div className="border-b border-ferty-beige pb-3">
+                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Email</p>
+                          <p className="text-sm text-ferty-dark opacity-70">
                             {user.email} <span className="text-[10px] italic">(No editable)</span>
                           </p>
                         </div>
-                        <div className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                        <div className="border-b border-ferty-beige pb-3">
+                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">
                             Fecha de nacimiento
                           </p>
                           <input
                             type="date"
                             value={f0Answers['q1_birthdate'] || ''}
-                            className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                            className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                             onChange={e => setF0Answers({ ...f0Answers, q1_birthdate: e.target.value })}
                           />
                         </div>
@@ -1355,22 +1366,22 @@ const ProfileView = ({
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() => handleAdjust(-1)}
-                                  className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]"
+                                  className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige"
                                   type="button"
                                 >
                                   -
                                 </button>
-                                <div className="flex-1 text-center bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl py-2">
-                                  <p className="text-lg font-bold text-[#4A4A4A]">
+                                <div className="flex-1 text-center bg-ferty-beigeLight border border-ferty-beige rounded-2xl py-2">
+                                  <p className="text-lg font-bold text-ferty-dark">
                                     {numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}
                                   </p>
                                   {question.unit && (
-                                    <p className="text-[11px] text-[#95706B] font-semibold">{question.unit}</p>
+                                    <p className="text-[11px] text-ferty-coral font-semibold">{question.unit}</p>
                                   )}
                                 </div>
                                 <button
                                   onClick={() => handleAdjust(1)}
-                                  className="w-10 h-10 rounded-2xl border border-[#E1D7D3] text-[#95706B] font-bold text-lg bg-white hover:bg-[#F4F0ED]"
+                                  className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige"
                                   type="button"
                                 >
                                   +
@@ -1394,12 +1405,12 @@ const ProfileView = ({
 
                             return (
                               <div className="space-y-2">
-                                <div className="flex items-center justify-between text-[11px] font-semibold text-[#95706B]">
+                                <div className="flex items-center justify-between text-[11px] font-semibold text-ferty-coral">
                                   <span>
                                     {safeValue}
                                     {question.unit ? ` ${question.unit}` : ''}
                                   </span>
-                                  <span className="text-[#BBA49E]">
+                                  <span className="text-ferty-beigeMuted">
                                     {min}
                                     {question.unit ? ` ${question.unit}` : ''} – {max}
                                     {question.unit ? ` ${question.unit}` : ''}
@@ -1411,7 +1422,7 @@ const ProfileView = ({
                                   max={max}
                                   step={step}
                                   value={safeValue}
-                                  className="w-full accent-[#C7958E]"
+                                  className="w-full accent-ferty-rose"
                                   onChange={event => updateAnswer(question.id, Number(event.target.value))}
                                 />
                               </div>
@@ -1435,8 +1446,8 @@ const ProfileView = ({
                                       onClick={() => updateAnswer(question.id, optionValue)}
                                       className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
                                         isActive
-                                          ? 'bg-[#C7958E] text-white border-[#C7958E]'
-                                          : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+                                          ? 'bg-ferty-rose text-white border-ferty-rose'
+                                          : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
                                       }`}
                                     >
                                       {option}
@@ -1458,8 +1469,8 @@ const ProfileView = ({
                                     onClick={() => updateAnswer(question.id, option)}
                                     className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
                                       isActive
-                                        ? 'bg-[#C7958E] text-white border-[#C7958E]'
-                                        : 'text-[#5D7180] border-[#E1D7D3] hover:bg-[#F4F0ED]'
+                                        ? 'bg-ferty-rose text-white border-ferty-rose'
+                                        : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
                                     }`}
                                   >
                                     {option}
@@ -1471,13 +1482,13 @@ const ProfileView = ({
 
                           return (
                             <div key={q.id}>
-                              <label className="block text-xs font-bold text-[#4A4A4A] mb-2 uppercase tracking-wide">
+                              <label className="block text-xs font-bold text-ferty-dark mb-2 uppercase tracking-wide">
                                 {q.text}
                               </label>
                               {q.type === 'textarea' ? (
                                 <textarea
                                   value={f0Answers[q.id] || ''}
-                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm h-28 bg-[#F4F0ED]/30 focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none transition-all"
+                                  className="w-full border border-ferty-beige rounded-xl p-3 text-sm h-28 bg-ferty-beige/30 focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose outline-none transition-all"
                                   onChange={e => updateAnswer(q.id, e.target.value)}
                                   maxLength={
                                     q.id === 'q9_diagnoses' || q.id === 'q21_family_history' ? 280 : undefined
@@ -1493,7 +1504,7 @@ const ProfileView = ({
                                 <input
                                   type="date"
                                   value={f0Answers[q.id] || ''}
-                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                                  className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                                   onChange={e => updateAnswer(q.id, e.target.value)}
                                 />
                               ) : q.type === 'slider' ? (
@@ -1504,7 +1515,7 @@ const ProfileView = ({
                                 <input
                                   type={q.type === 'number' ? 'number' : 'text'}
                                   value={f0Answers[q.id] || ''}
-                                  className="w-full border border-[#F4F0ED] rounded-xl p-3 text-sm bg-[#F4F0ED]/30 focus:border-[#C7958E] outline-none transition-all"
+                                  className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                                   onChange={e => updateAnswer(q.id, e.target.value)}
                                 />
                               )}
@@ -1517,31 +1528,31 @@ const ProfileView = ({
                           const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
                           handleF0Save(currentF0Form);
                         }}
-                        className="w-full bg-[#5D7180] text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-[#4A5568] transition-all flex items-center justify-center gap-2"
+                        className="w-full bg-ferty-gray text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-ferty-grayHover transition-all flex items-center justify-center gap-2"
                       >
                         Guardar cambios
                       </button>
                       </div>
                     </div>
                   ) : f0Form ? (
-                    <div className="bg-white rounded-3xl shadow-sm border border-[#F4F0ED] overflow-hidden">
+                    <div className="bg-white rounded-3xl shadow-sm border border-ferty-beige overflow-hidden">
                       {/* Header clickeable del desplegable */}
                       <div className="p-6 flex items-center justify-between">
                         <button
                           onClick={() => setIsF0Expanded(!isF0Expanded)}
                           className="flex-1 text-left hover:opacity-80 transition-opacity"
                         >
-                          <h3 className="font-bold text-lg text-[#C7958E] mb-1">{FORM_DEFINITIONS.F0.title}</h3>
-                          <p className="text-xs text-[#5D7180]">
+                          <h3 className="font-bold text-lg text-ferty-rose mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                          <p className="text-xs text-ferty-gray">
                             {FORM_DEFINITIONS.F0.description}
                           </p>
                           {f0Form && (
                             <div className="mt-2 space-y-0.5">
-                              <p className="text-[10px] text-[#5D7180]">
+                              <p className="text-[10px] text-ferty-gray">
                                 Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
                               </p>
                               {f0Form.pdf_generated_at && (
-                                <p className="text-[10px] text-[#5D7180]">
+                                <p className="text-[10px] text-ferty-gray">
                                   Última actualización: {formatDate(f0Form.pdf_generated_at, 'long')}
                                 </p>
                               )}
@@ -1568,14 +1579,14 @@ const ProfileView = ({
                               setF0Answers(initialAnswers);
                               setIsEditingF0(true);
                             }}
-                            className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            className="text-ferty-rose hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                             title="Editar"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={() => setIsF0Expanded(!isF0Expanded)}
-                            className="text-[#C7958E] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                            className="text-ferty-rose hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
                             title={isF0Expanded ? 'Colapsar' : 'Expandir'}
                           >
                             {isF0Expanded ? (
@@ -1589,24 +1600,24 @@ const ProfileView = ({
 
                       {/* Contenido desplegable */}
                       {isF0Expanded && (
-                        <div className="px-6 pb-6 border-t border-[#F4F0ED] pt-6">
+                        <div className="px-6 pb-6 border-t border-ferty-beige pt-6">
                           {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento */}
                           <div className="space-y-4 mb-6">
-                            <div className="border-b border-[#F4F0ED] pb-3">
-                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Nombre</p>
-                              <p className="text-sm text-[#4A4A4A]">{user.name}</p>
+                            <div className="border-b border-ferty-beige pb-3">
+                              <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Nombre</p>
+                              <p className="text-sm text-ferty-dark">{user.name}</p>
                             </div>
-                            <div className="border-b border-[#F4F0ED] pb-3">
-                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">Email</p>
-                              <p className="text-sm text-[#4A4A4A] opacity-70">
+                            <div className="border-b border-ferty-beige pb-3">
+                              <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Email</p>
+                              <p className="text-sm text-ferty-dark opacity-70">
                                 {user.email} <span className="text-[10px] italic">(No editable)</span>
                               </p>
                             </div>
-                            <div className="border-b border-[#F4F0ED] pb-3">
-                              <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">
+                            <div className="border-b border-ferty-beige pb-3">
+                              <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">
                                 Fecha de nacimiento
                               </p>
-                              <p className="text-sm text-[#4A4A4A]">
+                              <p className="text-sm text-ferty-dark">
                                 {(() => {
                                   const birthdateAnswer = f0Form.answers?.find(a => a.questionId === 'q1_birthdate')?.answer;
                                   return birthdateAnswer 
@@ -1641,9 +1652,9 @@ const ProfileView = ({
                               }
 
                               return (
-                                <div key={q.id} className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                                  <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-1">{q.text}</p>
-                                  <p className="text-sm text-[#4A4A4A] whitespace-pre-line">
+                                <div key={q.id} className="border-b border-ferty-beige pb-3 last:border-0">
+                                  <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">{q.text}</p>
+                                  <p className="text-sm text-ferty-dark whitespace-pre-line">
                                     {displayValue ?? '—'}
                                   </p>
                                 </div>
@@ -1659,8 +1670,8 @@ const ProfileView = ({
 
             {/* Bloques de Pilares (Function, Food, Flora, Flow) */}
             <div>
-              <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Pilares FertyFit</h3>
-              <p className="text-xs text-[#5D7180] mb-4">Completa los formularios de cada pilar para un análisis completo.</p>
+              <h3 className="font-bold text-ferty-dark mb-3 text-sm">Pilares FertyFit</h3>
+              <p className="text-xs text-ferty-gray mb-4">Completa los formularios de cada pilar para un análisis completo.</p>
               
               {/* Pestañas de pilares */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -1674,19 +1685,19 @@ const ProfileView = ({
                       type="button"
                       onClick={() => setFormType(tab.id)}
                       className={`rounded-3xl border px-4 py-4 text-left transition-all shadow-sm ${
-                        isActive ? 'border-[#C7958E] bg-white shadow-lg' : 'border-[#F4F0ED] bg-[#F9F6F4] hover:bg-white'
+                        isActive ? 'border-ferty-rose bg-white shadow-lg' : 'border-ferty-beige bg-ferty-beigeLight hover:bg-white'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-bold text-[#4A4A4A]">{tab.label}</p>
+                        <p className="text-sm font-bold text-ferty-dark">{tab.label}</p>
                         {hasData && (
                           <CheckCircle size={14} className="text-emerald-600" />
                         )}
                       </div>
                       {pillarProgress > 0 && (
-                        <div className="w-full bg-[#F4F0ED] rounded-full h-1.5 overflow-hidden">
+                        <div className="w-full bg-ferty-beige rounded-full h-1.5 overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-[#C7958E] to-[#95706B] transition-all duration-500 rounded-full"
+                            className="h-full bg-gradient-to-r from-ferty-rose to-ferty-coral transition-all duration-500 rounded-full"
                             style={{ width: `${pillarProgress}%` }}
                           />
                         </div>
@@ -1697,19 +1708,19 @@ const ProfileView = ({
               </div>
 
               {/* Progress Bar */}
-              <div className="bg-[#F9F6F4] px-4 py-2.5 rounded-xl border border-[#F4F0ED] mb-4">
+              <div className="bg-ferty-beigeLight px-4 py-2.5 rounded-xl border border-ferty-beige mb-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-semibold text-[#5D7180]">Progreso</p>
-                  <p className="text-[10px] font-bold text-[#95706B]">{progress.percentage}%</p>
+                  <p className="text-[10px] font-semibold text-ferty-gray">Progreso</p>
+                  <p className="text-[10px] font-bold text-ferty-coral">{progress.percentage}%</p>
                 </div>
-                <div className="w-full bg-[#F4F0ED] rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-ferty-beige rounded-full h-2 overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-[#C7958E] to-[#95706B] transition-all duration-500 rounded-full"
+                    className="h-full bg-gradient-to-r from-ferty-rose to-ferty-coral transition-all duration-500 rounded-full"
                     style={{ width: `${progress.percentage}%` }}
                   />
                 </div>
                 {progress.percentage === 100 && (
-                  <p className="text-[9px] text-[#5D7180] mt-1.5 text-center">
+                  <p className="text-[9px] text-ferty-gray mt-1.5 text-center">
                     Puedes editarlo si surge algún cambio
                   </p>
                 )}
@@ -1722,8 +1733,8 @@ const ProfileView = ({
             </div>
 
             {/* Bloque global de subida de analíticas/ecografías */}
-            <div className="bg-white border border-[#F4F0ED] rounded-3xl p-4 shadow-sm mb-6 mt-6">
-              <p className="text-sm font-bold text-[#4A4A4A] mb-3">Subir analítica / Eco</p>
+            <div className="bg-white border border-ferty-beige rounded-3xl p-4 shadow-sm mb-6 mt-6">
+              <p className="text-sm font-bold text-ferty-dark mb-3">Subir analítica / Eco</p>
               <div className="flex flex-col md:flex-row gap-3 items-stretch">
                 <select
                   value={globalExamType}
@@ -1733,7 +1744,7 @@ const ProfileView = ({
                       setGlobalExamName('');
                     }
                   }}
-                  className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-white focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+                  className="flex-1 border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
                 >
                   <option value="hormonal">Panel hormonal</option>
                   <option value="metabolic">Panel metabólico</option>
@@ -1750,14 +1761,14 @@ const ProfileView = ({
                     value={globalExamName}
                     onChange={e => setGlobalExamName(e.target.value)}
                     placeholder="¿Qué examen estás subiendo?"
-                    className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+                    className="flex-1 border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
                   />
                 )}
 
                 <button
                   type="button"
                   onClick={() => setGlobalScannerOpen(true)}
-                  className="px-6 py-3 rounded-2xl bg-[#C7958E] text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#B5847D] transition-colors shadow-sm"
+                  className="px-6 py-3 rounded-2xl bg-ferty-rose text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-ferty-roseHover transition-colors shadow-sm"
                 >
                   <Camera size={18} />
                   Escanear examen
@@ -1839,7 +1850,7 @@ const ProfileView = ({
             {user.methodStartDate && (
               <button
                 onClick={handleRestartClick}
-                className="w-full py-2 text-xs text-stone-400 hover:text-[#C7958E] transition-colors underline"
+                className="w-full py-2 text-xs text-stone-400 hover:text-ferty-rose transition-colors underline"
               >
                 Reiniciar Método
               </button>
@@ -1863,33 +1874,33 @@ const ProfileView = ({
             <div className="space-y-4">
               {/* Bloque de Salud General, Hábitos y Análisis de Edad movido desde Mi Perfil */}
               {medicalData && (
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#F4F0ED] space-y-4">
-                  <div className="border-b border-[#F4F0ED] pb-3">
-                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Salud General</p>
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-ferty-beige space-y-4">
+                  <div className="border-b border-ferty-beige pb-3">
+                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">Salud General</p>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Edad</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.edad} años</p>
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Edad</p>
+                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.edad} años</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Peso</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.pesoActual} kg</p>
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Peso</p>
+                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.pesoActual} kg</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Altura</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Altura</p>
+                        <p className="text-sm font-semibold text-ferty-dark">
                           {typeof user.height === 'number' ? `${user.height} cm` : user.height ?? '—'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">IMC</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                        <p className="text-[10px] text-ferty-gray mb-0.5">IMC</p>
+                        <p className="text-sm font-semibold text-ferty-dark">
                           {medicalData.imc.valor} ({medicalData.imc.categoria})
                         </p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Peso ideal</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Peso ideal</p>
+                        <p className="text-sm font-semibold text-ferty-dark">
                           {medicalData.pesoIdeal.minimo}-{medicalData.pesoIdeal.maximo} kg
                         </p>
                       </div>
@@ -1923,9 +1934,9 @@ const ProfileView = ({
                     const familyHistory = getAnswer('q21_family_history');
 
                     const renderField = (label: string, value: any) => (
-                      <div className="border-b border-[#F4F0ED] pb-3 last:border-0">
-                        <p className="text-[11px] text-[#5D7180] mb-0.5">{label}</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">
+                      <div className="border-b border-ferty-beige pb-3 last:border-0">
+                        <p className="text-[11px] text-ferty-gray mb-0.5">{label}</p>
+                        <p className="text-sm font-semibold text-ferty-dark">
                           {value ?? '—'}
                         </p>
                       </div>
@@ -1934,8 +1945,8 @@ const ProfileView = ({
                     return (
                       <>
                         {/* CICLO Y OBJETIVO (en Historia, en dos columnas) */}
-                        <div className="border-b border-[#F4F0ED] pb-3">
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">
+                        <div className="border-b border-ferty-beige pb-3">
+                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
                             CICLO Y OBJETIVO
                           </p>
                           <div className="grid grid-cols-2 gap-4">
@@ -1956,7 +1967,7 @@ const ProfileView = ({
 
                         {/* HISTORIAL Y DIAGNÓSTICOS (en Historia, en una columna por bloque) */}
                         <div>
-                          <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">
+                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
                             HISTORIAL Y DIAGNÓSTICOS
                           </p>
                           <div className="space-y-4">
@@ -1970,36 +1981,36 @@ const ProfileView = ({
                   
                   {/* Análisis de Edad (justo después de datos físicos / ciclo / historial) */}
                   <div>
-                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Análisis de Edad</p>
-                    <p className="text-sm font-semibold text-[#4A4A4A] mb-1">
+                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">Análisis de Edad</p>
+                    <p className="text-sm font-semibold text-ferty-dark mb-1">
                       {medicalData.analisisEdad.categoria} - {medicalData.analisisEdad.probabilidad}
                     </p>
-                    <p className="text-[10px] text-[#5D7180]">{medicalData.analisisEdad.mensaje}</p>
+                    <p className="text-[10px] text-ferty-gray">{medicalData.analisisEdad.mensaje}</p>
                   </div>
 
                   {/* Hábitos (últimos 7 días) */}
-                  <div className="border-b border-[#F4F0ED] pb-3">
-                    <p className="text-xs font-bold text-[#95706B] uppercase tracking-wider mb-2">Hábitos (últimos 7 días)</p>
+                  <div className="border-b border-ferty-beige pb-3">
+                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">Hábitos (últimos 7 días)</p>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Sueño</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.sueno}h</p>
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Sueño</p>
+                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.sueno}h</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Estrés</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.estres}/5</p>
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Estrés</p>
+                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.estres}/5</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Agua</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.agua} vasos</p>
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Agua</p>
+                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.agua} vasos</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Vegetales</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.vegetales} porcs</p>
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Vegetales</p>
+                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.vegetales} porcs</p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-[10px] text-[#5D7180] mb-0.5">Días con alcohol</p>
-                        <p className="text-sm font-semibold text-[#4A4A4A]">{medicalData.promedios.diasConAlcohol}</p>
+                        <p className="text-[10px] text-ferty-gray mb-0.5">Días con alcohol</p>
+                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.diasConAlcohol}</p>
                       </div>
                     </div>
                   </div>

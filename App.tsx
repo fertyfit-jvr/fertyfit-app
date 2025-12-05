@@ -103,10 +103,10 @@ function AppContent() {
   // Loading state
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F4F0ED]">
+      <div className="flex h-screen items-center justify-center bg-ferty-beige">
         <div className="animate-pulse flex flex-col items-center">
           <img src={BRAND_ASSETS.favicon} alt="Loading" className="w-12 h-12 mb-4 animate-bounce" />
-          <p className="text-[#C7958E] font-bold text-sm tracking-widest">CARGANDO...</p>
+          <p className="text-ferty-rose font-bold text-sm tracking-widest">CARGANDO...</p>
         </div>
       </div>
     );
@@ -140,7 +140,7 @@ function AppContent() {
   // --- DASHBOARD & MAIN VIEW ---
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-[#F4F0ED] shadow-2xl relative overflow-hidden font-sans text-[#4A4A4A]">
+    <div className="max-w-md mx-auto min-h-screen bg-ferty-beige shadow-2xl relative overflow-hidden font-sans text-ferty-dark">
       {showPhaseModal && <PhaseIntroModal phase={currentPhase} onClose={handleModalClose} />}
       {notif && <Notification message={notif.msg} type={notif.type} onClose={() => setNotif(null)} />}
 
@@ -237,7 +237,7 @@ function AppContent() {
           </div>
         )}
       </div>
-      <nav className="fixed bottom-0 max-w-md w-full bg-white border-t border-[#F4F0ED] px-6 py-2 flex justify-between rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
+      <nav className="fixed bottom-0 max-w-md w-full bg-white border-t border-ferty-beige px-6 py-2 flex justify-between rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
         <NavButton active={view === 'DASHBOARD'} onClick={() => setView('DASHBOARD')} icon={Heart} label="Inicio" />
         <NavButton
           active={view === 'TRACKER'}

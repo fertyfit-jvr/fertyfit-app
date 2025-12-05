@@ -228,14 +228,14 @@ const TrackerView = ({
       <div className="mb-4">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-bold text-[#4A4A4A] mb-1">Registro Diario</h2>
-            <p className="text-[10px] text-[#5D7180]">
+            <h2 className="text-xl font-bold text-ferty-dark mb-1">Registro Diario</h2>
+            <p className="text-[10px] text-ferty-gray">
               Hoy es: {formatCurrentDate()}
             </p>
           </div>
           <button
             onClick={() => setIsCycleModalOpen(true)}
-            className="w-10 h-10 rounded-full bg-[#C7958E] text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0"
+            className="w-10 h-10 rounded-full bg-ferty-rose text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0"
             title="Editar ciclo menstrual"
           >
             <Droplets size={18} />
@@ -243,10 +243,10 @@ const TrackerView = ({
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-[#F4F0ED] space-y-8">
+      <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-ferty-beige space-y-8">
         <div className="space-y-6">
           <div>
-          <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest border-b border-[#F4F0ED] pb-2">Fisiología</h3>
+          <h3 className="text-xs font-bold text-ferty-coral uppercase tracking-widest border-b border-ferty-beige pb-2">Fisiología</h3>
             {(() => {
               // Calcular fecha de inicio del ciclo actual (igual que Dashboard)
               const fechaInicioCicloActual = user?.lastPeriodDate && user?.cycleLength
@@ -256,19 +256,19 @@ const TrackerView = ({
               const fechaAMostrar = fechaInicioCicloActual || user?.lastPeriodDate || lastPeriodDate;
               
               return fechaAMostrar ? (
-                <p className="text-[10px] text-[#5D7180] mt-2">
+                <p className="text-[10px] text-ferty-gray mt-2">
                   Última Regla: {formatDate(fechaAMostrar)}
                 </p>
               ) : null;
             })()}
           </div>
 
-          <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">
+          <div className="flex items-center justify-between bg-ferty-beige/50 p-4 rounded-2xl">
             <div>
-              <span className="text-sm font-bold text-[#5D7180] block">Día del Ciclo</span>
+              <span className="text-sm font-bold text-ferty-gray block">Día del Ciclo</span>
               {ventanaFertil && (
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] text-[#C7958E] font-bold bg-[#C7958E]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="text-[10px] text-ferty-rose font-bold bg-ferty-rose/10 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Heart size={10} className="text-red-500 fill-red-500" />
                     <span className="text-[9px]">(Días {ventanaFertil.inicio}-{ventanaFertil.fin})</span>
                   </span>
@@ -276,15 +276,15 @@ const TrackerView = ({
               )}
             </div>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl font-bold text-[#4A4A4A] w-12 text-center">{todayLog.cycleDay || 1}</span>
+              <span className="text-3xl font-bold text-ferty-dark w-12 text-center">{todayLog.cycleDay || 1}</span>
               {faseActual && (
-                <span className="text-[9px] text-[#5D7180] opacity-60 font-medium">{faseActual}</span>
+                <span className="text-[9px] text-ferty-gray opacity-60 font-medium">{faseActual}</span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center justify-between bg-[#F4F0ED]/50 p-4 rounded-2xl">
-            <span className="text-sm font-bold text-[#5D7180]">Temperatura Basal</span>
+          <div className="flex items-center justify-between bg-ferty-beige/50 p-4 rounded-2xl">
+            <span className="text-sm font-bold text-ferty-gray">Temperatura Basal</span>
             <div className="flex items-center gap-4">
               <button
                 onClick={() =>
@@ -293,7 +293,7 @@ const TrackerView = ({
                     bbt: parseFloat(Math.max(35.0, ((prev.bbt || 36.5) - 0.1)).toFixed(2))
                   }))
                 }
-                className="p-2 bg-white rounded-full shadow-sm text-[#95706B] hover:scale-110 transition-transform"
+                className="p-2 bg-white rounded-full shadow-sm text-ferty-coral hover:scale-110 transition-transform"
               >
                 <Minus size={18} />
               </button>
@@ -306,9 +306,9 @@ const TrackerView = ({
                   placeholder="36.50"
                   value={todayLog.bbt || ''}
                   onChange={(e) => setTodayLog({ ...todayLog, bbt: parseFloat(e.target.value) })}
-                  className="w-20 text-center bg-transparent text-2xl font-bold text-[#C7958E] outline-none border-b border-transparent focus:border-[#C7958E] transition-colors p-0"
+                  className="w-20 text-center bg-transparent text-2xl font-bold text-ferty-rose outline-none border-b border-transparent focus:border-ferty-rose transition-colors p-0"
                 />
-                <span className="absolute -right-4 top-1 text-xs font-bold text-[#95706B]">°C</span>
+                <span className="absolute -right-4 top-1 text-xs font-bold text-ferty-coral">°C</span>
               </div>
               <button
                 onClick={() =>
@@ -317,7 +317,7 @@ const TrackerView = ({
                     bbt: parseFloat(Math.min(40.0, ((prev.bbt || 36.5) + 0.1)).toFixed(2))
                   }))
                 }
-                className="p-2 bg-white rounded-full shadow-sm text-[#95706B] hover:scale-110 transition-transform"
+                className="p-2 bg-white rounded-full shadow-sm text-ferty-coral hover:scale-110 transition-transform"
               >
                 <Plus size={18} />
               </button>
@@ -330,7 +330,7 @@ const TrackerView = ({
                 <button
                   key={option}
                   onClick={() => setTodayLog({ ...todayLog, mucus: option as MucusType })}
-                  className={`text-xs px-4 py-2 rounded-full border transition-all font-medium ${todayLog.mucus === option ? 'bg-[#C7958E] text-white border-[#C7958E]' : 'bg-white border-[#F4F0ED] text-[#5D7180] hover:border-[#C7958E]'}`}
+                  className={`text-xs px-4 py-2 rounded-full border transition-all font-medium ${todayLog.mucus === option ? 'bg-ferty-rose text-white border-ferty-rose' : 'bg-white border-ferty-beige text-ferty-gray hover:border-ferty-rose'}`}
                 >
                   {option}
                 </button>
@@ -344,7 +344,7 @@ const TrackerView = ({
                 <button
                   key={option}
                   onClick={() => setTodayLog({ ...todayLog, lhTest: option as LHResult })}
-                  className={`text-xs px-4 py-2 rounded-full border transition-all font-medium ${todayLog.lhTest === option ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-[#F4F0ED] text-[#5D7180] hover:border-indigo-200'}`}
+                  className={`text-xs px-4 py-2 rounded-full border transition-all font-medium ${todayLog.lhTest === option ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-ferty-beige text-ferty-gray hover:border-indigo-200'}`}
                 >
                   {option}
                 </button>
@@ -352,11 +352,11 @@ const TrackerView = ({
             </div>
           </InputField>
 
-          <div className="bg-[#F4F0ED]/50 p-4 rounded-xl border border-[#F4F0ED]">
-            <span className="text-xs font-bold text-[#5D7180] block mb-3 uppercase">Cérvix (Opcional)</span>
+          <div className="bg-ferty-beige/50 p-4 rounded-xl border border-ferty-beige">
+            <span className="text-xs font-bold text-ferty-gray block mb-3 uppercase">Cérvix (Opcional)</span>
             <div className="grid grid-cols-3 gap-2">
               <select
-                className="text-xs p-2 rounded-lg border-none bg-white shadow-sm outline-none text-[#5D7180]"
+                className="text-xs p-2 rounded-lg border-none bg-white shadow-sm outline-none text-ferty-gray"
                 value={todayLog.cervixHeight}
                 onChange={(e) => setTodayLog({ ...todayLog, cervixHeight: e.target.value as any })}
               >
@@ -368,7 +368,7 @@ const TrackerView = ({
                 ))}
               </select>
               <select
-                className="text-xs p-2 rounded-lg border-none bg-white shadow-sm outline-none text-[#5D7180]"
+                className="text-xs p-2 rounded-lg border-none bg-white shadow-sm outline-none text-ferty-gray"
                 value={todayLog.cervixFirmness}
                 onChange={(e) => setTodayLog({ ...todayLog, cervixFirmness: e.target.value as any })}
               >
@@ -380,7 +380,7 @@ const TrackerView = ({
                 ))}
               </select>
               <select
-                className="text-xs p-2 rounded-lg border-none bg-white shadow-sm outline-none text-[#5D7180]"
+                className="text-xs p-2 rounded-lg border-none bg-white shadow-sm outline-none text-ferty-gray"
                 value={todayLog.cervixOpenness}
                 onChange={(e) => setTodayLog({ ...todayLog, cervixOpenness: e.target.value as any })}
               >
@@ -395,23 +395,23 @@ const TrackerView = ({
           </div>
 
           <div className="flex items-center justify-between bg-rose-50/50 p-4 rounded-xl border border-rose-100/50">
-            <span className="font-bold text-[#95706B] text-sm">Relaciones Sexuales</span>
+            <span className="font-bold text-ferty-coral text-sm">Relaciones Sexuales</span>
             <button
               onClick={() => setTodayLog({ ...todayLog, sex: !todayLog.sex })}
-              className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${todayLog.sex ? 'bg-[#C7958E]' : 'bg-stone-200'}`}
+              className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${todayLog.sex ? 'bg-ferty-rose' : 'bg-stone-200'}`}
             >
               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${todayLog.sex ? 'left-7' : 'left-1'}`} />
             </button>
           </div>
         </div>
 
-        <div className="space-y-6 border-t border-[#F4F0ED] pt-6">
-          <h3 className="text-xs font-bold text-[#95706B] uppercase tracking-widest">Hábitos & Bienestar</h3>
+        <div className="space-y-6 border-t border-ferty-beige pt-6">
+          <h3 className="text-xs font-bold text-ferty-coral uppercase tracking-widest">Hábitos & Bienestar</h3>
 
           <div>
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-bold text-[#5D7180]">Horas de Sueño</span>
-              <span className="text-sm font-bold text-[#4A4A4A]">{todayLog.sleepHours || 0}h</span>
+              <span className="text-sm font-bold text-ferty-gray">Horas de Sueño</span>
+              <span className="text-sm font-bold text-ferty-dark">{todayLog.sleepHours || 0}h</span>
             </div>
             <input
               type="range"
@@ -420,7 +420,7 @@ const TrackerView = ({
               step="0.5"
               value={todayLog.sleepHours || 7}
               onChange={(e) => setTodayLog({ ...todayLog, sleepHours: parseFloat(e.target.value) })}
-              className="w-full accent-[#5D7180] h-2 bg-[#F4F0ED] rounded-lg appearance-none cursor-pointer"
+              className="w-full accent-ferty-gray h-2 bg-ferty-beige rounded-lg appearance-none cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-stone-400 mt-1">
               <span>0h</span>
@@ -430,14 +430,14 @@ const TrackerView = ({
           </div>
 
           <div>
-            <span className="text-sm font-bold text-[#5D7180] block mb-2">Nivel de Estrés</span>
+            <span className="text-sm font-bold text-ferty-gray block mb-2">Nivel de Estrés</span>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((value) => (
                 <button
                   key={value}
                   onClick={() => setTodayLog({ ...todayLog, stressLevel: value })}
                   className={`flex-1 h-10 rounded-xl font-bold transition-all ${
-                    todayLog.stressLevel === value ? 'bg-[#C7958E] text-white shadow-lg scale-105' : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-stone-200'
+                    todayLog.stressLevel === value ? 'bg-ferty-rose text-white shadow-lg scale-105' : 'bg-ferty-beige text-ferty-gray hover:bg-stone-200'
                   }`}
                 >
                   {value}
@@ -448,7 +448,7 @@ const TrackerView = ({
 
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <span className="text-sm font-bold text-[#5D7180] block mb-2">Actividad (min)</span>
+              <span className="text-sm font-bold text-ferty-gray block mb-2">Actividad (min)</span>
               <input
                 type="range"
                 min="0"
@@ -456,12 +456,12 @@ const TrackerView = ({
                 step="15"
                 value={todayLog.activityMinutes || 0}
                 onChange={(e) => setTodayLog({ ...todayLog, activityMinutes: parseInt(e.target.value) })}
-                className="w-full accent-[#C7958E] h-2 bg-[#F4F0ED] rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-ferty-rose h-2 bg-ferty-beige rounded-lg appearance-none cursor-pointer"
               />
-              <p className="text-center text-xs font-bold text-[#C7958E] mt-1">{todayLog.activityMinutes || 0} min</p>
+              <p className="text-center text-xs font-bold text-ferty-rose mt-1">{todayLog.activityMinutes || 0} min</p>
             </div>
             <div>
-              <span className="text-sm font-bold text-[#5D7180] block mb-2">Luz Solar (min)</span>
+              <span className="text-sm font-bold text-ferty-gray block mb-2">Luz Solar (min)</span>
               <input
                 type="range"
                 min="0"
@@ -469,7 +469,7 @@ const TrackerView = ({
                 step="5"
                 value={todayLog.sunMinutes || 0}
                 onChange={(e) => setTodayLog({ ...todayLog, sunMinutes: parseInt(e.target.value) })}
-                className="w-full accent-amber-400 h-2 bg-[#F4F0ED] rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-amber-400 h-2 bg-ferty-beige rounded-lg appearance-none cursor-pointer"
               />
               <p className="text-center text-xs font-bold text-amber-500 mt-1">{todayLog.sunMinutes || 0} min</p>
             </div>
@@ -478,7 +478,7 @@ const TrackerView = ({
           <div className="grid grid-cols-1 gap-6">
             <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
               <div className="flex justify-between mb-2">
-                <span className="text-sm font-bold text-[#5D7180]">Agua (Vasos)</span>
+                <span className="text-sm font-bold text-ferty-gray">Agua (Vasos)</span>
                 <span className="text-xs font-bold text-blue-500">{todayLog.waterGlasses || 0} / 8</span>
               </div>
               <div className="flex justify-between">
@@ -496,7 +496,7 @@ const TrackerView = ({
 
             <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
               <div className="flex justify-between mb-2">
-                <span className="text-sm font-bold text-[#5D7180]">Vegetales (Raciones)</span>
+                <span className="text-sm font-bold text-ferty-gray">Vegetales (Raciones)</span>
                 <span className="text-xs font-bold text-emerald-600">{todayLog.veggieServings || 0} / 5</span>
               </div>
               <div className="flex justify-start gap-4">
@@ -513,24 +513,24 @@ const TrackerView = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between bg-white border border-[#F4F0ED] p-4 rounded-xl">
-            <span className="font-bold text-[#5D7180] text-sm">Consumo de Alcohol</span>
+          <div className="flex items-center justify-between bg-white border border-ferty-beige p-4 rounded-xl">
+            <span className="font-bold text-ferty-gray text-sm">Consumo de Alcohol</span>
             <button
               onClick={() => setTodayLog({ ...todayLog, alcohol: !todayLog.alcohol })}
-              className={`w-12 h-6 rounded-full relative transition-colors	duration-300 ${todayLog.alcohol ? 'bg-[#C7958E]' : 'bg-stone-200'}`}
+              className={`w-12 h-6 rounded-full relative transition-colors	duration-300 ${todayLog.alcohol ? 'bg-ferty-rose' : 'bg-stone-200'}`}
             >
               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${todayLog.alcohol ? 'left-7' : 'left-1'}`} />
             </button>
           </div>
         </div>
 
-        <button onClick={saveDailyLog} className="w-full bg-[#4A4A4A] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-black transition-colors mt-4">
+        <button onClick={saveDailyLog} className="w-full bg-ferty-dark text-white py-4 rounded-xl font-bold shadow-lg hover:bg-black transition-colors mt-4">
           Guardar Registro Diario
         </button>
       </div>
 
       <div>
-        <h3 className="font-bold text-[#4A4A4A] mb-4 flex items-center gap-2 text-sm uppercase tracking-wider opacity-80">Historial Reciente</h3>
+        <h3 className="font-bold text-ferty-dark mb-4 flex items-center gap-2 text-sm uppercase tracking-wider opacity-80">Historial Reciente</h3>
         <div className="space-y-2">
           {logs.slice(0, 7).map((log) => (
             <LogHistoryItem key={log.date} log={log} />
@@ -543,10 +543,10 @@ const TrackerView = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsCycleModalOpen(false)}>
           <div className="bg-white rounded-3xl shadow-xl w-full max-w-md mx-4 p-6 space-y-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#4A4A4A]">Actualizar Última Regla</h3>
+              <h3 className="text-lg font-bold text-ferty-dark">Actualizar Última Regla</h3>
               <button
                 onClick={() => setIsCycleModalOpen(false)}
-                className="text-[#5D7180] hover:bg-[#F4F0ED] p-1.5 rounded-lg transition-colors"
+                className="text-ferty-gray hover:bg-ferty-beige p-1.5 rounded-lg transition-colors"
               >
                 <X size={18} />
               </button>
@@ -554,7 +554,7 @@ const TrackerView = ({
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-2">
+                <label className="text-xs font-bold text-ferty-coral uppercase tracking-wider block mb-2">
                   Fecha de tu última regla *
                 </label>
                 <input
@@ -562,16 +562,16 @@ const TrackerView = ({
                   value={lastPeriodDate}
                   onChange={(e) => setLastPeriodDate(e.target.value)}
                   max={new Date().toISOString().split('T')[0]} // No permitir fechas futuras
-                  className="w-full px-4 py-3 bg-[#F9F6F4] border border-[#F4F0ED] rounded-xl text-[#4A4A4A] focus:outline-none focus:ring-2 focus:ring-[#C7958E]"
+                  className="w-full px-4 py-3 bg-ferty-beigeLight border border-ferty-beige rounded-xl text-ferty-dark focus:outline-none focus:ring-2 focus:ring-ferty-rose"
                   required
                 />
-                <p className="text-[10px] text-[#5D7180] mt-1">
+                <p className="text-[10px] text-ferty-gray mt-1">
                   El ciclo promedio se calculará automáticamente basado en tu historial
                 </p>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#95706B] uppercase tracking-wider block mb-3">
+                <label className="text-xs font-bold text-ferty-coral uppercase tracking-wider block mb-3">
                   ¿Qué síntomas tuviste?
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -584,8 +584,8 @@ const TrackerView = ({
                         onClick={() => togglePeriodSymptom(symptom)}
                         className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                           isSelected
-                            ? 'bg-[#C7958E] text-white shadow-md'
-                            : 'bg-[#F4F0ED] text-[#5D7180] hover:bg-[#E8E0DC]'
+                            ? 'bg-ferty-rose text-white shadow-md'
+                            : 'bg-ferty-beige text-ferty-gray hover:bg-ferty-beigeDisabled'
                         }`}
                       >
                         {symptom}
@@ -599,7 +599,7 @@ const TrackerView = ({
             <div className="flex gap-3">
               <button
                 onClick={() => setIsCycleModalOpen(false)}
-                className="flex-1 px-4 py-3 bg-[#F4F0ED] text-[#5D7180] rounded-xl font-bold hover:bg-[#E8E0DC] transition-colors"
+                className="flex-1 px-4 py-3 bg-ferty-beige text-ferty-gray rounded-xl font-bold hover:bg-ferty-beigeDisabled transition-colors"
               >
                 Cancelar
               </button>
@@ -608,8 +608,8 @@ const TrackerView = ({
                 disabled={!lastPeriodDate || isSavingPeriod}
                 className={`flex-1 px-4 py-3 rounded-xl font-bold transition-colors ${
                   !lastPeriodDate || isSavingPeriod
-                    ? 'bg-[#E8E0DC] text-[#A0A0A0] cursor-not-allowed'
-                    : 'bg-[#C7958E] text-white hover:bg-[#B8857E] shadow-md'
+                    ? 'bg-ferty-beigeDisabled text-ferty-grayDisabled cursor-not-allowed'
+                    : 'bg-ferty-rose text-white hover:bg-ferty-roseHoverAlt shadow-md'
                 }`}
               >
                 {isSavingPeriod ? 'Guardando...' : 'Guardar'}

@@ -31,31 +31,33 @@ const FertyScoreCircular = ({
   const radius = size / 2 - 25; // Más cerca del centro
   const innerRadius = size / 2 - 75; // Más integrado
 
-  // Configuración de cada pilar con colores más suaves
+  // Configuración de cada pilar con colores del sistema FertyFit
+  // Nota: Los colores se mantienen como hex para uso en SVG gradients
+  // pero corresponden a los colores definidos en tailwind.config.js
   const pillars: PillarData[] = [
     {
       name: 'function',
       score: functionScore,
       label: 'Function',
-      gradient: { start: '#E8B4B8', end: '#D4A5A9' } // Rosa apagado
+      gradient: { start: '#E8B4B8', end: '#D4A5A9' } // ferty.function.light y dark
     },
     {
       name: 'food',
       score: foodScore,
       label: 'Food',
-      gradient: { start: '#A8C8E0', end: '#8BB0D1' } // Azul suave
+      gradient: { start: '#A8C8E0', end: '#8BB0D1' } // ferty.food.light y dark
     },
     {
       name: 'flora',
       score: floraScore,
       label: 'Flora',
-      gradient: { start: '#B8D4C8', end: '#9ECCB4' } // Verde suave
+      gradient: { start: '#B8D4C8', end: '#9ECCB4' } // ferty.flora.light y dark
     },
     {
       name: 'flow',
       score: flowScore,
       label: 'Flow',
-      gradient: { start: '#E5D4E8', end: '#D8C4E0' } // Lavanda suave
+      gradient: { start: '#E5D4E8', end: '#D8C4E0' } // ferty.flow.light y dark
     }
   ];
 
@@ -145,7 +147,7 @@ const FertyScoreCircular = ({
 
   return (
     <div className="relative flex flex-col items-center">
-      <h3 className="font-bold text-[#4A4A4A] text-lg mb-6">Tu FertyScore</h3>
+      <h3 className="font-bold text-ferty-dark text-lg mb-6">Tu FertyScore</h3>
       
       <div className="relative" style={{ width: size, height: size }}>
         <svg
@@ -294,7 +296,7 @@ const FertyScoreCircular = ({
           return (
             <div
               key={pillar.name}
-              className="text-center p-2 rounded-xl bg-[#F4F0ED]/50 transition-all duration-200 hover:bg-[#F4F0ED] cursor-pointer"
+              className="text-center p-2 rounded-xl bg-ferty-beige/50 transition-all duration-200 hover:bg-ferty-beige cursor-pointer"
               onMouseEnter={() => setHoveredPillar(pillar.name)}
               onMouseLeave={() => setHoveredPillar(null)}
               style={{
@@ -302,7 +304,7 @@ const FertyScoreCircular = ({
               }}
             >
               <div className="flex items-center justify-center gap-1.5">
-                <div className="text-lg font-bold text-[#4A4A4A]">
+                <div className="text-lg font-bold text-ferty-dark">
                   {pillar.score > 0 ? pillar.score : '-'}
                 </div>
                 {/* Flechita indicadora */}
@@ -320,7 +322,7 @@ const FertyScoreCircular = ({
                   />
                 )}
               </div>
-              <div className="text-[10px] text-[#95706B] font-bold uppercase mt-1">
+              <div className="text-[10px] text-ferty-coral font-bold uppercase mt-1">
                 {pillar.label}
               </div>
             </div>

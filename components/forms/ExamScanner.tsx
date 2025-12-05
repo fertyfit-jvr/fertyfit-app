@@ -100,14 +100,14 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[#F4F0ED]">
+        <div className="flex items-center justify-between p-6 border-b border-ferty-beige">
           <div>
-            <h3 className="text-lg font-bold text-[#4A4A4A]">
+            <h3 className="text-lg font-bold text-ferty-dark">
               {autoDetect || !examType 
                 ? 'Escanear examen médico' 
                 : `Escanear ${sectionTitle || EXAM_TYPE_LABELS[examType]}`}
             </h3>
-            <p className="text-xs text-[#5D7180] mt-1">
+            <p className="text-xs text-ferty-gray mt-1">
               {autoDetect || !examType 
                 ? 'Toma una foto del examen. Detectaremos automáticamente el tipo y extraeremos todos los valores.'
                 : 'Toma una foto nítida del examen médico'}
@@ -115,7 +115,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
           </div>
           <button
             onClick={onClose}
-            className="text-[#5D7180] hover:bg-[#F4F0ED] p-2 rounded-lg transition-colors"
+            className="text-ferty-gray hover:bg-ferty-beige p-2 rounded-lg transition-colors"
           >
             <X size={20} />
           </button>
@@ -145,11 +145,11 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                   setError(null);
                   fileInputRef.current?.click();
                 }}
-                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#C7958E] rounded-2xl hover:bg-[#F4F0ED] transition-colors active:scale-95 w-full"
+                className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-ferty-rose rounded-2xl hover:bg-ferty-beige transition-colors active:scale-95 w-full"
               >
-                <Camera size={48} className="text-[#C7958E] mb-3" />
-                <span className="text-base font-bold text-[#4A4A4A]">Escanear examen</span>
-                <span className="text-xs text-[#5D7180] mt-1 text-center">
+                <Camera size={48} className="text-ferty-rose mb-3" />
+                <span className="text-base font-bold text-ferty-dark">Escanear examen</span>
+                <span className="text-xs text-ferty-gray mt-1 text-center">
                   Toca para tomar foto con la cámara o elegir de galería
                 </span>
               </button>
@@ -167,7 +167,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
 
           {image && !extractedData && (
             <div className="space-y-4">
-              <div className="relative rounded-2xl overflow-hidden border border-[#F4F0ED]">
+              <div className="relative rounded-2xl overflow-hidden border border-ferty-beige">
                 <img
                   src={image}
                   alt="Examen escaneado"
@@ -194,7 +194,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                     processImage();
                   }}
                   disabled={isProcessing}
-                  className="flex-1 bg-[#5D7180] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 bg-ferty-gray text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isProcessing ? (
                     <>
@@ -216,7 +216,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                     handleRetry();
                   }}
                   disabled={isProcessing}
-                  className="px-6 py-3 border border-[#E1D7D3] rounded-xl font-bold text-[#5D7180] hover:bg-[#F4F0ED] disabled:opacity-50"
+                  className="px-6 py-3 border border-ferty-beigeBorder rounded-xl font-bold text-ferty-gray hover:bg-ferty-beige disabled:opacity-50"
                 >
                   Cambiar foto
                 </button>
@@ -274,32 +274,32 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                   <p className="text-xs font-bold text-blue-800 mb-2">Texto extraído de la imagen:</p>
                   <div className="bg-white rounded-lg p-3 max-h-48 overflow-y-auto">
-                    <pre className="text-xs text-[#4A4A4A] whitespace-pre-wrap font-mono">
+                    <pre className="text-xs text-ferty-dark whitespace-pre-wrap font-mono">
                       {extractedText}
                     </pre>
                   </div>
                 </div>
               )}
 
-              <div className="bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl p-4 space-y-3 max-h-64 overflow-y-auto">
+              <div className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3 max-h-64 overflow-y-auto">
                 {Object.keys(extractedData).length === 0 ? (
                   <div className="text-center py-4">
-                    <p className="text-sm text-[#5D7180] mb-2">
+                    <p className="text-sm text-ferty-gray mb-2">
                       No se encontraron datos estructurados en el examen.
                     </p>
                     {extractedText && (
-                      <p className="text-xs text-[#5D7180] italic">
+                      <p className="text-xs text-ferty-gray italic">
                         Revisa el texto extraído arriba para verificar que la imagen sea correcta.
                       </p>
                     )}
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs font-semibold text-[#5D7180] mb-2">Valores extraídos:</p>
+                    <p className="text-xs font-semibold text-ferty-gray mb-2">Valores extraídos:</p>
                     {Object.entries(extractedData).map(([key, value]) => (
-                      <div key={key} className="flex justify-between items-center py-2 border-b border-[#F4F0ED] last:border-0">
-                        <span className="text-xs font-bold text-[#95706B] uppercase">{key.replace('function_', '')}</span>
-                        <span className="text-sm font-semibold text-[#4A4A4A]">{value}</span>
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-ferty-beige last:border-0">
+                        <span className="text-xs font-bold text-ferty-coral uppercase">{key.replace('function_', '')}</span>
+                        <span className="text-sm font-semibold text-ferty-dark">{value}</span>
                       </div>
                     ))}
                   </>
@@ -311,7 +311,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                   <p className="text-xs font-bold text-blue-800 mb-2">Explicación de resultados:</p>
                   <div className="bg-white rounded-lg p-3 max-h-64 overflow-y-auto">
-                    <p className="text-xs text-[#4A4A4A] whitespace-pre-wrap leading-relaxed">{ragExplanation}</p>
+                    <p className="text-xs text-ferty-dark whitespace-pre-wrap leading-relaxed">{ragExplanation}</p>
                   </div>
                 </div>
               )}
@@ -335,7 +335,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                     handleConfirm();
                   }}
                   disabled={!extractedText && Object.keys(extractedData).length === 0}
-                  className="flex-1 bg-[#5D7180] text-white py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-ferty-gray text-white py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.keys(extractedData).length > 0 ? 'Confirmar y rellenar' : 'Confirmar (solo texto)'}
                 </button>
@@ -346,7 +346,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                     e.stopPropagation();
                     handleRetry();
                   }}
-                  className="px-6 py-3 border border-[#E1D7D3] rounded-xl font-bold text-[#5D7180] hover:bg-[#F4F0ED]"
+                  className="px-6 py-3 border border-ferty-beigeBorder rounded-xl font-bold text-ferty-gray hover:bg-ferty-beige"
                 >
                   Escanear de nuevo
                 </button>

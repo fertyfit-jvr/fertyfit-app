@@ -65,14 +65,14 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
   return (
     <div className="pb-24 space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-[#4A4A4A]">Consultas</h2>
-        <p className="text-sm text-[#5D7180]">Sube tus analíticas y ecografías para un análisis completo.</p>
+        <h2 className="text-xl font-bold text-ferty-dark">Consultas</h2>
+        <p className="text-sm text-ferty-gray">Sube tus analíticas y ecografías para un análisis completo.</p>
         <div className="mt-3 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={handleGenerateReport}
             disabled={isGeneratingReport}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#5D7180] text-white text-xs font-bold shadow-sm hover:bg-[#4A5568] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-ferty-gray text-white text-xs font-bold shadow-sm hover:bg-ferty-grayHover disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isGeneratingReport ? (
               <>
@@ -95,8 +95,8 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
       )}
 
       {/* Bloque global de subida de analíticas/ecografías */}
-      <div className="bg-white border border-[#F4F0ED] rounded-3xl p-4 shadow-sm mb-6">
-        <p className="text-sm font-bold text-[#4A4A4A] mb-3">Subir analítica / Eco</p>
+      <div className="bg-white border border-ferty-beige rounded-3xl p-4 shadow-sm mb-6">
+        <p className="text-sm font-bold text-ferty-dark mb-3">Subir analítica / Eco</p>
         <div className="flex flex-col md:flex-row gap-3 items-stretch">
           <select
             value={globalExamType}
@@ -106,7 +106,7 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
                 setGlobalExamName('');
               }
             }}
-            className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-white focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+            className="flex-1 border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
           >
             <option value="hormonal">Panel hormonal</option>
             <option value="metabolic">Panel metabólico</option>
@@ -123,14 +123,14 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
               value={globalExamName}
               onChange={e => setGlobalExamName(e.target.value)}
               placeholder="¿Qué examen estás subiendo?"
-              className="flex-1 border border-[#F4F0ED] rounded-2xl p-3 text-sm bg-[#F9F6F4] focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E]"
+              className="flex-1 border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
             />
           )}
 
           <button
             type="button"
             onClick={() => setGlobalScannerOpen(true)}
-            className="px-6 py-3 rounded-2xl bg-[#C7958E] text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#B5847D] transition-colors shadow-sm"
+            className="px-6 py-3 rounded-2xl bg-ferty-rose text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-ferty-roseHover transition-colors shadow-sm"
           >
             <Camera size={18} />
             Escanear examen
@@ -161,16 +161,16 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
       {reportModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-[#F4F0ED]">
+            <div className="flex items-center justify-between p-6 border-b border-ferty-beige">
               <div>
-                <h3 className="text-lg font-bold text-[#4A4A4A]">Informe 360º FertyFit</h3>
-                <p className="text-xs text-[#5D7180] mt-1">
+                <h3 className="text-lg font-bold text-ferty-dark">Informe 360º FertyFit</h3>
+                <p className="text-xs text-ferty-gray mt-1">
                   Análisis narrativo basado en tu perfil, pilares, registros diarios y exámenes.
                 </p>
               </div>
               <button
                 onClick={() => setReportModalOpen(false)}
-                className="text-[#5D7180] hover:bg-[#F4F0ED] p-2 rounded-lg transition-colors"
+                className="text-ferty-gray hover:bg-ferty-beige p-2 rounded-lg transition-colors"
               >
                 <X size={20} />
               </button>
@@ -178,7 +178,7 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
 
             <div className="p-6 space-y-4">
               {isGeneratingReport && (
-                <div className="flex items-center gap-3 text-sm text-[#5D7180]">
+                <div className="flex items-center gap-3 text-sm text-ferty-gray">
                   <Loader2 size={18} className="animate-spin" />
                   <span>Estamos generando tu informe. Esto puede tardar unos segundos…</span>
                 </div>
@@ -197,8 +197,8 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
               )}
 
               {reportText && !isGeneratingReport && !reportError && (
-                <div className="bg-[#F9F6F4] border border-[#F4F0ED] p-4 rounded-2xl">
-                  <p className="text-sm text-[#4A4A4A] whitespace-pre-line leading-relaxed">
+                <div className="bg-ferty-beigeLight border border-ferty-beige p-4 rounded-2xl">
+                  <p className="text-sm text-ferty-dark whitespace-pre-line leading-relaxed">
                     {reportText}
                   </p>
                 </div>

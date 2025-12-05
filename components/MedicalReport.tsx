@@ -16,17 +16,17 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
 
     if (!data || (!data.diaDelCiclo && !user.cycleLength)) {
         return (
-            <div className="bg-[#F9F6F4] border border-[#F4F0ED] p-6 rounded-2xl text-center mb-6">
+            <div className="bg-ferty-beigeLight border border-ferty-beige p-6 rounded-2xl text-center mb-6">
                 <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                    <Activity size={32} className="text-[#C7958E]" />
+                    <Activity size={32} className="text-ferty-rose" />
                 </div>
-                <h3 className="font-bold text-[#4A4A4A] text-sm mb-2">Configura tu Ciclo</h3>
-                <p className="text-xs text-[#5D7180] mb-4">
+                <h3 className="font-bold text-ferty-dark text-sm mb-2">Configura tu Ciclo</h3>
+                <p className="text-xs text-ferty-gray mb-4">
                     Necesitamos saber tu última regla y duración de ciclo para calcular tus predicciones.
                 </p>
                 <button
                     onClick={onCompleteProfile}
-                    className="bg-[#C7958E] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#b0847d] transition-colors text-xs uppercase tracking-wider"
+                    className="bg-ferty-rose text-white px-6 py-3 rounded-xl font-bold hover:bg-ferty-roseHover transition-colors text-xs uppercase tracking-wider"
                 >
                     Completar Datos
                 </button>
@@ -74,7 +74,7 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
 
     return (
         <div className="mb-6">
-            <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Resumen del Ciclo</h3>
+            <h3 className="font-bold text-ferty-dark mb-3 text-sm">Resumen del Ciclo</h3>
 
             {data.usandoValorPorDefecto && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-start gap-2">
@@ -94,8 +94,8 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                 </div>
             )}
 
-            <div className="bg-white border border-[#F4F0ED] rounded-2xl shadow-sm overflow-hidden transition-all">
-                <div onClick={() => setIsExpanded(!isExpanded)} className="p-4 cursor-pointer hover:bg-[#F4F0ED]/30 transition-colors">
+            <div className="bg-white border border-ferty-beige rounded-2xl shadow-sm overflow-hidden transition-all">
+                <div onClick={() => setIsExpanded(!isExpanded)} className="p-4 cursor-pointer hover:bg-ferty-beige/30 transition-colors">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 flex-1">
                             {/* Círculo con probabilidad */}
@@ -103,9 +103,9 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                                 ? 'bg-emerald-50 border-emerald-200'
                                 : 'bg-rose-50 border-rose-100'
                                 }`}>
-                                <span className={`text-xs font-bold ${enDiasFertiles ? 'text-emerald-600' : 'text-[#C7958E]'
+                                <span className={`text-xs font-bold ${enDiasFertiles ? 'text-emerald-600' : 'text-ferty-rose'
                                     }`}>PROB</span>
-                                <span className={`text-lg font-extrabold leading-none ${enDiasFertiles ? 'text-emerald-700' : 'text-[#95706B]'
+                                <span className={`text-lg font-extrabold leading-none ${enDiasFertiles ? 'text-emerald-700' : 'text-ferty-coral'
                                     }`}>{data.probabilidadEmbarazoHoy}%</span>
                             </div>
 
@@ -113,17 +113,17 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                                 {/* Line 1: Fertile Window with Heart Icon */}
                                 <div className="flex items-center gap-1.5 mb-1.5">
                                     <Heart size={14} className="text-rose-500 fill-rose-500" />
-                                    <span className="font-bold text-[#4A4A4A] text-sm">
+                                    <span className="font-bold text-ferty-dark text-sm">
                                         {fechasVentana ? `${fechasVentana.inicio} - ${fechasVentana.fin}` : '--'}
                                     </span>
-                                    <span className="text-xs text-[#95706B] font-normal">
+                                    <span className="text-xs text-ferty-coral font-normal">
                                         (Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin})
                                     </span>
                                 </div>
 
                                 {/* Line 2 & 3: Period Dates (No badges) */}
                                 <div className="flex flex-col gap-0.5">
-                                    <p className="text-[10px] text-[#5D7180]">
+                                    <p className="text-[10px] text-ferty-gray">
                                         <span className="font-bold">Fecha Última Regla:</span>{' '}
                                         {data.fechaInicioCicloActual !== 'Pendiente'
                                             ? data.fechaInicioCicloActual
@@ -134,7 +134,7 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
                                               )
                                             : '--'}
                                     </p>
-                                    <p className="text-[10px] text-[#5D7180]">
+                                    <p className="text-[10px] text-ferty-gray">
                                         <span className="font-bold">Fecha próxima regla (aprox):</span> {data.fechaProximaMenstruacion}
                                     </p>
                                 </div>
@@ -143,20 +143,20 @@ export const MedicalReport: React.FC<MedicalReportProps> = ({ data, user, logs, 
 
                         <div className="flex gap-1 flex-shrink-0">
                             {[...Array(5)].map((_, i) => (
-                                <div key={i} className="w-1 h-1 rounded-full bg-[#C7958E]"></div>
+                                <div key={i} className="w-1 h-1 rounded-full bg-ferty-rose"></div>
                             ))}
                         </div>
                     </div>
                 </div>
 
                 {isExpanded && (
-                    <div className="px-4 pb-4 pt-2 bg-[#F4F0ED]/30 text-xs border-t border-[#F4F0ED]">
+                    <div className="px-4 pb-4 pt-2 bg-ferty-beige/30 text-xs border-t border-ferty-beige">
                         <div className="mb-3">
                             <span className="block text-stone-400 uppercase text-[9px] font-bold mb-2">Fertilidad</span>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="p-2 bg-white rounded-lg border border-stone-100">
                                     <span className="block text-stone-400 text-[9px] mb-1">Ventana fértil</span>
-                                    <span className="font-bold text-[#C7958E]">Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}</span>
+                                    <span className="font-bold text-ferty-rose">Días {data.ventanaFertil.inicio}-{data.ventanaFertil.fin}</span>
                                 </div>
                                 <div className="p-2 bg-white rounded-lg border border-stone-100">
                                     <span className="block text-stone-400 text-[9px] mb-1">Días hasta ovulación</span>

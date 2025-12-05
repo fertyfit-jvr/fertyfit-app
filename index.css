@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #F4F0ED;
+  background-color: theme('colors.ferty.beige');
   font-family: 'Poppins', sans-serif;
 }
 
@@ -14,16 +14,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #F4F0ED;
+  background: theme('colors.ferty.beige');
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #C7958E;
+  background: theme('colors.ferty.rose');
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #95706B;
+  background: theme('colors.ferty.coral');
 }
 
 /* Animación para el FertyScore circular */

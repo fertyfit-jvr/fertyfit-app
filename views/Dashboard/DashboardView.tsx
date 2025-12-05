@@ -69,13 +69,13 @@ const DashboardView = ({
     <div className="space-y-6 pb-24 pt-4">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[#4A4A4A]">Hola, {user.name.split(' ')[0]}</h1>
+          <h1 className="text-2xl font-bold text-ferty-dark">Hola, {user.name.split(' ')[0]}</h1>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`w-2 h-2 rounded-full ${user.methodStartDate ? 'bg-[#C7958E] animate-pulse' : 'bg-stone-300'}`}></span>
+            <span className={`w-2 h-2 rounded-full ${user.methodStartDate ? 'bg-ferty-rose animate-pulse' : 'bg-stone-300'}`}></span>
             <div className="flex flex-col gap-0.5">
               {isStarted ? (
                 <>
-                  <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
+                  <p className="text-xs text-ferty-gray font-medium uppercase tracking-wide">
                     Día: {displayDay} - Semana: {displayWeek}
                   </p>
                   {isCompleted && (
@@ -85,7 +85,7 @@ const DashboardView = ({
                   )}
                 </>
               ) : (
-                <p className="text-xs text-[#5D7180] font-medium uppercase tracking-wide">
+                <p className="text-xs text-ferty-gray font-medium uppercase tracking-wide">
                   Método no iniciado
                 </p>
               )}
@@ -94,7 +94,7 @@ const DashboardView = ({
         </div>
         <button
           onClick={handleQuickAccess}
-          className="bg-[#C7958E] text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"
+          className="bg-ferty-rose text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform"
         >
           <Activity size={20} />
         </button>
@@ -102,7 +102,7 @@ const DashboardView = ({
 
       <div className="space-y-6">
         {!user.methodStartDate && (
-          <div className="bg-gradient-to-br from-[#C7958E] to-[#95706B] p-8 rounded-[2rem] shadow-xl text-white text-center relative overflow-hidden">
+          <div className="bg-gradient-to-br from-ferty-rose to-ferty-coral p-8 rounded-[2rem] shadow-xl text-white text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
             <div className="relative z-10">
@@ -115,7 +115,7 @@ const DashboardView = ({
               </p>
               <button
                 onClick={onStartMethod}
-                className="bg-white text-[#C7958E] px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
+                className="bg-white text-ferty-rose px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
               >
                 <Activity size={20} />
                 Iniciar Método
@@ -124,7 +124,7 @@ const DashboardView = ({
           </div>
         )}
 
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-[#F4F0ED] relative overflow-hidden">
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-ferty-beige relative overflow-hidden">
           <FertyScoreCircular
             totalScore={scores.total}
             functionScore={scores.function}
@@ -134,15 +134,15 @@ const DashboardView = ({
             size={320}
           />
 
-          <div className="mt-8 bg-[#F9F6F4] p-4 rounded-xl border border-[#F4F0ED]">
-            <div className="flex justify-between text-xs text-[#95706B] font-bold mb-2 uppercase tracking-wide">
+          <div className="mt-8 bg-ferty-beigeLight p-4 rounded-xl border border-ferty-beige">
+            <div className="flex justify-between text-xs text-ferty-coral font-bold mb-2 uppercase tracking-wide">
               <span>Progreso del Método</span>
               <span>{Math.round(progressPercent)}%</span>
             </div>
-            <div className="h-2 w-full bg-white rounded-full overflow-hidden border border-[#F4F0ED]">
-              <div className="h-full bg-[#9ECCB4] rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+            <div className="h-2 w-full bg-white rounded-full overflow-hidden border border-ferty-beige">
+              <div className="h-full bg-ferty-flora-dark rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
             </div>
-            <div className="flex justify-between text-[10px] text-[#5D7180] mt-1">
+            <div className="flex justify-between text-[10px] text-ferty-gray mt-1">
               <span>{displayDay}/90 días</span>
             </div>
           </div>
@@ -157,7 +157,7 @@ const DashboardView = ({
 
         {unreadNotifications.length > 0 && (
           <div>
-            <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Notificaciones Nuevas</h3>
+            <h3 className="font-bold text-ferty-dark mb-3 text-sm">Notificaciones Nuevas</h3>
             <NotificationList
               notifications={unreadNotifications}
               onMarkRead={onMarkNotificationRead}
@@ -169,36 +169,36 @@ const DashboardView = ({
 
         {logs.length > 0 && (
           <div>
-            <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Último Registro</h3>
+            <h3 className="font-bold text-ferty-dark mb-3 text-sm">Último Registro</h3>
             <LogHistoryItem log={logs[0]} />
           </div>
         )}
 
         <div>
-          <h3 className="font-bold text-[#4A4A4A] mb-3 text-sm">Acceso Rápido</h3>
+          <h3 className="font-bold text-ferty-dark mb-3 text-sm">Acceso Rápido</h3>
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={handleQuickAccess}
-              className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex items-center gap-4 hover:border-[#C7958E] transition-colors group text-left"
+              className="bg-white p-4 rounded-2xl shadow-sm border border-ferty-beige flex items-center gap-4 hover:border-ferty-rose transition-colors group text-left"
             >
-              <div className="bg-[#C7958E]/10 p-3 rounded-full text-[#C7958E] group-hover:bg-[#C7958E] group-hover:text-white transition-colors">
+              <div className="bg-ferty-rose/10 p-3 rounded-full text-ferty-rose group-hover:bg-ferty-rose group-hover:text-white transition-colors">
                 <Plus size={24} />
               </div>
               <div>
-                <span className="block text-sm font-bold text-[#4A4A4A]">Registrar Diario</span>
-                <span className="text-[10px] text-[#5D7180]">Añadir datos hoy</span>
+                <span className="block text-sm font-bold text-ferty-dark">Registrar Diario</span>
+                <span className="text-[10px] text-ferty-gray">Añadir datos hoy</span>
               </div>
             </button>
             <button
               onClick={() => onNavigate('EDUCATION')}
-              className="bg-white p-4 rounded-2xl shadow-sm border border-[#F4F0ED] flex items-center gap-4 hover:border-[#C7958E] transition-colors group text-left"
+              className="bg-white p-4 rounded-2xl shadow-sm border border-ferty-beige flex items-center gap-4 hover:border-ferty-rose transition-colors group text-left"
             >
-              <div className="bg-[#95706B]/10 p-3 rounded-full text-[#95706B] group-hover:bg-[#95706B] group-hover:text-white transition-colors">
+              <div className="bg-ferty-coral/10 p-3 rounded-full text-ferty-coral group-hover:bg-ferty-coral group-hover:text-white transition-colors">
                 <BookOpen size={24} />
               </div>
               <div>
-                <span className="block text-sm font-bold text-[#4A4A4A]">Ver Módulos</span>
-                <span className="text-[10px] text-[#5D7180]">Continuar curso</span>
+                <span className="block text-sm font-bold text-ferty-dark">Ver Módulos</span>
+                <span className="text-[10px] text-ferty-gray">Continuar curso</span>
               </div>
             </button>
           </div>

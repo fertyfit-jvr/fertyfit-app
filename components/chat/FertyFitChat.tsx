@@ -174,21 +174,21 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
   };
 
   return (
-    <div className="bg-white border border-[#F4F0ED] rounded-3xl shadow-sm overflow-hidden flex flex-col" style={{ height: '600px' }}>
+    <div className="bg-white border border-ferty-beige rounded-3xl shadow-sm overflow-hidden flex flex-col h-chat">
       {/* Header */}
-      <div className="bg-[#F9F6F4] border-b border-[#F4F0ED] p-4">
+      <div className="bg-ferty-beigeLight border-b border-ferty-beige p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <MessageCircle size={20} className="text-[#C7958E]" />
-            <h3 className="text-sm font-bold text-[#4A4A4A]">Pregunta a FertyFit</h3>
+            <MessageCircle size={20} className="text-ferty-rose" />
+            <h3 className="text-sm font-bold text-ferty-dark">Pregunta a FertyFit</h3>
           </div>
           {remainingQuestions !== null && (
-            <div className="text-xs text-[#5D7180]">
+            <div className="text-xs text-ferty-gray">
               <span className="font-semibold">{remainingQuestions}</span> preguntas restantes hoy
             </div>
           )}
         </div>
-        <p className="text-xs text-[#5D7180] mt-1">
+        <p className="text-xs text-ferty-gray mt-1">
           Haz tu pregunta sobre fertilidad y metodología FertyFit
         </p>
       </div>
@@ -198,11 +198,11 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-center">
             <div>
-              <MessageCircle size={48} className="text-[#C7958E] opacity-30 mx-auto mb-3" />
-              <p className="text-sm text-[#5D7180]">
+              <MessageCircle size={48} className="text-ferty-rose opacity-30 mx-auto mb-3" />
+              <p className="text-sm text-ferty-gray">
                 Haz tu primera pregunta sobre fertilidad
               </p>
-              <p className="text-xs text-[#95706B] mt-1">
+              <p className="text-xs text-ferty-coral mt-1">
                 Ejemplo: "¿Qué es la reserva ovárica?"
               </p>
             </div>
@@ -216,8 +216,8 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === 'user'
-                    ? 'bg-[#5D7180] text-white'
-                    : 'bg-[#F9F6F4] text-[#4A4A4A] border border-[#F4F0ED]'
+                    ? 'bg-ferty-gray text-white'
+                    : 'bg-ferty-beigeLight text-ferty-dark border border-ferty-beige'
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
@@ -228,10 +228,10 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
         
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-[#F9F6F4] border border-[#F4F0ED] rounded-2xl px-4 py-3">
+            <div className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl px-4 py-3">
               <div className="flex items-center gap-2">
-                <Loader2 size={16} className="animate-spin text-[#C7958E]" />
-                <span className="text-sm text-[#5D7180]">Pensando...</span>
+                <Loader2 size={16} className="animate-spin text-ferty-rose" />
+                <span className="text-sm text-ferty-gray">Pensando...</span>
               </div>
             </div>
           </div>
@@ -241,7 +241,7 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
       </div>
 
       {/* Input area */}
-      <div className="border-t border-[#F4F0ED] p-4 bg-[#F9F6F4]">
+      <div className="border-t border-ferty-beige p-4 bg-ferty-beigeLight">
         {error && (
           <div className="mb-2 bg-red-50 border border-red-200 rounded-xl p-2">
             <p className="text-xs text-red-700">{error}</p>
@@ -255,13 +255,13 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
             onKeyPress={handleKeyPress}
             placeholder="Escribe tu pregunta..."
             disabled={isLoading || (remainingQuestions !== null && remainingQuestions <= 0)}
-            className="flex-1 border border-[#F4F0ED] rounded-xl p-3 text-sm bg-white focus:border-[#C7958E] focus:ring-1 focus:ring-[#C7958E] outline-none resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 border border-ferty-beige rounded-xl p-3 text-sm bg-white focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose outline-none resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             rows={2}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading || (remainingQuestions !== null && remainingQuestions <= 0)}
-            className="bg-[#5D7180] text-white p-3 rounded-xl hover:bg-[#4A5568] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            className="bg-ferty-gray text-white p-3 rounded-xl hover:bg-ferty-grayHover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
           >
             {isLoading ? (
               <Loader2 size={20} className="animate-spin" />
@@ -271,7 +271,7 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
           </button>
         </div>
         {remainingQuestions !== null && remainingQuestions <= 0 && (
-          <p className="text-xs text-[#95706B] mt-2 text-center">
+          <p className="text-xs text-ferty-coral mt-2 text-center">
             Límite diario alcanzado. Vuelve mañana o actualiza a premium.
           </p>
         )}

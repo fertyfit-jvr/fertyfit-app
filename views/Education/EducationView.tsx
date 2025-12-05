@@ -20,7 +20,7 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
 
   return (
     <div className="pb-24 space-y-8">
-      <h2 className="text-xl font-bold text-[#4A4A4A]">Tu Programa</h2>
+      <h2 className="text-xl font-bold text-ferty-dark">Tu Programa</h2>
       {phaseMeta.map((phase) => {
         const phaseModules = safeCourseModules.filter((module) => {
           // Ensure module has required properties
@@ -34,8 +34,8 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
             <div className="rounded-2xl p-1 flex items-center gap-4">
               <img src={phase.icon} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm border-2 border-white" />
               <div>
-                <h3 className="font-bold text-lg text-[#4A4A4A]">{phase.title}</h3>
-                <p className="text-xs text-[#5D7180] uppercase font-medium tracking-wider">{phase.range}</p>
+                <h3 className="font-bold text-lg text-ferty-dark">{phase.title}</h3>
+                <p className="text-xs text-ferty-gray uppercase font-medium tracking-wider">{phase.range}</p>
               </div>
             </div>
             <div className="space-y-3 pl-2">
@@ -47,22 +47,22 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
                 return (
                   <div
                     key={module.id}
-                    className={`relative bg-white border rounded-xl p-5 transition-all ${module.isLocked ? 'opacity-60 grayscale' : 'shadow-[0_2px_15px_rgba(0,0,0,0.03)] border-[#F4F0ED]'}`}
+                    className={`relative bg-white border rounded-xl p-5 transition-all ${module.isLocked ? 'opacity-60 grayscale' : 'shadow-[0_2px_15px_rgba(0,0,0,0.03)] border-ferty-beige'}`}
                   >
                     {module.isLocked && (
                       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl">
-                        <div className="bg-[#4A4A4A]/80 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg backdrop-blur-sm">
+                        <div className="bg-ferty-dark/80 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg backdrop-blur-sm">
                           <Lock size={14} /> Bloqueado
                         </div>
                       </div>
                     )}
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-[#4A4A4A] text-sm">{module.title}</h4>
+                      <h4 className="font-bold text-ferty-dark text-sm">{module.title}</h4>
                       {module.order_index > 0 && (
-                        <span className="text-[10px] bg-[#F4F0ED] px-2 py-1 rounded text-[#95706B] font-bold">SEM {module.order_index}</span>
+                        <span className="text-[10px] bg-ferty-beige px-2 py-1 rounded text-ferty-coral font-bold">SEM {module.order_index}</span>
                       )}
                     </div>
-                    <p className="text-xs text-[#5D7180] mb-4 leading-relaxed">{module.description}</p>
+                    <p className="text-xs text-ferty-gray mb-4 leading-relaxed">{module.description}</p>
                     {!module.isLocked && (
                       <div className="space-y-2">
                         {safeLessons.map((lesson) => {
@@ -71,13 +71,13 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
                             <div
                               key={lesson.id}
                               onClick={() => onSelectLesson(lesson)}
-                              className="flex items-center gap-3 text-xs text-[#5D7180] p-3 bg-[#F4F0ED]/50 rounded-lg hover:bg-[#C7958E]/10 cursor-pointer border border-transparent hover:border-[#C7958E]/30 transition-all group"
+                              className="flex items-center gap-3 text-xs text-ferty-gray p-3 bg-ferty-beige/50 rounded-lg hover:bg-ferty-rose/10 cursor-pointer border border-transparent hover:border-ferty-rose/30 transition-all group"
                             >
-                              <div className={`p-1.5 rounded-full shadow-sm transition-transform group-hover:scale-110 ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-[#C7958E]'}`}>
+                              <div className={`p-1.5 rounded-full shadow-sm transition-transform group-hover:scale-110 ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-ferty-rose'}`}>
                                 {isCompleted ? <CheckCircle size={14} /> : lesson.type === 'video' ? <PlayCircle size={14} /> : <PdfIcon size={14} />}
                               </div>
                               <span className="font-medium flex-1">{lesson.title}</span>
-                              <span className="text-[#95706B] opacity-70">{lesson.duration}</span>
+                              <span className="text-ferty-coral opacity-70">{lesson.duration}</span>
                             </div>
                           );
                         })}

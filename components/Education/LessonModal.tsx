@@ -11,12 +11,12 @@ interface LessonModalProps {
 
 export default function LessonModal({ lesson, onClose, onMarkComplete }: LessonModalProps) {
   return (
-    <div className="fixed inset-0 z-50 bg-[#F4F0ED]/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 bg-ferty-beige/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-white/50 max-h-[90vh] flex flex-col">
-        <div className="p-5 border-b border-[#F4F0ED] flex justify-between items-center bg-white sticky top-0 z-10">
-          <h3 className="font-bold text-[#4A4A4A] text-sm pr-4">{lesson.title}</h3>
+        <div className="p-5 border-b border-ferty-beige flex justify-between items-center bg-white sticky top-0 z-10">
+          <h3 className="font-bold text-ferty-dark text-sm pr-4">{lesson.title}</h3>
           <button onClick={onClose}>
-            <X size={24} className="text-[#95706B] hover:rotate-90 transition-transform" />
+            <X size={24} className="text-ferty-coral hover:rotate-90 transition-transform" />
           </button>
         </div>
 
@@ -39,16 +39,16 @@ export default function LessonModal({ lesson, onClose, onMarkComplete }: LessonM
               )}
             </div>
           ) : (
-            <div className="p-8 bg-[#F4F0ED]/30 text-center">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-[#C7958E]">
+            <div className="p-8 bg-ferty-beige/30 text-center">
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-ferty-rose">
                 <PdfIcon size={40} />
               </div>
-              <p className="text-xs font-bold text-[#95706B] mb-4 uppercase tracking-wider">Recurso Descargable</p>
+              <p className="text-xs font-bold text-ferty-coral mb-4 uppercase tracking-wider">Recurso Descargable</p>
               <a
                 href={lesson.content_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-[#4A4A4A] text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg hover:bg-black transition-colors"
+                className="inline-flex items-center gap-2 bg-ferty-dark text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg hover:bg-black transition-colors"
               >
                 <Download size={16} /> Descargar PDF
               </a>
@@ -56,14 +56,14 @@ export default function LessonModal({ lesson, onClose, onMarkComplete }: LessonM
           )}
 
           <div className="p-6">
-            <h4 className="text-xs font-bold text-[#95706B] uppercase tracking-widest mb-2">Acerca de esta lección</h4>
-            <p className="text-sm text-[#5D7180] leading-relaxed mb-8">
+            <h4 className="text-xs font-bold text-ferty-coral uppercase tracking-widest mb-2">Acerca de esta lección</h4>
+            <p className="text-sm text-ferty-gray leading-relaxed mb-8">
               {lesson.description || "No hay descripción disponible para esta lección."}
             </p>
 
             <button
               onClick={() => onMarkComplete(lesson.id)}
-              className="w-full bg-[#C7958E] text-white py-4 rounded-xl font-bold shadow-lg shadow-rose-200 hover:bg-[#95706B] transition-all flex items-center justify-center gap-2"
+              className="w-full bg-ferty-rose text-white py-4 rounded-xl font-bold shadow-lg shadow-rose-200 hover:bg-ferty-coral transition-all flex items-center justify-center gap-2"
             >
               <CheckCircle size={20} /> Marcar como Completada
             </button>
