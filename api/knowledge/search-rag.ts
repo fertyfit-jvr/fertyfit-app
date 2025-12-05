@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ai } from '../../server/lib/ai.js';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
+import { logger } from '../../server/lib/logger.js';
 
 export type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
@@ -43,7 +44,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
 
 async function embedQuery(query: string): Promise<number[]> {
   try {
-    console.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
+    logger.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
     
     // El SDK nuevo usa ai.models.embedContent directamente
     const resp = await (ai as any).models.embedContent({
@@ -56,14 +57,14 @@ async function embedQuery(query: string): Promise<number[]> {
       resp?.embeddings?.[0]?.values;
 
     if (!embedding || embedding.length === 0) {
-      console.error(`[RAG] ERROR: Embedding vacío o inválido`);
+      logger.error(`[RAG] ERROR: Embedding vacío o inválido`);
       throw createError('No se pudo generar el embedding de la consulta', 500, 'EMBEDDING_ERROR');
     }
 
-    console.log(`[RAG] Embedding OK: ${embedding.length} dimensiones`);
+    logger.log(`[RAG] Embedding OK: ${embedding.length} dimensiones`);
     return embedding;
   } catch (error: any) {
-    console.error(`[RAG] ERROR en embedding:`, error?.message || error);
+    logger.error(`[RAG] ERROR en embedding:`, error?.message || error);
     throw error;
   }
 }
@@ -84,8 +85,8 @@ export async function searchRagDirect(
   const queryEmbedding = await embedQuery(query);
 
   // 2) Llamar a la función RPC en Supabase
-  console.log(`[RAG] Llamando RPC match_fertyfit_knowledge con match_count=${matchCount}`);
-  console.log(`[RAG] Filtros: pillar_category=${filters?.pillar_category || 'null'}, doc_type=${filters?.doc_type || 'null'}, document_id=${filters?.document_id || 'null'}`);
+  logger.log(`[RAG] Llamando RPC match_fertyfit_knowledge con match_count=${matchCount}`);
+  logger.log(`[RAG] Filtros: pillar_category=${filters?.pillar_category || 'null'}, doc_type=${filters?.doc_type || 'null'}, document_id=${filters?.document_id || 'null'}`);
   
   const { data, error } = await supabase.rpc('match_fertyfit_knowledge', {
     query_embedding: queryEmbedding,
@@ -96,13 +97,13 @@ export async function searchRagDirect(
   });
 
   if (error) {
-    console.error(`[RAG] ERROR en RPC:`, error);
+    logger.error(`[RAG] ERROR en RPC:`, error);
     throw error;
   }
 
-  console.log(`[RAG] RPC devolvió ${data?.length || 0} resultados`);
+  logger.log(`[RAG] RPC devolvió ${data?.length || 0} resultados`);
   if (data && data.length > 0) {
-    console.log(`[RAG] Primer resultado: similarity=${data[0]?.similarity}, doc_id=${data[0]?.document_id}, chunk_id=${data[0]?.chunk_id}`);
+    logger.log(`[RAG] Primer resultado: similarity=${data[0]?.similarity}, doc_id=${data[0]?.document_id}, chunk_id=${data[0]?.chunk_id}`);
   }
 
   const chunks: KnowledgeChunk[] =
@@ -114,11 +115,11 @@ export async function searchRagDirect(
 
   // Logging para verificar que RAG funciona
   if (chunks.length > 0) {
-    console.log(`✅ RAG search exitoso: ${chunks.length} chunks encontrados para query: "${query.substring(0, 50)}..."`);
-    console.log(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
+    logger.log(`✅ RAG search exitoso: ${chunks.length} chunks encontrados para query: "${query.substring(0, 50)}..."`);
+    logger.log(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
   } else {
-    console.warn(`⚠️ RAG search sin resultados: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
-    console.warn(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
+    logger.warn(`⚠️ RAG search sin resultados: No se encontraron chunks para query: "${query.substring(0, 50)}..."`);
+    logger.warn(`   Filtros aplicados: pillar_category=${filters?.pillar_category || 'ninguno'}, doc_type=${filters?.doc_type || 'ninguno'}`);
   }
 
   return chunks;

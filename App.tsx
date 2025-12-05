@@ -64,10 +64,15 @@ function AppContent() {
   useDailyNotifications();
   useUserDataLoader();
 
-  // Filter notifications
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
-  const visibleNotifications = safeNotifications.filter(n => !deletedNotificationIds.includes(n.id));
-  const unreadNotifications = visibleNotifications.filter(n => !n.is_read);
+  // Filter notifications - usar useMemo para recalcular cuando cambien las dependencias
+  const visibleNotifications = useMemo(() => {
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+    return safeNotifications.filter(n => !deletedNotificationIds.includes(n.id));
+  }, [notifications, deletedNotificationIds]);
+  
+  const unreadNotifications = useMemo(() => {
+    return visibleNotifications.filter(n => !n.is_read);
+  }, [visibleNotifications]);
 
   // Check user session on mount
   useEffect(() => { 
@@ -151,7 +156,6 @@ function AppContent() {
             user={user}
             logs={logs}
             submittedForms={submittedForms}
-            reports={reports}
             scores={dashboardScores}
             visibleNotifications={visibleNotifications}
             showNotif={showNotif}

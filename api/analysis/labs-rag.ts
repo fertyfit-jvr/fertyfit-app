@@ -4,6 +4,7 @@ import { ai } from '../../server/lib/ai.js';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
 import { searchRagDirect } from '../../server/lib/ragUtils.js';
+import { logger } from '../../server/lib/logger.js';
 
 type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
@@ -128,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     } catch (profileError) {
       // Si falla, continuamos sin edad
-      console.warn('No se pudo cargar la edad del perfil:', profileError);
+      logger.warn('No se pudo cargar la edad del perfil:', profileError);
     }
 
     // Obtener contexto RAG sobre analíticas
@@ -146,9 +147,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const ragQuery = `contexto sobre interpretación general de analíticas de fertilidad (${labValues}) para una mujer de ${age || 'edad no especificada'} años`;
 
-      console.log(`[RAG] Buscando contexto para analíticas de paciente ${age || 'edad no especificada'} años`);
-      console.log(`[RAG] Query: "${ragQuery.substring(0, 100)}..."`);
-      console.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
+      logger.log(`[RAG] Buscando contexto para analíticas de paciente ${age || 'edad no especificada'} años`);
+      logger.log(`[RAG] Query: "${ragQuery.substring(0, 100)}..."`);
+      logger.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
 
       // Buscar sin filtros restrictivos - los documentos no tienen doc_type='Analitica' exacto
       // Solo aplicar pillar_category si se especifica explícitamente
@@ -157,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         5
       );
       
-      console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
+      logger.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
       
       if (ragChunks.length > 0) {
         ragChunksCount = ragChunks.length;
@@ -165,15 +166,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ragUsed = ragContext.length > 0;
         
         if (ragUsed) {
-          console.log(`✅ RAG usado en analíticas: ${ragChunksCount} chunks encontrados para labs: ${labValues.substring(0, 100)}...`);
+          logger.log(`✅ RAG usado en analíticas: ${ragChunksCount} chunks encontrados para labs: ${labValues.substring(0, 100)}...`);
         }
       } else {
-        console.warn(`⚠️ RAG NO disponible en analíticas: No se encontraron chunks para labs: ${labValues.substring(0, 100)}...`);
+        logger.warn(`⚠️ RAG NO disponible en analíticas: No se encontraron chunks para labs: ${labValues.substring(0, 100)}...`);
       }
     } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él
-      console.error('❌ RAG EXCEPTION en analíticas:', ragError?.message || ragError);
-      console.error('Stack:', ragError?.stack);
+      logger.error('❌ RAG EXCEPTION en analíticas:', ragError?.message || ragError);
+      logger.error('Stack:', ragError?.stack);
     }
 
     // Construir prompt para Gemini
@@ -213,7 +214,7 @@ TAREA:
       if (typeof responseText === 'string' && responseText.length > 0) {
         explanation = responseText;
       } else {
-        console.error('❌ Respuesta de Gemini sin texto válido:', {
+        logger.error('❌ Respuesta de Gemini sin texto válido:', {
           hasText: 'text' in response,
           textType: typeof (response as { text?: unknown }).text,
           responseKeys: Object.keys(response),
@@ -221,7 +222,7 @@ TAREA:
         explanation = 'No se pudo generar la explicación. Por favor, intenta de nuevo.';
       }
     } else {
-      console.error('❌ Respuesta de Gemini inválida:', typeof response);
+      logger.error('❌ Respuesta de Gemini inválida:', typeof response);
       explanation = 'No se pudo generar la explicación. Por favor, intenta de nuevo.';
     }
 
@@ -252,11 +253,11 @@ TAREA:
         });
 
       if (saveError) {
-        console.warn('No se pudo guardar la explicación en notifications:', saveError);
+        logger.warn('No se pudo guardar la explicación en notifications:', saveError);
         // No fallamos la request si falla el guardado
       }
     } catch (saveError) {
-      console.warn('Error al guardar explicación en notifications:', saveError);
+      logger.warn('Error al guardar explicación en notifications:', saveError);
       // No fallamos la request si falla el guardado
     }
 

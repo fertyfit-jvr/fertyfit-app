@@ -4,6 +4,7 @@ import { ai } from '../../server/lib/ai.js';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
 import { searchRagDirect } from '../../server/lib/ragUtils.js';
+import { logger } from '../../server/lib/logger.js';
 
 import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
 
@@ -206,15 +207,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const ragQuery = `contexto metodológico FertyFit para un informe integral de fertilidad de una paciente de ${userProfile.age} años`;
       
-      console.log(`[RAG] Buscando contexto para informe de paciente ${userProfile.age} años`);
-      console.log(`[RAG] Query: "${ragQuery}"`);
-      console.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
+      logger.log(`[RAG] Buscando contexto para informe de paciente ${userProfile.age} años`);
+      logger.log(`[RAG] Query: "${ragQuery}"`);
+      logger.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
       
       // Buscar sin filtros restrictivos - los documentos no tienen doc_type='Informe_Global' exacto
       // La búsqueda vectorial encontrará los documentos más relevantes automáticamente
       ragChunks = await searchRagDirect(ragQuery, undefined, 5);
       
-      console.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
+      logger.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
       
       if (ragChunks.length > 0) {
         ragChunksCount = ragChunks.length;
@@ -222,15 +223,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ragUsed = ragContext.length > 0;
         
         if (ragUsed) {
-          console.log(`✅ RAG usado en informe: ${ragChunksCount} chunks encontrados para informe de paciente ${userProfile.age} años`);
+          logger.log(`✅ RAG usado en informe: ${ragChunksCount} chunks encontrados para informe de paciente ${userProfile.age} años`);
         }
       } else {
-        console.warn(`⚠️ RAG NO disponible en informe: No se encontraron chunks para informe de paciente ${userProfile.age} años`);
+        logger.warn(`⚠️ RAG NO disponible en informe: No se encontraron chunks para informe de paciente ${userProfile.age} años`);
       }
     } catch (ragError: any) {
       // Si falla el RAG, continuamos sin él (no rompemos el informe)
-      console.error('❌ RAG EXCEPTION en informe:', ragError?.message || ragError);
-      console.error('Stack:', ragError?.stack);
+      logger.error('❌ RAG EXCEPTION en informe:', ragError?.message || ragError);
+      logger.error('Stack:', ragError?.stack);
     }
 
     const prompt = `
@@ -282,7 +283,7 @@ A continuación tienes el JSON de contexto de la paciente:
       if (typeof responseText === 'string' && responseText.length > 0) {
         reportText = responseText;
       } else {
-        console.error('❌ Respuesta de Gemini sin texto válido para informe:', {
+        logger.error('❌ Respuesta de Gemini sin texto válido para informe:', {
           hasText: 'text' in response,
           textType: typeof (response as { text?: unknown }).text,
           responseKeys: Object.keys(response),
@@ -290,7 +291,7 @@ A continuación tienes el JSON de contexto de la paciente:
         reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
       }
     } else {
-      console.error('❌ Respuesta de Gemini inválida para informe:', typeof response);
+      logger.error('❌ Respuesta de Gemini inválida para informe:', typeof response);
       reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
     }
 
@@ -320,11 +321,11 @@ A continuación tienes el JSON de contexto de la paciente:
         });
 
       if (saveError) {
-        console.warn('No se pudo guardar el informe en notifications:', saveError);
+        logger.warn('No se pudo guardar el informe en notifications:', saveError);
         // No fallamos la request si falla el guardado
       }
     } catch (saveError) {
-      console.warn('Error al guardar informe en notifications:', saveError);
+      logger.warn('Error al guardar informe en notifications:', saveError);
       // No fallamos la request si falla el guardado
     }
 

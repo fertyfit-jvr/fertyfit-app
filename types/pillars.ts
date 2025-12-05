@@ -5,12 +5,19 @@
 
 export interface PillarFunction {
   user_id: string;
-  hormonal_panel?: Record<string, any>;
-  metabolic_panel?: Record<string, any>;
-  vitamin_d?: Record<string, any>;
-  ultrasound?: Record<string, any>;
-  hsg?: Record<string, any>;
-  semen_analysis?: Record<string, any>;
+  // Ciclo (movido desde F0, sincronizado con profiles)
+  cycle_length?: number;
+  cycle_regularity?: string;
+  // Nuevas preguntas FUNCTION
+  regularity_detail?: string;
+  luteal_phase_days?: number;
+  fertile_mucus?: string;
+  pms_severity?: number; // 1-10
+  fertility_diagnosis?: string;
+  tsh_last?: string;
+  ovulation_tracking?: string;
+  menstrual_bleeding?: string;
+  // Mantener si los necesitas
   diagnoses?: string[];
   fertility_treatments?: string;
   created_at?: string;
@@ -19,6 +26,16 @@ export interface PillarFunction {
 
 export interface PillarFood {
   user_id: string;
+  // ⭐ NUEVOS CAMPOS (sistema de puntos)
+  eating_pattern?: string;        // patron: patrón de alimentación semanal
+  fish_frequency?: number;         // pescado: frecuencia pescado azul (0-7 veces/semana)
+  vegetable_servings?: number;    // vege: raciones vegetales diarias (0-10)
+  fat_type?: string;               // grasas: tipo de grasas en cocina
+  fertility_supplements?: string;  // suppl: suplementos fertilidad
+  sugary_drinks_frequency?: number; // azucar: frecuencia bebidas azucaradas (0-7 veces/semana)
+  antioxidants?: string;           // antiox: fuentes de antioxidantes
+  carb_source?: string;            // carbos: principal fuente de carbohidratos
+  // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
   daily_protein?: number;
   daily_fiber?: number;
   vegetable_diversity?: number;
@@ -37,6 +54,13 @@ export interface PillarFood {
 
 export interface PillarFlora {
   user_id: string;
+  // ⭐ NUEVOS CAMPOS (sistema de puntos)
+  digestive_health?: number;        // dig: salud digestiva (0-10, slider)
+  vaginal_health?: string;          // vag: salud vaginal
+  antibiotics_last_year?: string;   // atb: antibióticos último año
+  fermented_foods_frequency?: number; // ferm: frecuencia alimentos fermentados (0-7 veces/semana o 0-30 veces/mes)
+  food_intolerances?: string;        // intol: intolerancias alimentarias
+  // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
   antibiotics_last_12_months?: string;
   vaginal_infections?: boolean;
   altered_vaginal_ph?: boolean;
@@ -51,6 +75,16 @@ export interface PillarFlora {
 
 export interface PillarFlow {
   user_id: string;
+  // ⭐ NUEVOS CAMPOS (sistema de puntos)
+  stress_level?: number;            // stress: nivel de estrés percibido (0-10, slider)
+  sleep_hours?: number;              // sueno: horas de sueño de calidad (se mapea a puntos 1-10)
+  relaxation_frequency?: number;     // relax: frecuencia técnicas de relajación (0-7 veces/semana, mapea a puntos 1-10)
+  exercise_type?: string;           // ejer: tipo y frecuencia de ejercicio
+  morning_sunlight?: string;         // solar: exposición a luz solar matutina
+  endocrine_disruptors?: string;     // tox: medidas para reducir disruptores endocrinos
+  bedtime_routine?: string;          // noche: rutina antes de dormir
+  emotional_state?: number;          // emocion: estado emocional respecto a búsqueda de embarazo (1-10, slider)
+  // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
   mental_load?: number; // 0-4
   mental_rumination?: number; // 0-4
   physical_anxiety?: boolean;
@@ -73,7 +107,6 @@ export interface PillarFlow {
   pain_dryness_relationships?: boolean;
   fertility_anxiety_relationships?: boolean;
   off_schedule_snacks?: string;
-  stress_level?: number; // 1-5 (migrated from F0)
   smoker?: string; // (migrated from F0)
   created_at?: string;
   updated_at?: string;

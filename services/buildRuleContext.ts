@@ -8,23 +8,20 @@ import { RuleContext } from './RuleEngine';
 import { calcularVentanaFertil } from './CycleCalculations';
 import { getCycleDay } from '../hooks/useCycleDay';
 import {
-    calculateFormsStatus,
     calculateDaysSinceLastDailyLog,
-    calculateDailyLogStreak,
-    calculateLast7DaysStats,
-    calculateLearnProgress,
-    getLastSummaryDates
 } from './ruleContextHelpers';
 
 /**
- * Construye un RuleContext completo para el RuleEngine
+ * Construye un RuleContext optimizado para el MVP
+ * Solo calcula lo necesario para las 5 reglas MVP
  */
 export async function buildRuleContext(
     user: UserProfile,
     logs: DailyLog[],
-    courseModules: CourseModule[] = []
+    courseModules: CourseModule[] = [] // Mantener parámetro para compatibilidad, pero no se usa en MVP
 ): Promise<RuleContext> {
-    // Calcular ciclo
+    // ✅ CALCULAR: Lo que SÍ usan las reglas MVP
+    // Ciclo
     const currentCycleDay = user.lastPeriodDate && user.cycleLength
         ? getCycleDay(user.lastPeriodDate, user.cycleLength)
         : undefined;
@@ -32,21 +29,12 @@ export async function buildRuleContext(
     const cycleLength = user.cycleLength;
     const ventanaFertil = cycleLength ? calcularVentanaFertil(cycleLength) : undefined;
 
-    // Calcular adherencia
+    // Adherencia (solo daysSinceLastDailyLog para ENG-1)
     const daysSinceLastDailyLog = calculateDaysSinceLastDailyLog(logs);
-    const dailyLogStreak = calculateDailyLogStreak(logs);
-    const last7DaysStats = calculateLast7DaysStats(logs);
 
-    // Calcular formularios
-    const formsStatus = user.id ? await calculateFormsStatus(user.id) : undefined;
-
-    // Calcular aprendizaje
-    const learnProgress = user.id && courseModules.length > 0
-        ? await calculateLearnProgress(user.id, courseModules)
-        : undefined;
-
-    // Obtener fechas de resúmenes
-    const summaryDates = user.id ? await getLastSummaryDates(user.id) : {};
+    // ❌ NO CALCULAR: Lo que NO se usa en reglas MVP
+    // Estas propiedades quedan como undefined (opcionales en la interfaz RuleContext)
+    // Esto es seguro porque las reglas MVP no las usan
 
     return {
         user,
@@ -54,12 +42,14 @@ export async function buildRuleContext(
         cycleLength,
         ventanaFertil,
         daysSinceLastDailyLog,
-        dailyLogStreak,
-        last7DaysStats,
-        formsStatus,
-        learnProgress,
-        lastWeeklySummaryAt: summaryDates.lastWeeklySummaryAt,
-        lastMonthlySummaryAt: summaryDates.lastMonthlySummaryAt
+        // Propiedades no usadas en MVP (opcionales, seguras de dejar como undefined)
+        dailyLogStreak: undefined,
+        last7DaysStats: undefined,
+        formsStatus: undefined,
+        learnProgress: undefined,
+        lastWeeklySummaryAt: undefined,
+        lastMonthlySummaryAt: undefined,
+        previousWeight: undefined,
     };
 }
 

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ai } from '../../server/lib/ai.js';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
+import { logger } from '../../server/lib/logger.js';
 
 type ChatRequest = {
   userId: string;
@@ -64,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .lt('created_at', `${today}T23:59:59.999Z`);
 
       if (countError) {
-        console.warn('Error al verificar límite diario de chat:', countError);
+        logger.warn('Error al verificar límite diario de chat:', countError);
       } else if (count !== null && count >= dailyChatLimit) {
         throw createError(
           `Has alcanzado tu límite diario de ${dailyChatLimit} preguntas. Vuelve mañana o actualiza a premium para más preguntas.`,
@@ -76,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (limitError.code === 'DAILY_LIMIT_EXCEEDED') {
         throw limitError;
       }
-      console.warn('Error al verificar límite de chat:', limitError);
+      logger.warn('Error al verificar límite de chat:', limitError);
     }
 
     // Construir prompt para Gemini (SIN RAG - respuestas cortas)
@@ -107,7 +108,7 @@ Responde en máximo 2 párrafos cortos. Sé conciso y directo.
     let answer = 'No se pudo generar una respuesta.';
     
     try {
-      console.log(`[CHAT] Generando respuesta con Gemini para query: "${query.substring(0, 50)}..."`);
+      logger.log(`[CHAT] Generando respuesta con Gemini para query: "${query.substring(0, 50)}..."`);
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [
@@ -121,7 +122,7 @@ Responde en máximo 2 párrafos cortos. Sé conciso y directo.
         if (typeof responseText === 'string' && responseText.length > 0) {
           answer = responseText;
         } else {
-          console.error('❌ Respuesta de Gemini sin texto válido para chat:', {
+          logger.error('❌ Respuesta de Gemini sin texto válido para chat:', {
             hasText: 'text' in response,
             textType: typeof (response as { text?: unknown }).text,
             responseKeys: Object.keys(response),
@@ -129,12 +130,12 @@ Responde en máximo 2 párrafos cortos. Sé conciso y directo.
           answer = 'No se pudo generar una respuesta. Por favor, intenta de nuevo.';
         }
       } else {
-        console.error('❌ Respuesta de Gemini inválida para chat:', typeof response);
+        logger.error('❌ Respuesta de Gemini inválida para chat:', typeof response);
         answer = 'No se pudo generar una respuesta. Por favor, intenta de nuevo.';
       }
-      console.log(`[CHAT] Respuesta generada exitosamente (${answer.length} caracteres)`);
+      logger.log(`[CHAT] Respuesta generada exitosamente (${answer.length} caracteres)`);
     } catch (geminiError: any) {
-      console.error(`[CHAT] ERROR al generar respuesta con Gemini:`, geminiError?.message || geminiError);
+      logger.error(`[CHAT] ERROR al generar respuesta con Gemini:`, geminiError?.message || geminiError);
       throw createError(
         `Error al generar respuesta: ${geminiError?.message || 'Error desconocido'}`,
         500,
@@ -173,10 +174,10 @@ Responde en máximo 2 párrafos cortos. Sé conciso y directo.
         });
 
       if (saveError) {
-        console.warn('No se pudo guardar el chat en notifications:', saveError);
+        logger.warn('No se pudo guardar el chat en notifications:', saveError);
       }
     } catch (saveError) {
-      console.warn('Error al guardar chat en notifications:', saveError);
+      logger.warn('Error al guardar chat en notifications:', saveError);
     }
 
     const responseData: ChatResponse = {

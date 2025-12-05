@@ -55,13 +55,6 @@ function takeLastDays(logs: DailyLog[], days: number): DailyLog[] {
   return sorted.slice(0, days);
 }
 
-function takeLastDaysWithBBT(logs: DailyLog[], days: number): DailyLog[] {
-  const withBBT = logs.filter(l => typeof l.bbt === 'number' && l.bbt !== null);
-  if (!withBBT.length) return [];
-  const sorted = [...withBBT].sort((a, b) => (a.date < b.date ? 1 : -1));
-  return sorted.slice(0, days);
-}
-
 /**
  * Estructura de datos de pilares para el cálculo del FertyScore
  */
@@ -330,9 +323,126 @@ const FOOD_BASELINE_WEIGHTS = {
   alcohol: 0.3,
 } as const;
 
-function calculateFoodBaseline(food?: PillarFood | null): number {
+// ⭐ NUEVAS FUNCIONES DE SCORING BASADAS EN PUNTOS (0-10 puntos → 0-100 score)
+function getEatingPatternPoints(pattern?: string): number {
+  if (!pattern) return NaN;
+  if (pattern.includes('a) Consumo frecuente')) return 0;
+  if (pattern.includes('b) Una mezcla')) return 4;
+  if (pattern.includes('c) Mayor parte')) return 7;
+  if (pattern.includes('d) Alimentos frescos')) return 10;
+  return NaN;
+}
+
+function getFishFrequencyPoints(frequency?: number): number {
+  if (frequency == null) return NaN;
+  // 0 veces = 1 pt, 1 vez = 5 pt, 2+ = 10 pt
+  if (frequency === 0) return 1;
+  if (frequency === 1) return 5;
+  if (frequency >= 2) return 10;
+  return NaN;
+}
+
+function getVegetableServingsPoints(servings?: number): number {
+  if (servings == null) return NaN;
+  // 0 raciones = 1 pt, 5+ = 10 pt (escalado lineal)
+  if (servings === 0) return 1;
+  if (servings >= 5) return 10;
+  // Interpolación lineal: 1-4 raciones
+  // 1→3.25, 2→5.5, 3→7.75, 4→10
+  return Math.round((1 + (servings * 2.25)) * 10) / 10;
+}
+
+function getFatTypePoints(fatType?: string): number {
+  if (!fatType) return NaN;
+  if (fatType.includes('a) Mantequilla')) return 0;
+  if (fatType.includes('b) Una mezcla')) return 4;
+  if (fatType.includes('c) Principalmente aceite')) return 8;
+  if (fatType.includes('d) Casi exclusivamente AOVE')) return 10;
+  return NaN;
+}
+
+function getFertilitySupplementsPoints(supplements?: string): number {
+  if (!supplements) return NaN;
+  if (supplements.includes('a) No tomo ningún suplemento')) return 1;
+  if (supplements.includes('b) Tomo solo ácido fólico sintético')) return 4;
+  if (supplements.includes('c) Tomo un multivitamínico')) return 7;
+  if (supplements.includes('d) Protocolo personalizado')) return 10;
+  return NaN;
+}
+
+function getSugaryDrinksPoints(frequency?: number): number {
+  if (frequency == null) return NaN;
+  // Diariamente (7 veces/semana) = 0 pt, Muy raramente o nunca (0 veces) = 10 pt
+  // Escalado inverso: más frecuencia = menos puntos
+  if (frequency === 0) return 10;
+  if (frequency === 1) return 8;
+  if (frequency === 2) return 6;
+  if (frequency === 3) return 4;
+  if (frequency === 4) return 3;
+  if (frequency === 5) return 2;
+  if (frequency === 6) return 1;
+  if (frequency >= 7) return 0;
+  return NaN;
+}
+
+function getAntioxidantsPoints(antioxidants?: string): number {
+  if (!antioxidants) return NaN;
+  if (antioxidants.includes('a) Raramente')) return 2;
+  if (antioxidants.includes('b) Algunas veces')) return 5;
+  if (antioxidants.includes('c) Casi todos los días')) return 8;
+  if (antioxidants.includes('d) Diariamente')) return 10;
+  return NaN;
+}
+
+function getCarbSourcePoints(carbSource?: string): number {
+  if (!carbSource) return NaN;
+  if (carbSource.includes('a) Pan blanco')) return 1;
+  if (carbSource.includes('b) Una mezcla')) return 4;
+  if (carbSource.includes('c) Principalmente integrales')) return 7;
+  if (carbSource.includes('d) Carbohidratos complejos')) return 10;
+  return NaN;
+}
+
+// Convertir puntos (0-10) a score (0-100)
+function pointsToScore(points: number): number {
+  if (Number.isNaN(points)) return NaN;
+  return clampScore(points * 10); // 0 pt → 0 score, 10 pt → 100 score
+}
+
+function calculateNewFoodBaseline(food?: PillarFood | null): number {
   if (!food) return NaN;
 
+  // Verificar si tiene datos nuevos (sistema de puntos)
+  const hasNewData = food.eating_pattern || 
+                     food.fish_frequency != null || 
+                     food.vegetable_servings != null ||
+                     food.fat_type ||
+                     food.fertility_supplements ||
+                     food.sugary_drinks_frequency != null ||
+                     food.antioxidants ||
+                     food.carb_source;
+
+  if (hasNewData) {
+    // Usar nuevo sistema de puntos
+    const scores = [
+      pointsToScore(getEatingPatternPoints(food.eating_pattern)),
+      pointsToScore(getFishFrequencyPoints(food.fish_frequency)),
+      pointsToScore(getVegetableServingsPoints(food.vegetable_servings)),
+      pointsToScore(getFatTypePoints(food.fat_type)),
+      pointsToScore(getFertilitySupplementsPoints(food.fertility_supplements)),
+      pointsToScore(getSugaryDrinksPoints(food.sugary_drinks_frequency)),
+      pointsToScore(getAntioxidantsPoints(food.antioxidants)),
+      pointsToScore(getCarbSourcePoints(food.carb_source)),
+    ];
+
+    const valid = scores.filter(s => !Number.isNaN(s));
+    if (valid.length === 0) return NaN;
+
+    // Promedio simple de todos los scores válidos
+    return clampScore(valid.reduce((a, b) => a + b, 0) / valid.length);
+  }
+
+  // Fallback: usar sistema antiguo si no hay datos nuevos
   const diet = calculateDietQualityScore(food);
   const metabolic = calculateMetabolicScore(food);
   const alcohol = calculateAlcoholBaselineScore(food.alcohol_consumption);
@@ -355,6 +465,11 @@ function calculateFoodBaseline(food?: PillarFood | null): number {
   );
 
   return clampScore(weighted / totalWeight);
+}
+
+function calculateFoodBaseline(food?: PillarFood | null): number {
+  // Usar nuevo sistema si hay datos nuevos, sino usar antiguo
+  return calculateNewFoodBaseline(food);
 }
 
 const FOOD_DYNAMIC_WEIGHTS = {
@@ -490,9 +605,80 @@ const FLORA_BASELINE_WEIGHTS = {
   care: 0.3,
 } as const;
 
-function calculateFloraBaseline(flora?: PillarFlora | null): number {
+
+// ⭐ NUEVAS FUNCIONES DE SCORING PARA FLORA BASADAS EN PUNTOS (0-10 puntos → 0-100 score)
+function getDigestiveHealthPoints(health?: number): number {
+  if (health == null) return NaN;
+  // Ya viene como 0-10 directamente del slider
+  return health;
+}
+
+function getVaginalHealthPoints(vaginalHealth?: string): number {
+  if (!vaginalHealth) return NaN;
+  if (vaginalHealth.includes('a) Síntomas o infecciones recurrentes')) return 1;
+  if (vaginalHealth.includes('b) Episodios 1-2 veces')) return 4;
+  if (vaginalHealth.includes('c) Muy ocasionalmente')) return 7;
+  if (vaginalHealth.includes('d) Excelente')) return 10;
+  return NaN;
+}
+
+function getAntibioticsLastYearPoints(antibiotics?: string): number {
+  if (!antibiotics) return NaN;
+  if (antibiotics.includes('a) Sí, múltiples ciclos')) return 2;
+  if (antibiotics.includes('b) Sí, un ciclo')) return 5;
+  if (antibiotics.includes('c) No, pero sí en los últimos 2-3 años')) return 8;
+  if (antibiotics.includes('d) No, no he tomado')) return 10;
+  return NaN;
+}
+
+function getFermentedFoodsPoints(frequency?: number): number {
+  if (frequency == null) return NaN;
+  // 0 veces = 1 pt, diario o casi diario (30 veces/mes) = 10 pt
+  // Escalado lineal: 0→1, 30→10
+  if (frequency === 0) return 1;
+  if (frequency >= 30) return 10;
+  // Interpolación lineal: 1-29 veces
+  // 1→1.31, 10→4, 20→7, 29→9.69
+  return Math.round((1 + (frequency * 0.31)) * 10) / 10;
+}
+
+function getFoodIntolerancesPoints(intolerances?: string): number {
+  if (!intolerances) return NaN;
+  if (intolerances.includes('a) Sí, a múltiples alimentos')) return 2;
+  if (intolerances.includes('b) Sí, a un alimento')) return 5;
+  if (intolerances.includes('c) Sospecho que algo')) return 7;
+  if (intolerances.includes('d) No, no tengo ninguna')) return 10;
+  return NaN;
+}
+
+function calculateNewFloraBaseline(flora?: PillarFlora | null): number {
   if (!flora) return NaN;
 
+  // Verificar si tiene datos nuevos (sistema de puntos)
+  const hasNewData = flora.digestive_health != null ||
+                     flora.vaginal_health ||
+                     flora.antibiotics_last_year ||
+                     flora.fermented_foods_frequency != null ||
+                     flora.food_intolerances;
+
+  if (hasNewData) {
+    // Usar nuevo sistema de puntos
+    const scores = [
+      pointsToScore(getDigestiveHealthPoints(flora.digestive_health)),
+      pointsToScore(getVaginalHealthPoints(flora.vaginal_health)),
+      pointsToScore(getAntibioticsLastYearPoints(flora.antibiotics_last_year)),
+      pointsToScore(getFermentedFoodsPoints(flora.fermented_foods_frequency)),
+      pointsToScore(getFoodIntolerancesPoints(flora.food_intolerances)),
+    ];
+
+    const valid = scores.filter(s => !Number.isNaN(s));
+    if (valid.length === 0) return NaN;
+
+    // Promedio simple de todos los scores válidos
+    return clampScore(valid.reduce((a, b) => a + b, 0) / valid.length);
+  }
+
+  // Fallback: usar sistema antiguo si no hay datos nuevos
   const risk = calculateMicrobiotaRiskScore(flora);
   const care = calculateCareScore(flora);
 
@@ -509,17 +695,22 @@ function calculateFloraBaseline(flora?: PillarFlora | null): number {
     return clampScore(risk);
   }
 
+  const weighted = validEntries.reduce(
+    (acc, [key, value]) => acc + value * FLORA_BASELINE_WEIGHTS[key],
+    0,
+  );
+
   const totalWeight = validEntries.reduce(
     (acc, [key]) => acc + FLORA_BASELINE_WEIGHTS[key],
     0,
   );
 
-  const weighted = validEntries.reduce((acc, [key, value]) => {
-    const weight = FLORA_BASELINE_WEIGHTS[key];
-    return acc + value * weight;
-  }, 0);
-
   return clampScore(weighted / totalWeight);
+}
+
+function calculateFloraBaseline(flora?: PillarFlora | null): number {
+  // Usar nuevo sistema si hay datos nuevos, sino usar antiguo
+  return calculateNewFloraBaseline(flora);
 }
 
 function calculateSleepScoreFromLogs(logs: DailyLog[]): number {
@@ -593,9 +784,122 @@ const POSITIVE_FIELDS = [
 ] as const;
 
 // Baseline FLOW: media simple de todos los sub-scores válidos (mínimo 3)
-function calculateFlowBaseline(flow?: PillarFlow | null): number {
+// ⭐ NUEVAS FUNCIONES DE SCORING PARA FLOW BASADAS EN PUNTOS (0-10 puntos → 0-100 score)
+function getStressLevelPoints(stress?: number): number {
+  if (stress == null) return NaN;
+  // El estrés es inverso: más alto = peor
+  // 0 (muy alto/abrumada) = 0 pt, 10 (bajo/tranquila) = 10 pt
+  // Ya viene como 0-10 del slider, pero invertido conceptualmente
+  // Si el slider va de 0 (muy alto) a 10 (bajo), entonces el valor directo es correcto
+  return stress;
+}
+
+function getSleepHoursPoints(hours?: number): number {
+  if (hours == null) return NaN;
+  // <6 horas = 1 pt, 7-8.5 horas = 10 pt
+  if (hours < 6) return 1;
+  if (hours >= 7 && hours <= 8.5) return 10;
+  // Interpolación: 6-7 y 8.5-10
+  if (hours >= 6 && hours < 7) {
+    // 6→1, 7→10 (interpolación lineal)
+    return 1 + ((hours - 6) * 9);
+  }
+  if (hours > 8.5 && hours <= 10) {
+    // 8.5→10, 10→8 (ligera penalización por exceso)
+    return 10 - ((hours - 8.5) * 1.33);
+  }
+  // >10 horas = penalización mayor
+  if (hours > 10) return 5;
+  return NaN;
+}
+
+function getRelaxationFrequencyPoints(frequency?: number): number {
+  if (frequency == null) return NaN;
+  // Nunca (0 veces) = 1 pt, Práctica diaria o casi diaria (7 veces/semana) = 10 pt
+  if (frequency === 0) return 1;
+  if (frequency >= 7) return 10;
+  // Interpolación lineal: 1-6 veces
+  // 1→2.43, 2→3.86, 3→5.29, 4→6.72, 5→8.15, 6→9.58
+  return Math.round((1 + (frequency * 1.43)) * 10) / 10;
+}
+
+function getExerciseTypePoints(exerciseType?: string): number {
+  if (!exerciseType) return NaN;
+  if (exerciseType.includes('a) No hago o hago ejercicio de muy alta intensidad')) return 2;
+  if (exerciseType.includes('b) Hago ejercicio de forma irregular')) return 5;
+  if (exerciseType.includes('c) Realizo ejercicio moderado 2-3 veces')) return 8;
+  if (exerciseType.includes('d) Combino moderado con prácticas restaurativas')) return 10;
+  return NaN;
+}
+
+function getMorningSunlightPoints(sunlight?: string): number {
+  if (!sunlight) return NaN;
+  if (sunlight.includes('a) No, casi nunca salgo')) return 1;
+  if (sunlight.includes('b) A veces, durante el fin de semana')) return 4;
+  if (sunlight.includes('c) La mayoría de los días')) return 7;
+  if (sunlight.includes('d) Sí, intento estar al aire libre')) return 10;
+  return NaN;
+}
+
+function getEndocrineDisruptorsPoints(disruptors?: string): number {
+  if (!disruptors) return NaN;
+  if (disruptors.includes('a) No, no he hecho ningún cambio')) return 1;
+  if (disruptors.includes('b) He hecho algunos cambios pequeños')) return 4;
+  if (disruptors.includes('c) He cambiado varios productos')) return 7;
+  if (disruptors.includes('d) He realizado una auditoría completa')) return 10;
+  return NaN;
+}
+
+function getBedtimeRoutinePoints(routine?: string): number {
+  if (!routine) return NaN;
+  if (routine.includes('a) Uso el móvil o veo pantallas hasta el último minuto')) return 1;
+  if (routine.includes('b) Intento apagar las pantallas un poco antes')) return 4;
+  if (routine.includes('c) Tengo una rutina de relajación')) return 7;
+  if (routine.includes('d) Apago las pantallas al menos 1 hora antes')) return 10;
+  return NaN;
+}
+
+function getEmotionalStatePoints(emotionalState?: number): number {
+  if (emotionalState == null) return NaN;
+  // Ya viene como 1-10 directamente del slider
+  // 1 (Consumida por ansiedad) = 1 pt, 10 (Empoderada) = 10 pt
+  return emotionalState;
+}
+
+function calculateNewFlowBaseline(flow?: PillarFlow | null): number {
   if (!flow) return NaN;
 
+  // Verificar si tiene datos nuevos (sistema de puntos)
+  const hasNewData = flow.stress_level != null ||
+                     flow.sleep_hours != null ||
+                     flow.relaxation_frequency != null ||
+                     flow.exercise_type ||
+                     flow.morning_sunlight ||
+                     flow.endocrine_disruptors ||
+                     flow.bedtime_routine ||
+                     flow.emotional_state != null;
+
+  if (hasNewData) {
+    // Usar nuevo sistema de puntos
+    const scores = [
+      pointsToScore(getStressLevelPoints(flow.stress_level)),
+      pointsToScore(getSleepHoursPoints(flow.sleep_hours)),
+      pointsToScore(getRelaxationFrequencyPoints(flow.relaxation_frequency)),
+      pointsToScore(getExerciseTypePoints(flow.exercise_type)),
+      pointsToScore(getMorningSunlightPoints(flow.morning_sunlight)),
+      pointsToScore(getEndocrineDisruptorsPoints(flow.endocrine_disruptors)),
+      pointsToScore(getBedtimeRoutinePoints(flow.bedtime_routine)),
+      pointsToScore(getEmotionalStatePoints(flow.emotional_state)),
+    ];
+
+    const valid = scores.filter(s => !Number.isNaN(s));
+    if (valid.length === 0) return NaN;
+
+    // Promedio simple de todos los scores válidos
+    return clampScore(valid.reduce((a, b) => a + b, 0) / valid.length);
+  }
+
+  // Fallback: usar sistema antiguo si no hay datos nuevos
   const scores: number[] = [];
 
   // Campos "negativos" (más alto = peor)
@@ -628,6 +932,11 @@ function calculateFlowBaseline(flow?: PillarFlow | null): number {
 
   const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
   return clampScore(avg);
+}
+
+function calculateFlowBaseline(flow?: PillarFlow | null): number {
+  // Usar nuevo sistema si hay datos nuevos, sino usar antiguo
+  return calculateNewFlowBaseline(flow);
 }
 
 // Estrés dinámico: solo días con dato de stressLevel (no usar ?? 0)

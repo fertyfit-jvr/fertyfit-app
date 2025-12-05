@@ -113,6 +113,14 @@ async function calculateFormStatus(
 }
 
 /**
+ * Calcula SOLO el estado del formulario F0 (optimizado para MVP)
+ * Evita calcular todos los pilares cuando solo necesitamos F0
+ */
+export async function calculateF0Status(userId: string): Promise<FormStatus> {
+  return calculateFormStatus(userId, 'F0');
+}
+
+/**
  * Calcula el estado de todos los formularios
  */
 export async function calculateFormsStatus(userId: string): Promise<FormsStatus> {

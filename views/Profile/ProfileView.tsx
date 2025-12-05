@@ -1,10 +1,10 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Clock, Camera } from 'lucide-react';
-import { AppNotification, ConsultationForm, DailyLog, UserProfile, AdminReport, NotificationAction, ViewState } from '../../types';
+import { AppNotification, ConsultationForm, DailyLog, UserProfile, NotificationAction, ViewState } from '../../types';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
-import { calcularDiaDelCiclo, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
+import { calcularDiaDelCiclo } from '../../services/CycleCalculations';
 import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
 import { supabase } from '../../services/supabase';
 import { formatDate } from '../../services/utils';
@@ -42,7 +42,21 @@ const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {
 };
 
 const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
-  const matching = forms.filter(form => form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type);
+  const matching = forms.filter(form => {
+    // Check if form type matches
+    const typeMatches = form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type;
+    if (!typeMatches) return false;
+    
+    // ⭐ IMPORTANTE: Excluir exámenes médicos (tienen exam_type en las respuestas)
+    // Solo para FUNCTION, filtrar los que son exámenes
+    if (type === 'FUNCTION' && form.answers && Array.isArray(form.answers)) {
+      const hasExamType = form.answers.some((a: any) => a.questionId === 'exam_type');
+      if (hasExamType) return false; // Es un examen, no el formulario FUNCTION
+    }
+    
+    return true;
+  });
+  
   // Return the most recent one (last submitted)
   return matching.sort((a, b) => {
     const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
@@ -144,7 +158,6 @@ interface ProfileViewProps {
   user: UserProfile;
   logs: DailyLog[];
   submittedForms: ConsultationForm[];
-  reports: AdminReport[];
   scores: { total: number; function: number; food: number; flora: number; flow: number };
   visibleNotifications: AppNotification[];
   showNotif: (msg: string, type: 'success' | 'error') => void;
@@ -164,7 +177,6 @@ const ProfileView = ({
   user,
   logs,
   submittedForms,
-  reports,
   scores,
   visibleNotifications,
   showNotif,
@@ -329,8 +341,7 @@ const ProfileView = ({
     if (f0Answers['q2_weight']) updates.weight = parseFloat(f0Answers['q2_weight']);
     if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
     if (f0Answers['q4_objective']) updates.mainObjective = f0Answers['q4_objective'];
-    // Nota: lastPeriodDate ya no se guarda en F0, se maneja desde TrackerView
-    if (f0Answers['q6_cycle']) updates.cycleLength = parseFloat(f0Answers['q6_cycle']) || parseInt(f0Answers['q6_cycle']);
+    // Nota: cycle_length ya no se guarda en F0, se maneja desde FUNCTION
 
     // Set time_trying fields if q3_time_trying is present
     if (f0Answers['q3_time_trying']) {
@@ -352,7 +363,6 @@ const ProfileView = ({
       if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
       if (updates.height !== undefined) profileUpdates.height = updates.height;
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
-      if (updates.cycleLength !== undefined) profileUpdates.cycle_length = updates.cycleLength;
       
       const updateResult = await updateProfileForUser(user.id, profileUpdates);
       if (updateResult.success === false) {
@@ -392,11 +402,7 @@ const ProfileView = ({
         syncedAnswers[a.questionId] = a.answer; 
       });
       
-      // Si user.cycleLength cambió, actualizar también en f0Answers
-      // Nota: lastPeriodDate ya no se sincroniza con F0, se maneja desde TrackerView
-      if (user?.cycleLength && syncedAnswers['q6_cycle'] !== user.cycleLength) {
-        syncedAnswers['q6_cycle'] = user.cycleLength;
-      }
+      // Nota: cycle_length ya no está en F0, se maneja desde FUNCTION
       
       setF0Answers(syncedAnswers);
     }
@@ -466,7 +472,7 @@ const ProfileView = ({
       if (typeof value === 'string' && value.trim() === '') return false;
       
       // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
-      if (question.defaultValue !== undefined) {
+      if ('defaultValue' in question && question.defaultValue !== undefined) {
         // Convert both to strings for comparison to handle number/string mismatches
         const defaultValueStr = String(question.defaultValue);
         const valueStr = String(value);
@@ -507,7 +513,7 @@ const ProfileView = ({
       if (typeof value === 'string' && value.trim() === '') return false;
       
       // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
-      if (question.defaultValue !== undefined) {
+      if ('defaultValue' in question && question.defaultValue !== undefined) {
         const defaultValueStr = String(question.defaultValue);
         const valueStr = String(value);
         if (valueStr === defaultValueStr) return false;
@@ -531,9 +537,11 @@ const ProfileView = ({
       return;
     }
     const initialState: Record<string, boolean> = {};
-    definition.sections.forEach((section: any, index: number) => {
-      initialState[section.id] = index === 0;
-    });
+    if (Array.isArray(definition.sections)) {
+      definition.sections.forEach((section: any, index: number) => {
+        initialState[section.id] = index === 0;
+      });
+    }
     setOpenSections(initialState);
   }, [definition]);
 
@@ -559,7 +567,7 @@ const ProfileView = ({
     } else {
       const defaults: Record<string, any> = {};
       definition.questions?.forEach(question => {
-        if (question.defaultValue !== undefined) {
+        if ('defaultValue' in question && question.defaultValue !== undefined) {
           defaults[question.id] = question.defaultValue;
         }
       });
@@ -605,7 +613,7 @@ const ProfileView = ({
     }
 
     const missingRequired = definition.questions.filter(question => {
-      if (question.optional) return false;
+      if ('optional' in question && question.optional) return false;
       const value = answers[question.id];
       return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
     });
@@ -641,6 +649,27 @@ const ProfileView = ({
     const result = await savePillarForm(user.id, formType, answers, logs, formattedAnswers);
 
     if (result.success) {
+      // ⭐ Si es FUNCTION, refrescar user para obtener cycle_length actualizado
+      if (formType === 'FUNCTION') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('cycle_length, cycle_regularity')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUser({
+            ...user,
+            cycleLength: profile.cycle_length ?? user.cycleLength,
+            cycleRegularity: profile.cycle_regularity === 'regular' 
+              ? 'Regular' 
+              : profile.cycle_regularity === 'irregular'
+              ? 'Irregular'
+              : user.cycleRegularity
+          });
+        }
+      }
+      
       showNotif('Formulario guardado correctamente.', 'success');
       fetchUserForms(user.id);
     } else {
@@ -928,72 +957,31 @@ const ProfileView = ({
     );
   };
 
-  const renderFunctionForm = () => {
-    if (!definition || !('sections' in definition) || !definition.sections) return null;
-    return (
-    <div className="space-y-4">
-      {definition.sections.map(section => {
-        const isOpen = openSections[section.id];
-        return (
-          <div key={section.id} className="bg-white border border-ferty-beige rounded-3xl shadow-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center justify-between px-5 py-4 text-left"
-            >
-              <div>
-                <p className="text-sm font-bold text-ferty-dark">{section.title}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {!section.optional && (
-                  <span className="text-[10px] px-3 py-1 rounded-full bg-ferty-beige text-ferty-coral font-bold">Obligatorio</span>
-                )}
-                <ChevronDown className={`text-ferty-coral transition-transform ${isOpen ? 'rotate-180' : ''}`} size={18} />
-              </div>
-            </button>
-            {isOpen && (
-              <div className="px-5 pb-5 space-y-4">
-                {section.fields.map(field => {
-                  const question = { ...field, text: field.label };
-                  return (
-                    <div key={field.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider">{field.label}</p>
-                          {(field.recommendedValue || field.averageValue) && (
-                            <p className="text-[10px] text-ferty-gray mt-0.5">
-                              {field.recommendedValue ? `Valor recomendado: ${field.recommendedValue}` : `Valor promedio: ${field.averageValue}`}
-                            </p>
-                          )}
-                        </div>
-                        {field.unit && <span className="text-[10px] text-ferty-coral/80 font-semibold ml-2">{field.unit}</span>}
-                      </div>
-                      {renderControl(question)}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-  };
+  // renderFunctionForm eliminado - ahora FUNCTION usa renderGeneralForm() como los otros pilares
 
-  const renderGeneralForm = () => (
-    <div className="space-y-4">
-      {definition.questions.map(question => (
-        <div key={question.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-ferty-dark uppercase tracking-wider">{question.text}</label>
-            {question.unit && <span className="text-[11px] text-ferty-coral font-semibold">{question.unit}</span>}
-          </div>
-          {renderControl(question)}
+  const renderGeneralForm = () => {
+    if (!definition?.questions || definition.questions.length === 0) {
+      return (
+        <div className="text-center py-8 text-stone-400">
+          <p className="text-sm">No hay preguntas disponibles para este formulario.</p>
         </div>
-      ))}
-    </div>
-  );
+      );
+    }
+    
+    return (
+      <div className="space-y-4">
+        {definition.questions.map(question => (
+          <div key={question.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-ferty-dark uppercase tracking-wider">{question.text}</label>
+              {question.unit && <span className="text-[11px] text-ferty-coral font-semibold">{question.unit}</span>}
+            </div>
+            {renderControl(question)}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderFormCard = () => {
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
@@ -1018,7 +1006,7 @@ const ProfileView = ({
               </>
             )}
           </div>
-          {submittedForm && (
+          {submittedForm ? (
             <>
               {isEditMode && (
                 <div className="flex items-center gap-2">
@@ -1051,11 +1039,16 @@ const ProfileView = ({
                 </button>
               )}
             </>
+          ) : (
+            // ⭐ Si no hay formulario guardado, mostrar indicador
+            <div className="text-xs text-ferty-gray bg-ferty-beigeLight px-3 py-1.5 rounded-lg">
+              Formulario sin completar
+            </div>
           )}
         </div>
-        {formType === 'FUNCTION' ? renderFunctionForm() : renderGeneralForm()}
+        {renderGeneralForm()}
         <button onClick={handlePillarSubmit} className="w-full bg-ferty-gray text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-ferty-grayHover transition-all flex items-center justify-center gap-2">
-          Guardar y enviar <Download size={16} />
+          {submittedForm ? 'Actualizar formulario' : 'Guardar y enviar'} <Download size={16} />
         </button>
       </div>
     );
@@ -1063,53 +1056,6 @@ const ProfileView = ({
 
   const renderSubmittedView = () => {
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
-    
-    const renderFunctionSubmittedView = () => {
-      if (!definition || !('sections' in definition) || !definition.sections || !submittedForm?.answers) return null;
-      
-      return (
-        <div className="space-y-4">
-          {definition.sections.map(section => {
-            const sectionAnswers = submittedForm.answers.filter((answer: any) => 
-              section.fields.some(field => field.id === answer.questionId)
-            );
-            
-            if (sectionAnswers.length === 0) return null;
-            
-            return (
-              <div key={section.id} className="bg-white border border-ferty-beige rounded-3xl shadow-sm overflow-hidden">
-                <div className="px-5 py-4 bg-ferty-beigeLight border-b border-ferty-beige">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-ferty-dark">{section.title}</p>
-                    {!section.optional && (
-                      <span className="text-[10px] px-3 py-1 rounded-full bg-ferty-beige text-ferty-coral font-bold">Obligatorio</span>
-                    )}
-                  </div>
-                </div>
-                <div className="p-5">
-                  <div className="grid grid-cols-2 gap-3">
-                    {sectionAnswers.map((answer: any) => {
-                      const field = section.fields.find(f => f.id === answer.questionId);
-                      return (
-                        <div key={answer.questionId} className="bg-ferty-beige/50 p-3 rounded-xl">
-                          <p className="text-[11px] uppercase font-bold text-ferty-coral mb-1">{answer.question}</p>
-                          <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
-                            {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
-                            {(field as any)?.unit && answer.answer && (
-                              <span className="text-[10px] text-ferty-coral/80 ml-1">{(field as any).unit}</span>
-                            )}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-    };
     
     return (
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-ferty-beige">
@@ -1159,20 +1105,60 @@ const ProfileView = ({
           </div>
         </div>
         
-        {formType === 'FUNCTION' ? (
-          renderFunctionSubmittedView()
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {(submittedForm?.answers || []).map((answer: any) => (
+        <div className="grid grid-cols-2 gap-3">
+          {(() => {
+            // ⭐ Filtrar respuestas: solo mostrar las que corresponden a las preguntas ACTUALES del formulario
+            // Esto asegura que solo se muestren las nuevas preguntas, no las antiguas
+            const definition = FORM_DEFINITIONS[formType as keyof typeof FORM_DEFINITIONS];
+            const validQuestionIds = definition?.questions 
+              ? new Set(definition.questions.map((q: any) => q.id))
+              : new Set();
+            
+            // También incluir campos legacy que pueden estar en FUNCTION
+            if (formType === 'FUNCTION') {
+              validQuestionIds.add('q9_diagnoses');
+              validQuestionIds.add('q20_fertility_treatments');
+            }
+            
+            const filteredAnswers = (submittedForm?.answers || []).filter((answer: any) => {
+              // Excluir exam_type y gemini_comment (son de exámenes)
+              if (answer.questionId === 'exam_type' || answer.questionId === 'gemini_comment') {
+                return false;
+              }
+              
+              // ⭐ Para TODOS los pilares, solo mostrar respuestas que corresponden a las preguntas actuales del formulario
+              // Esto asegura que solo se muestren las nuevas preguntas, no las antiguas
+              return validQuestionIds.has(answer.questionId);
+            });
+            
+            // Si no hay respuestas filtradas, mostrar mensaje
+            if (filteredAnswers.length === 0) {
+              return (
+                <div className="col-span-2 text-center py-8 text-stone-400">
+                  <p className="text-sm">No hay respuestas guardadas para este formulario.</p>
+                  <button
+                    onClick={() => {
+                      originalAnswers.current = JSON.parse(JSON.stringify(answers));
+                      setIsEditMode(true);
+                    }}
+                    className="mt-4 bg-ferty-rose text-white px-6 py-3 rounded-xl font-bold hover:bg-ferty-roseHover transition-colors"
+                  >
+                    Completar formulario
+                  </button>
+                </div>
+              );
+            }
+            
+            return filteredAnswers.map((answer: any) => (
               <div key={answer.questionId} className="bg-ferty-beige/50 p-3 rounded-xl">
                 <p className="text-[11px] uppercase font-bold text-ferty-coral mb-1">{answer.question}</p>
                 <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
                   {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
                 </p>
               </div>
-            ))}
-          </div>
-        )}
+            ));
+          })()}
+        </div>
         {submittedForm?.status === 'pending' && (
           <div className="mt-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-start gap-3">
             <div className="bg-yellow-100 p-2 rounded-full text-yellow-600">
@@ -1572,9 +1558,7 @@ const ProfileView = ({
                                 initialAnswers[a.questionId] = a.answer;
                               });
 
-                              if (user?.cycleLength) {
-                                initialAnswers['q6_cycle'] = user.cycleLength;
-                              }
+                              // cycle_length ya no está en F0, se maneja desde FUNCTION
 
                               originalF0Answers.current = JSON.parse(JSON.stringify(initialAnswers));
                               setF0Answers(initialAnswers);
@@ -1774,6 +1758,60 @@ const ProfileView = ({
                   Escanear examen
                 </button>
               </div>
+
+              {/* Formularios de analíticas guardados */}
+              {(() => {
+                // Filtrar formularios que son exámenes (tienen exam_type en las respuestas)
+                const examForms = submittedForms.filter(form => {
+                  if (!form.answers || !Array.isArray(form.answers)) return false;
+                  return form.answers.some((a: any) => a.questionId === 'exam_type');
+                });
+
+                if (examForms.length === 0) return null;
+
+                return (
+                  <div className="mt-4 pt-4 border-t border-ferty-beige">
+                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-3">
+                      Analíticas guardadas
+                    </p>
+                    <div className="space-y-3">
+                      {examForms.map((examForm) => {
+                        const examTypeAnswer = examForm.answers?.find((a: any) => a.questionId === 'exam_type');
+                        const examType = examTypeAnswer?.answer || 'Examen';
+                        const examAnswers = examForm.answers?.filter((a: any) => a.questionId !== 'exam_type') || [];
+
+                        return (
+                          <div key={examForm.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-bold text-ferty-dark">{examType}</p>
+                              <p className="text-[10px] text-ferty-gray">
+                                {examForm.submitted_at ? formatDate(examForm.submitted_at) : ''}
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {examAnswers.slice(0, 6).map((answer: any) => (
+                                <div key={answer.questionId} className="bg-white p-2 rounded-xl">
+                                  <p className="text-[10px] text-ferty-gray mb-0.5">{answer.question}</p>
+                                  <p className="text-xs font-semibold text-ferty-dark">
+                                    {typeof answer.answer === 'object' ? JSON.stringify(answer.answer) : String(answer.answer)}
+                                  </p>
+                                </div>
+                              ))}
+                              {examAnswers.length > 6 && (
+                                <div className="col-span-2 text-center">
+                                  <p className="text-[10px] text-ferty-gray">
+                                    +{examAnswers.length - 6} valores más
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Exam Scanner Modal para pilares */}
@@ -1924,8 +1962,7 @@ const ProfileView = ({
 
                     const height = getAnswer('q2_height');
                     const weight = getAnswer('q2_weight');
-                    const cycleLength = getAnswer('q6_cycle');
-                    const regularity = getAnswer('q7_regularity');
+                    // cycle_length y regularity ya no están en F0, se manejan desde FUNCTION
                     const objective = getAnswer('q4_objective');
                     const partner = getAnswer('q5_partner');
                     const timeTrying = getAnswer('q3_time_trying');
@@ -1944,17 +1981,13 @@ const ProfileView = ({
 
                     return (
                       <>
-                        {/* CICLO Y OBJETIVO (en Historia, en dos columnas) */}
+                        {/* OBJETIVO (en Historia) */}
                         <div className="border-b border-ferty-beige pb-3">
                           <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
-                            CICLO Y OBJETIVO
+                            OBJETIVO
                           </p>
                           <div className="grid grid-cols-2 gap-4">
-                            {renderField(
-                              'Duración ciclo promedio',
-                              typeof cycleLength === 'number' ? `${cycleLength} días` : cycleLength
-                            )}
-                            {renderField('¿Ciclos regulares?', regularity)}
+                            {/* cycle_length y regularity ya no están en F0, se muestran en FUNCTION */}
                             {renderField('Tiempo buscando embarazo', toSingleLine(timeTrying))}
                             {renderField('Objetivo principal', objective)}
                             {renderField('Pareja o solitario', partner)}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, MessageCircle } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
+import { logger } from '../../lib/logger';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -39,7 +39,7 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
           .order('created_at', { ascending: true });
 
         if (fetchError) {
-          console.warn('Error al cargar historial de chat:', fetchError);
+          logger.warn('Error al cargar historial de chat:', fetchError);
           return;
         }
 
@@ -74,7 +74,7 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
         const questionsCount = todayChats?.length || 0;
         setRemainingQuestions(Math.max(0, dailyLimit - questionsCount));
       } catch (err) {
-        console.warn('Error al cargar historial:', err);
+        logger.warn('Error al cargar historial:', err);
       }
     };
 

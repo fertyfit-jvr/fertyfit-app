@@ -130,76 +130,285 @@ const FUNCTION_SECTIONS = [
 ];
 
 const FOOD_QUESTIONS = [
-  { id: 'food_proteina', text: 'Proteína diaria (g)', type: 'number', min: 0, max: 200, step: 5, unit: 'g', control: 'slider', defaultValue: 80 },
-  { id: 'food_fibra', text: 'Fibra total diaria (g)', type: 'number', min: 0, max: 80, step: 5, unit: 'g', control: 'slider', defaultValue: 30 },
-  { id: 'food_diversidad', text: 'Diversidad vegetal semanal', type: 'segmented', min: 0, max: 7, defaultValue: 4 },
-  { id: 'food_ultraprocesados', text: 'Consumo de ultraprocesados', type: 'buttons', options: ['Nunca', '1-2', '3-4', '5+ veces'], defaultValue: 'Nunca' },
-  { id: 'food_omega', text: 'Omega-3 en dieta', type: 'buttons', options: ['Bajo', 'Moderado', 'Alto'], defaultValue: 'Moderado' },
-  { id: 'food_horarios', text: 'Horarios de comida', type: 'buttons', options: ['Regulares', 'Irregulares'], defaultValue: 'Regulares' },
+  // 1. Patrón de alimentación semanal
   {
-    id: 'food_digestivo',
-    text: 'Sintomatología digestiva',
+    id: 'food_patron',
+    text: '¿Cuál describe mejor tu patrón de alimentación semanal?',
     type: 'buttons',
-    options: ['Dolor abdominal', 'Hinchazón', 'Diarrea', 'Estreñimiento', 'Acidez', 'Ninguno'],
-    defaultValue: 'Ninguno',
-    optional: true
+    options: [
+      'a) Consumo frecuente de comida rápida, ultraprocesados.',
+      'b) Una mezcla de comida casera y procesados.',
+      'c) Mayor parte comida real/casera, con consumo ocasional.',
+      'd) Alimentos frescos, integrales y sin procesar, estilo mediterráneo.'
+    ],
+    defaultValue: 'b) Una mezcla de comida casera y procesados.'
   },
-  { id: 'food_bristol', text: 'Escala de Bristol', type: 'segmented', min: 1, max: 7, defaultValue: 4 },
-  { id: 'food_entrenamiento', text: 'Entrenamiento semanal', type: 'buttons', options: ['0', '1-2', '3-4', '5+'], defaultValue: '3-4' },
-  { id: 'food_cintura', text: 'Perímetro cintura (cm)', type: 'number', min: 50, max: 140, step: 1, unit: 'cm', control: 'slider', defaultValue: 75 },
-  { id: 'food_alcohol', text: '¿Consumo de alcohol?', type: 'buttons', options: ['No', 'Ocasional', 'Frecuente'], defaultValue: 'No' },
-  { id: 'food_supplements', text: '¿Tomas suplementos actualmente?', type: 'yesno', defaultValue: 'No' }
+  
+  // 2. Pescado azul rico en Omega-3 (conteo semanal)
+  {
+    id: 'food_pescado',
+    text: '¿Con qué frecuencia consumes pescado azul rico en Omega-3?',
+    type: 'stepper',
+    min: 0,
+    max: 7,
+    unit: 'veces/semana',
+    defaultValue: 1
+  },
+  
+  // 3. Raciones de vegetales y hortalizas (conteo diario)
+  {
+    id: 'food_vege',
+    text: '¿Cuántas raciones de vegetales y hortalizas consumes al día?',
+    type: 'stepper',
+    min: 0,
+    max: 10,
+    unit: 'raciones',
+    defaultValue: 2
+  },
+  
+  // 4. Tipo de grasas en cocina
+  {
+    id: 'food_grasas',
+    text: '¿Qué tipo de grasas predominan en tu cocina?',
+    type: 'buttons',
+    options: [
+      'a) Mantequilla, margarina, aceites refinados.',
+      'b) Una mezcla.',
+      'c) Principalmente aceite de oliva.',
+      'd) Casi exclusivamente aceite de oliva virgen extra (AOVE).'
+    ],
+    defaultValue: 'b) Una mezcla.'
+  },
+  
+  // 5. Suplementos clave para fertilidad
+  {
+    id: 'food_suppl',
+    text: '¿Tomas suplementos clave para la fertilidad?',
+    type: 'buttons',
+    options: [
+      'a) No tomo ningún suplemento.',
+      'b) Tomo solo ácido fólico sintético.',
+      'c) Tomo un multivitamínico prenatal general.',
+      'd) Protocolo personalizado (folato activo, D, Omega-3, CoQ10).'
+    ],
+    defaultValue: 'a) No tomo ningún suplemento.'
+  },
+  
+  // 6. Bebidas azucaradas/refrescos (conteo semanal)
+  {
+    id: 'food_azucar',
+    text: '¿Con qué frecuencia consumes bebidas azucaradas/refrescos?',
+    type: 'stepper',
+    min: 0,
+    max: 7,
+    unit: 'veces/semana',
+    defaultValue: 2
+  },
+  
+  // 7. Fuentes de antioxidantes
+  {
+    id: 'food_antiox',
+    text: '¿Incluyes fuentes de antioxidantes de forma regular?',
+    type: 'buttons',
+    options: [
+      'a) Raramente.',
+      'b) Algunas veces por semana.',
+      'c) Casi todos los días.',
+      'd) Diariamente, de forma consciente y variada.'
+    ],
+    defaultValue: 'b) Algunas veces por semana.'
+  },
+  
+  // 8. Principal fuente de carbohidratos
+  {
+    id: 'food_carbos',
+    text: '¿Cuál es tu principal fuente de carbohidratos?',
+    type: 'buttons',
+    options: [
+      'a) Pan blanco, pasta blanca, bollería y arroz blanco.',
+      'b) Una mezcla de integrales y refinados.',
+      'c) Principalmente integrales.',
+      'd) Carbohidratos complejos de bajo índice glucémico.'
+    ],
+    defaultValue: 'b) Una mezcla de integrales y refinados.'
+  }
 ];
 
 const FLORA_QUESTIONS = [
-  { id: 'flora_antibioticos', text: 'Antibióticos últimos 12 meses', type: 'buttons', options: ['No', '1 vez', '2+ veces'], defaultValue: 'No' },
-  { id: 'flora_infecciones', text: 'Infecciones vaginales repetidas', type: 'yesno', defaultValue: 'No' },
-  { id: 'flora_ph', text: 'pH vaginal alterado', type: 'yesno', defaultValue: 'No' },
-  { id: 'flora_probio', text: 'Probióticos previos', type: 'yesno', defaultValue: 'No' },
-  { id: 'flora_parto', text: 'Parto/lactancia', type: 'buttons', options: ['No', 'Sí'], defaultValue: 'No' },
-  { id: 'flora_bristol', text: 'Heces Bristol', type: 'segmented', min: 1, max: 7, defaultValue: 4 },
-  { id: 'flora_pruebas', text: 'Pruebas microbioma realizadas', type: 'buttons', options: ['Ninguna', 'Test vaginal', 'Test intestinal', 'Ambas', 'Otra'], defaultValue: 'Ninguna' },
-  { id: 'flora_suplementos', text: 'Suplementos recomendados/uso', type: 'buttons', options: ['Ninguno', 'Probióticos', 'Prebióticos', 'Probióticos + Prebióticos', 'Otro'], defaultValue: 'Ninguno' }
+  // 1. Salud digestiva general (slider 0-10)
+  {
+    id: 'flora_dig',
+    text: '¿Cómo describirías tu salud digestiva general?',
+    type: 'segmented',
+    min: 0,
+    max: 10,
+    defaultValue: 5
+  },
+  
+  // 2. Salud vaginal
+  {
+    id: 'flora_vag',
+    text: '¿Cómo es tu salud vaginal en general?',
+    type: 'buttons',
+    options: [
+      'a) Síntomas o infecciones recurrentes.',
+      'b) Episodios 1-2 veces al año.',
+      'c) Muy ocasionalmente molestias leves.',
+      'd) Excelente, sin ninguno de estos síntomas.'
+    ],
+    defaultValue: 'c) Muy ocasionalmente molestias leves.'
+  },
+  
+  // 3. Antibióticos último año
+  {
+    id: 'flora_atb',
+    text: '¿Has tomado antibióticos en el último año?',
+    type: 'buttons',
+    options: [
+      'a) Sí, múltiples ciclos/tratamiento largo.',
+      'b) Sí, un ciclo de tratamiento.',
+      'c) No, pero sí en los últimos 2-3 años.',
+      'd) No, no he tomado antibióticos en los últimos años.'
+    ],
+    defaultValue: 'd) No, no he tomado antibióticos en los últimos años.'
+  },
+  
+  // 4. Alimentos fermentados (conteo diario/semanal)
+  {
+    id: 'flora_ferm',
+    text: '¿Incluyes alimentos fermentados (kéfir, yogur, chucrut) en tu dieta?',
+    type: 'stepper',
+    min: 0,
+    max: 30,
+    unit: 'veces/mes',
+    defaultValue: 4
+  },
+  
+  // 5. Intolerancias alimentarias
+  {
+    id: 'flora_intol',
+    text: '¿Sufres de intolerancias o sensibilidades alimentarias?',
+    type: 'buttons',
+    options: [
+      'a) Sí, a múltiples alimentos.',
+      'b) Sí, a un alimento en particular.',
+      'c) Sospecho que algo no me sienta bien.',
+      'd) No, no tengo ninguna intolerancia o sensibilidad conocida.'
+    ],
+    defaultValue: 'd) No, no tengo ninguna intolerancia o sensibilidad conocida.'
+  }
 ];
 
 const FLOW_QUESTIONS = [
-  { id: 'flow_stress_level', text: 'Nivel de estrés:', type: 'segmented', min: 1, max: 5, defaultValue: 3 },
-  { id: 'flow_sleep_hours_avg', text: 'Horas de sueño promedio:', type: 'slider', min: 0, max: 12, step: 0.5, unit: 'h', defaultValue: 7 },
-  { id: 'flow_smoker', text: '¿Fumas?', type: 'buttons', options: ['No', 'Sí, ocasional', 'Sí, diario'], defaultValue: 'No' },
-  { id: 'flow_carga_mental', text: 'Sobrecarga mental (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 2 },
-  { id: 'flow_rumiacion', text: 'Rumiación mental (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
-  { id: 'flow_ansiedad', text: 'Ansiedad física', type: 'yesno', defaultValue: 'No' },
-  { id: 'flow_alerta', text: 'Sensación de alerta continua (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
-  { id: 'flow_regulacion', text: 'Herramientas de regulación emocional', type: 'yesno', defaultValue: 'Sí' },
-  { id: 'flow_presion_social', text: 'Presión social/familiar (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 2 },
-  { id: 'flow_soporte', text: 'Soporte emocional real', type: 'yesno', defaultValue: 'Sí' },
-  { id: 'flow_soledad', text: 'Sensación de soledad (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
-  { id: 'flow_conflictos', text: 'Conflictos frecuentes', type: 'yesno', defaultValue: 'No' },
-  { id: 'flow_sueno_calidad', text: 'Calidad del sueño (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
-  { id: 'flow_despertares', text: 'Despertares nocturnos', type: 'buttons', options: ['0', '1', '2+'], defaultValue: '0' },
-  { id: 'flow_pantallas', text: 'Uso de pantallas nocturno (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 1 },
-  { id: 'flow_snacks', text: 'Snacks fuera de horario', type: 'buttons', options: ['Nunca', 'Pocas veces', 'Muchas veces'], defaultValue: 'Pocas veces' },
-  { id: 'flow_siesta', text: 'Siesta', type: 'buttons', options: ['No', 'Sí <20m', 'Sí >20m'], defaultValue: 'No' },
-  { id: 'flow_energia_manana', text: 'Energía por la mañana (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
-  { id: 'flow_energia_tarde', text: 'Energía por la tarde (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 2 },
-  { id: 'flow_cafe', text: 'Tazas de café al día', type: 'segmented', min: 0, max: 6, defaultValue: 1 },
-  { id: 'flow_libido', text: 'Libido (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
-  { id: 'flow_conexion', text: 'Conexión emocional con la pareja (0-4)', type: 'segmented', min: 0, max: 4, defaultValue: 3 },
-  { id: 'flow_dolor', text: 'Dolor o sequedad en relaciones', type: 'yesno', defaultValue: 'No' },
-  { id: 'flow_ansiedad_relaciones', text: 'Ansiedad ligada a fertilidad en relaciones', type: 'yesno', defaultValue: 'No' }
+  // 1. Nivel de estrés percibido (slider 0-10)
+  {
+    id: 'flow_stress',
+    text: '¿Cómo calificarías tu nivel de estrés percibido en el día a día?',
+    type: 'segmented',
+    min: 0,
+    max: 10,
+    defaultValue: 5
+  },
+  
+  // 2. Horas de sueño de calidad (slider, se mapea a puntos 1-10)
+  {
+    id: 'flow_sueno',
+    text: '¿Cuántas horas de sueño de calidad tienes por noche de media?',
+    type: 'slider',
+    min: 4,
+    max: 10,
+    step: 0.5,
+    unit: 'horas',
+    defaultValue: 7
+  },
+  
+  // 3. Técnicas de relajación (conteo semanal)
+  {
+    id: 'flow_relax',
+    text: '¿Practicas alguna técnica de relajación de forma regular?',
+    type: 'stepper',
+    min: 0,
+    max: 7,
+    unit: 'veces/semana',
+    defaultValue: 2
+  },
+  
+  // 4. Tipo y frecuencia de ejercicio
+  {
+    id: 'flow_ejer',
+    text: '¿Qué tipo de ejercicio realizas y con qué frecuencia?',
+    type: 'buttons',
+    options: [
+      'a) No hago o hago ejercicio de muy alta intensidad.',
+      'b) Hago ejercicio de forma irregular.',
+      'c) Realizo ejercicio moderado 2-3 veces por semana.',
+      'd) Combino moderado con prácticas restaurativas.'
+    ],
+    defaultValue: 'b) Hago ejercicio de forma irregular.'
+  },
+  
+  // 5. Exposición a luz solar matutina
+  {
+    id: 'flow_solar',
+    text: '¿Te expones a la luz solar natural por la mañana?',
+    type: 'buttons',
+    options: [
+      'a) No, casi nunca salgo de casa u oficina.',
+      'b) A veces, durante el fin de semana.',
+      'c) La mayoría de los días, pero por poco tiempo.',
+      'd) Sí, intento estar al aire libre al menos 15-20 minutos cada mañana.'
+    ],
+    defaultValue: 'b) A veces, durante el fin de semana.'
+  },
+  
+  // 6. Medidas para reducir disruptores endocrinos
+  {
+    id: 'flow_tox',
+    text: '¿Has tomado medidas para reducir la exposición a disruptores endocrinos?',
+    type: 'buttons',
+    options: [
+      'a) No, no he hecho ningún cambio.',
+      'b) He hecho algunos cambios pequeños.',
+      'c) He cambiado varios productos en la cocina y el baño.',
+      'd) He realizado una auditoría completa.'
+    ],
+    defaultValue: 'a) No, no he hecho ningún cambio.'
+  },
+  
+  // 7. Rutina antes de dormir
+  {
+    id: 'flow_noche',
+    text: '¿Cómo es tu rutina antes de dormir?',
+    type: 'buttons',
+    options: [
+      'a) Uso el móvil o veo pantallas hasta el último minuto.',
+      'b) Intento apagar las pantallas un poco antes.',
+      'c) Tengo una rutina de relajación.',
+      'd) Apago las pantallas al menos 1 hora antes y realizo otra actividad.'
+    ],
+    defaultValue: 'b) Intento apagar las pantallas un poco antes.'
+  },
+  
+  // 8. Estado emocional respecto a búsqueda de embarazo (slider 1-10)
+  {
+    id: 'flow_emocion',
+    text: '¿Cómo te sientes emocionalmente respecto a la búsqueda de embarazo?',
+    type: 'segmented',
+    min: 1,
+    max: 10,
+    defaultValue: 5
+  }
 ];
 
 export const FORM_DEFINITIONS = {
   F0: {
     title: 'F0: Ficha Personal Inicial',
     description:
-      'Esta información es la base de tu protocolo personalizado. Tus datos de ciclo son vitales para calcular tus predicciones de fertilidad.',
+      'Esta información es la base de tu protocolo personalizado.',
     questions: [
       { id: 'q1_birthdate', text: 'Tu fecha de nacimiento:', type: 'date' },
       { id: 'q2_height', text: 'Altura:', type: 'slider', min: 140, max: 200, unit: 'cm' },
       { id: 'q2_weight', text: 'Peso:', type: 'slider', min: 40, max: 150, unit: 'kg' },
-      { id: 'q6_cycle', text: 'Duración ciclo promedio:', type: 'stepper', min: 21, max: 40, unit: 'días' },
-      { id: 'q7_regularity', text: '¿Ciclos regulares?', type: 'buttons', options: ['Regulares', 'Irregulares'] },
       { id: 'q3_time_trying', text: 'Tiempo buscando embarazo:', type: 'stepper', min: 0, max: 60, unit: 'meses' },
       { id: 'q4_objective', text: 'Objetivo principal:', type: 'buttons', options: ['Concepción natural', 'Reproducción Asistida'] },
       { id: 'q5_partner', text: '¿Buscas en pareja o solitario?', type: 'buttons', options: ['Pareja', 'Solitario'] },
@@ -209,10 +418,117 @@ export const FORM_DEFINITIONS = {
     ]
   },
   FUNCTION: {
-    title: 'Exámenes clínicos imprescindibles',
-    description: 'Registra los resultados de tus pruebas médicas para calibrar tu FunctionScore.',
-    sections: FUNCTION_SECTIONS,
-    questions: flattenSectionQuestions(FUNCTION_SECTIONS)
+    title: 'Function: Salud Reproductiva',
+    description: 'Información sobre tu ciclo menstrual y salud reproductiva.',
+    questions: [
+      { 
+        id: 'function_cycle_length', 
+        text: 'Duración ciclo promedio:', 
+        type: 'stepper', 
+        min: 21, 
+        max: 40, 
+        unit: 'días',
+        defaultValue: 28
+      },
+      { 
+        id: 'function_cycle_regularity', 
+        text: '¿Ciclos regulares?', 
+        type: 'buttons', 
+        options: ['Regulares', 'Irregulares'],
+        defaultValue: 'Regulares'
+      },
+      { 
+        id: 'function_regularity_detail', 
+        text: 'Regularidad de tus ciclos:', 
+        type: 'buttons', 
+        options: [
+          'Muy irregulares / Amenorrea',
+          'Algo irregulares (varían >7 días)',
+          'Bastante regulares (varían 3-7 días)',
+          'Muy regulares (26-32 días, varían 1-2 días)'
+        ],
+        defaultValue: 'Bastante regulares (varían 3-7 días)'
+      },
+      { 
+        id: 'function_luteal_phase', 
+        text: 'Duración fase lútea (días entre ovulación y regla):', 
+        type: 'slider', 
+        min: 6, 
+        max: 14, 
+        step: 1,
+        unit: 'días',
+        defaultValue: 12,
+        optional: true
+      },
+      { 
+        id: 'function_fertile_mucus', 
+        text: '¿Identificas moco cervical fértil (clara de huevo)?', 
+        type: 'buttons', 
+        options: [
+          'Nunca o casi nunca',
+          'A veces, pero es escaso',
+          'Sí, durante 1-2 días',
+          'Sí, claramente durante 3+ días'
+        ],
+        defaultValue: 'A veces, pero es escaso'
+      },
+      { 
+        id: 'function_pms_severity', 
+        text: 'Síndrome Premenstrual (SPM):', 
+        type: 'segmented', 
+        min: 1, 
+        max: 10,
+        defaultValue: 5
+      },
+      { 
+        id: 'function_fertility_diagnosis', 
+        text: '¿Diagnóstico que afecta tu fertilidad?', 
+        type: 'buttons', 
+        options: [
+          'Sí: endometriosis severa, baja reserva severa, FOP',
+          'Sí: SOP o endometriosis moderada',
+          'Sí: hipotiroidismo subclínico o endometriosis leve',
+          'No, no tengo ningún diagnóstico'
+        ],
+        defaultValue: 'No, no tengo ningún diagnóstico'
+      },
+      { 
+        id: 'function_tsh_last', 
+        text: 'TSH en última analítica:', 
+        type: 'buttons', 
+        options: [
+          'No me he hecho una analítica reciente',
+          'Por encima de 4.0 mUI/L',
+          'Entre 2.5 y 4.0 mUI/L',
+          'Por debajo de 2.5 mUI/L (óptimo)'
+        ],
+        defaultValue: 'No me he hecho una analítica reciente'
+      },
+      { 
+        id: 'function_ovulation_tracking', 
+        text: '¿Utilizas métodos para confirmar ovulación?', 
+        type: 'buttons', 
+        options: [
+          'No, no utilizo ningún método',
+          'Lo intento a veces, pero no consistente',
+          'Sí, tests LH o temperatura ocasional',
+          'Sí, temperatura basal diaria y/o tests LH cada ciclo'
+        ],
+        defaultValue: 'No, no utilizo ningún método'
+      },
+      { 
+        id: 'function_menstrual_bleeding', 
+        text: '¿Tu sangrado menstrual es saludable?', 
+        type: 'buttons', 
+        options: [
+          'Muy abundante o muy escaso',
+          'Coágulos o color muy oscuro/marrón',
+          'Moderado, con algo de spotting',
+          'Flujo moderado (3-5 días) sin spotting ni coágulos grandes'
+        ],
+        defaultValue: 'Moderado, con algo de spotting'
+      }
+    ]
   },
   FOOD: {
     title: 'Nutrición y hábitos',
