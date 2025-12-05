@@ -129,6 +129,8 @@ const FUNCTION_SECTIONS = [
   }
 ];
 
+export { FUNCTION_SECTIONS };
+
 const FOOD_QUESTIONS = [
   // 1. Patrón de alimentación semanal
   {

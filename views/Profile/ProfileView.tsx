@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useRef, useState } from 'react';
 import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Clock, Camera } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, NotificationAction, ViewState } from '../../types';
-import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
+import { FORM_DEFINITIONS, FUNCTION_SECTIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo } from '../../services/CycleCalculations';
@@ -1105,7 +1105,7 @@ const ProfileView = ({
           </div>
         </div>
         
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-4">
           {(() => {
             // ⭐ Filtrar respuestas: solo mostrar las que corresponden a las preguntas ACTUALES del formulario
             // Esto asegura que solo se muestren las nuevas preguntas, no las antiguas
@@ -1134,7 +1134,7 @@ const ProfileView = ({
             // Si no hay respuestas filtradas, mostrar mensaje
             if (filteredAnswers.length === 0) {
               return (
-                <div className="col-span-2 text-center py-8 text-stone-400">
+                <div className="text-center py-8 text-stone-400">
                   <p className="text-sm">No hay respuestas guardadas para este formulario.</p>
                   <button
                     onClick={() => {
@@ -1149,14 +1149,99 @@ const ProfileView = ({
               );
             }
             
-            return filteredAnswers.map((answer: any) => (
-              <div key={answer.questionId} className="bg-ferty-beige/50 p-3 rounded-xl">
-                <p className="text-[11px] uppercase font-bold text-ferty-coral mb-1">{answer.question}</p>
-                <p className={`text-sm font-medium ${!answer.answer ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
-                  {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer || 'Sin respuesta'}
+            // Función helper para renderizar un campo
+            const renderField = (label: string, value: any, colSpan: number = 1) => {
+              const displayValue = Array.isArray(value) ? value.join(', ') : (value ?? '—');
+              const isEmpty = !value || (Array.isArray(value) && value.length === 0);
+              
+              return (
+                <div key={label} className={colSpan === 2 ? 'col-span-2' : ''}>
+                  <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
+                  <p className={`text-sm font-semibold ${isEmpty ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
+                    {isEmpty ? 'Sin respuesta' : displayValue}
+                  </p>
+                </div>
+              );
+            };
+            
+            // Para FUNCTION: agrupar por secciones
+            if (formType === 'FUNCTION') {
+              const sections = FUNCTION_SECTIONS.map((section) => {
+                // Obtener respuestas que pertenecen a esta sección
+                const sectionAnswers = filteredAnswers.filter((answer: any) => {
+                  return section.fields.some(field => field.id === answer.questionId);
+                });
+                
+                if (sectionAnswers.length === 0) return null;
+                
+                return (
+                  <div key={section.id} className="border-b border-ferty-beige pb-3 last:border-0">
+                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
+                      {section.title}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {sectionAnswers.map((answer: any) => {
+                        const field = section.fields.find(f => f.id === answer.questionId);
+                        const label = field?.label || answer.question;
+                        const value = answer.answer;
+                        // Si la respuesta es muy larga o es un campo de texto largo, usar col-span-2
+                        const isLong = Array.isArray(value) && value.length > 1 || 
+                                      (typeof value === 'string' && value.length > 50);
+                        return renderField(label, value, isLong ? 2 : 1);
+                      })}
+                    </div>
+                  </div>
+                );
+              }).filter(Boolean);
+              
+              // También mostrar campos legacy que no están en secciones
+              const legacyAnswers = filteredAnswers.filter((answer: any) => {
+                return !FUNCTION_SECTIONS.some(section => 
+                  section.fields.some(field => field.id === answer.questionId)
+                );
+              });
+              
+              if (legacyAnswers.length > 0) {
+                sections.push(
+                  <div key="legacy" className="border-b border-ferty-beige pb-3 last:border-0">
+                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
+                      Información Adicional
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {legacyAnswers.map((answer: any) => {
+                        const label = answer.question;
+                        const value = answer.answer;
+                        const isLong = Array.isArray(value) && value.length > 1 || 
+                                      (typeof value === 'string' && value.length > 50);
+                        return renderField(label, value, isLong ? 2 : 1);
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              
+              return sections;
+            }
+            
+            // Para FOOD, FLORA, FLOW: mostrar en una sección general
+            return (
+              <div className="border-b border-ferty-beige pb-3">
+                <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
+                  {currentTab?.label || 'Formulario'}
                 </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {filteredAnswers.map((answer: any) => {
+                    const question = definition?.questions?.find((q: any) => q.id === answer.questionId);
+                    const label = question?.text || answer.question;
+                    const value = answer.answer;
+                    // Si la respuesta es muy larga, usar col-span-2
+                    const isLong = Array.isArray(value) && value.length > 1 || 
+                                  (typeof value === 'string' && value.length > 80);
+                    return renderField(label, value, isLong ? 2 : 1);
+                  })}
+                </div>
               </div>
-            ));
+            );
           })()}
         </div>
         {submittedForm?.status === 'pending' && (
@@ -1251,7 +1336,7 @@ const ProfileView = ({
                       {/* Header con título y botones cuando está editando */}
                       <div className="p-6 flex items-center justify-between border-b border-ferty-beige">
                         <div className="flex-1">
-                          <h3 className="font-bold text-lg text-ferty-rose mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                          <h3 className="font-bold text-lg text-ferty-dark mb-1">{FORM_DEFINITIONS.F0.title}</h3>
                           <p className="text-xs text-ferty-gray">
                             {FORM_DEFINITIONS.F0.description}
                           </p>
@@ -1529,7 +1614,7 @@ const ProfileView = ({
                           onClick={() => setIsF0Expanded(!isF0Expanded)}
                           className="flex-1 text-left hover:opacity-80 transition-opacity"
                         >
-                          <h3 className="font-bold text-lg text-ferty-rose mb-1">{FORM_DEFINITIONS.F0.title}</h3>
+                          <h3 className="font-bold text-lg text-ferty-dark mb-1">{FORM_DEFINITIONS.F0.title}</h3>
                           <p className="text-xs text-ferty-gray">
                             {FORM_DEFINITIONS.F0.description}
                           </p>
@@ -1614,37 +1699,109 @@ const ProfileView = ({
                           </div>
 
                           {/* Mostrar todos los campos del formulario F0 en modo lectura */}
-                          <div className="space-y-6">
-                            {FORM_DEFINITIONS.F0.questions.map(q => {
-                              // La fecha de nacimiento se gestiona en el bloque superior
-                              if (q.id === 'q1_birthdate') return null;
-
-                              const answer = f0Form.answers?.find(a => a.questionId === q.id);
-                              const value = answer?.answer ?? null;
-
-                              // Formatear el valor para mostrar
-                              let displayValue: string | null = null;
-                              if (value !== null && value !== undefined && value !== '') {
+                          <div className="space-y-4">
+                            {(() => {
+                              // Función helper para formatear valor
+                              const formatValue = (q: any, value: any): string | null => {
+                                if (value === null || value === undefined || value === '') return null;
                                 if (q.type === 'date' && typeof value === 'string') {
-                                  displayValue = formatDate(value, 'long');
+                                  return formatDate(value, 'long');
                                 } else if (Array.isArray(value)) {
-                                  displayValue = value.join(', ');
+                                  return value.join(', ');
                                 } else if (typeof value === 'number' && (q as any).unit) {
-                                  displayValue = `${value} ${(q as any).unit}`;
+                                  return `${value} ${(q as any).unit}`;
                                 } else {
-                                  displayValue = String(value);
+                                  return String(value);
                                 }
+                              };
+
+                              // Función helper para renderizar un campo
+                              const renderField = (label: string, value: string | null, colSpan: number = 1) => {
+                                const isEmpty = !value || value.trim() === '';
+                                return (
+                                  <div key={label} className={colSpan === 2 ? 'col-span-2' : ''}>
+                                    <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
+                                    <p className={`text-sm font-semibold ${isEmpty ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
+                                      {isEmpty ? 'Sin respuesta' : value}
+                                    </p>
+                                  </div>
+                                );
+                              };
+
+                              // Obtener respuestas
+                              const getAnswer = (id: string) => {
+                                const answer = f0Form.answers?.find(a => a.questionId === id);
+                                return answer?.answer ?? null;
+                              };
+
+                              const getQuestion = (id: string) => {
+                                return FORM_DEFINITIONS.F0.questions.find(q => q.id === id);
+                              };
+
+                              // Agrupar por secciones
+                              const sections = [];
+
+                              // DATOS FÍSICOS
+                              const height = getAnswer('q2_height');
+                              const weight = getAnswer('q2_weight');
+                              if (height || weight) {
+                                sections.push(
+                                  <div key="datos-fisicos" className="border-b border-ferty-beige pb-3">
+                                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
+                                      DATOS FÍSICOS
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {height && renderField(getQuestion('q2_height')?.text || 'Altura', formatValue(getQuestion('q2_height'), height))}
+                                      {weight && renderField(getQuestion('q2_weight')?.text || 'Peso', formatValue(getQuestion('q2_weight'), weight))}
+                                    </div>
+                                  </div>
+                                );
                               }
 
-                              return (
-                                <div key={q.id} className="border-b border-ferty-beige pb-3 last:border-0">
-                                  <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">{q.text}</p>
-                                  <p className="text-sm text-ferty-dark whitespace-pre-line">
-                                    {displayValue ?? '—'}
-                                  </p>
+                              // OBJETIVO
+                              const timeTrying = getAnswer('q3_time_trying');
+                              const objective = getAnswer('q4_objective');
+                              const partner = getAnswer('q5_partner');
+                              const treatments = getAnswer('q20_fertility_treatments');
+                              if (timeTrying || objective || partner || treatments) {
+                                sections.push(
+                                  <div key="objetivo" className="border-b border-ferty-beige pb-3">
+                                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
+                                      OBJETIVO
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {timeTrying && renderField(getQuestion('q3_time_trying')?.text || 'Tiempo buscando embarazo', formatValue(getQuestion('q3_time_trying'), timeTrying))}
+                                      {objective && renderField(getQuestion('q4_objective')?.text || 'Objetivo principal', formatValue(getQuestion('q4_objective'), objective))}
+                                      {partner && renderField(getQuestion('q5_partner')?.text || '¿Buscas en pareja o solitario?', formatValue(getQuestion('q5_partner'), partner))}
+                                      {treatments && renderField(getQuestion('q20_fertility_treatments')?.text || 'Tratamientos de fertilidad previos', formatValue(getQuestion('q20_fertility_treatments'), treatments))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // HISTORIAL Y DIAGNÓSTICOS
+                              const diagnoses = getAnswer('q9_diagnoses');
+                              const familyHistory = getAnswer('q21_family_history');
+                              if (diagnoses || familyHistory) {
+                                sections.push(
+                                  <div key="historial" className="border-b border-ferty-beige pb-3 last:border-0">
+                                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
+                                      HISTORIAL Y DIAGNÓSTICOS
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {diagnoses && renderField(getQuestion('q9_diagnoses')?.text || 'Diagnósticos / Breve Historia Médica', formatValue(getQuestion('q9_diagnoses'), diagnoses), 2)}
+                                      {familyHistory && renderField(getQuestion('q21_family_history')?.text || 'Antecedentes familiares relevantes', formatValue(getQuestion('q21_family_history'), familyHistory), 2)}
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return sections.length > 0 ? sections : (
+                                <div className="text-center py-4 text-stone-400">
+                                  <p className="text-sm">No hay datos guardados</p>
                                 </div>
                               );
-                            })}
+                            })()}
                           </div>
                         </div>
                       )}

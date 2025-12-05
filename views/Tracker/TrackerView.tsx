@@ -265,7 +265,7 @@ const TrackerView = ({
 
           <div className="flex items-center justify-between bg-ferty-beige/50 p-4 rounded-2xl">
             <div>
-              <span className="text-sm font-bold text-ferty-gray block">Día del Ciclo</span>
+              <span className="text-sm font-bold text-ferty-dark block">Día del Ciclo</span>
               {ventanaFertil && (
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] text-ferty-rose font-bold bg-ferty-rose/10 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -284,7 +284,7 @@ const TrackerView = ({
           </div>
 
           <div className="flex items-center justify-between bg-ferty-beige/50 p-4 rounded-2xl">
-            <span className="text-sm font-bold text-ferty-gray">Temperatura Basal</span>
+            <span className="text-sm font-bold text-ferty-dark">Temperatura Basal</span>
             <div className="flex items-center gap-4">
               <button
                 onClick={() =>
@@ -352,8 +352,8 @@ const TrackerView = ({
             </div>
           </InputField>
 
-          <div className="bg-ferty-beige/50 p-4 rounded-xl border border-ferty-beige">
-            <span className="text-xs font-bold text-ferty-gray block mb-3 uppercase">Cérvix (Opcional)</span>
+          <div className="bg-ferty-beige/50 p-4 rounded-2xl">
+            <span className="text-xs font-bold text-ferty-dark block mb-3 uppercase">Cérvix (Opcional)</span>
             <div className="grid grid-cols-3 gap-2">
               <select
                 className="text-xs p-2 rounded-lg border-none bg-white shadow-sm outline-none text-ferty-gray"
@@ -394,8 +394,8 @@ const TrackerView = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between bg-rose-50/50 p-4 rounded-xl border border-rose-100/50">
-            <span className="font-bold text-ferty-coral text-sm">Relaciones Sexuales</span>
+          <div className="flex items-center justify-between bg-ferty-beige/50 p-4 rounded-2xl">
+            <span className="font-bold text-ferty-dark text-sm">Relaciones Sexuales</span>
             <button
               onClick={() => setTodayLog({ ...todayLog, sex: !todayLog.sex })}
               className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${todayLog.sex ? 'bg-ferty-rose' : 'bg-stone-200'}`}
@@ -410,7 +410,7 @@ const TrackerView = ({
 
           <div>
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-bold text-ferty-gray">Horas de Sueño</span>
+              <span className="text-sm font-bold text-ferty-dark">Horas de Sueño</span>
               <span className="text-sm font-bold text-ferty-dark">{todayLog.sleepHours || 0}h</span>
             </div>
             <input
@@ -430,7 +430,7 @@ const TrackerView = ({
           </div>
 
           <div>
-            <span className="text-sm font-bold text-ferty-gray block mb-2">Nivel de Estrés</span>
+            <span className="text-sm font-bold text-ferty-dark block mb-2">Nivel de Estrés</span>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((value) => (
                 <button
@@ -448,7 +448,7 @@ const TrackerView = ({
 
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <span className="text-sm font-bold text-ferty-gray block mb-2">Actividad (min)</span>
+              <span className="text-sm font-bold text-ferty-dark block mb-2">Actividad (min)</span>
               <input
                 type="range"
                 min="0"
@@ -461,7 +461,7 @@ const TrackerView = ({
               <p className="text-center text-xs font-bold text-ferty-rose mt-1">{todayLog.activityMinutes || 0} min</p>
             </div>
             <div>
-              <span className="text-sm font-bold text-ferty-gray block mb-2">Luz Solar (min)</span>
+              <span className="text-sm font-bold text-ferty-dark block mb-2">Luz Solar (min)</span>
               <input
                 type="range"
                 min="0"
@@ -476,9 +476,9 @@ const TrackerView = ({
           </div>
 
           <div className="grid grid-cols-1 gap-6">
-            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+            <div className="bg-ferty-beige/50 p-4 rounded-2xl">
               <div className="flex justify-between mb-2">
-                <span className="text-sm font-bold text-ferty-gray">Agua (Vasos)</span>
+                <span className="text-sm font-bold text-ferty-dark">Agua (Vasos)</span>
                 <span className="text-xs font-bold text-blue-500">{todayLog.waterGlasses || 0} / 8</span>
               </div>
               <div className="flex justify-between">
@@ -494,9 +494,9 @@ const TrackerView = ({
               </div>
             </div>
 
-            <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+            <div className="bg-ferty-beige/50 p-4 rounded-2xl">
               <div className="flex justify-between mb-2">
-                <span className="text-sm font-bold text-ferty-gray">Vegetales (Raciones)</span>
+                <span className="text-sm font-bold text-ferty-dark">Vegetales (Raciones)</span>
                 <span className="text-xs font-bold text-emerald-600">{todayLog.veggieServings || 0} / 5</span>
               </div>
               <div className="flex justify-start gap-4">
@@ -513,8 +513,8 @@ const TrackerView = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between bg-white border border-ferty-beige p-4 rounded-xl">
-            <span className="font-bold text-ferty-gray text-sm">Consumo de Alcohol</span>
+          <div className="flex items-center justify-between bg-ferty-beige/50 p-4 rounded-2xl">
+            <span className="font-bold text-ferty-dark text-sm">Consumo de Alcohol</span>
             <button
               onClick={() => setTodayLog({ ...todayLog, alcohol: !todayLog.alcohol })}
               className={`w-12 h-6 rounded-full relative transition-colors	duration-300 ${todayLog.alcohol ? 'bg-ferty-rose' : 'bg-stone-200'}`}
@@ -524,7 +524,7 @@ const TrackerView = ({
           </div>
         </div>
 
-        <button onClick={saveDailyLog} className="w-full bg-ferty-dark text-white py-4 rounded-xl font-bold shadow-lg hover:bg-black transition-colors mt-4">
+        <button onClick={saveDailyLog} className="w-full bg-ferty-gray text-white py-4 rounded-xl font-bold shadow-lg hover:bg-ferty-grayHover transition-colors mt-4">
           Guardar Registro Diario
         </button>
       </div>

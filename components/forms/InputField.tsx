@@ -7,7 +7,7 @@ interface InputFieldProps {
 
 const InputField = ({ label, children }: InputFieldProps) => (
   <div className="mb-4">
-    <label className="block text-xs font-bold text-ferty-gray uppercase tracking-wider mb-1">{label}</label>
+    <label className="block text-xs font-bold text-ferty-dark uppercase tracking-wider mb-1">{label}</label>
     {children}
   </div>
 );
