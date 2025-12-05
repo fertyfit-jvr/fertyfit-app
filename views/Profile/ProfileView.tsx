@@ -13,6 +13,7 @@ import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services
 import { PILLAR_ICONS } from '../../constants/api';
 import { savePillarForm } from '../../services/pillarService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
+import ProgressBar from '../../components/common/ProgressBar';
 
 type PillarFormType = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
@@ -1695,12 +1696,12 @@ const ProfileView = ({
                         )}
                       </div>
                       {pillarProgress > 0 && (
-                        <div className="w-full bg-ferty-beige rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-ferty-rose to-ferty-coral transition-all duration-500 rounded-full"
-                            style={{ width: `${pillarProgress}%` }}
-                          />
-                        </div>
+                        <ProgressBar 
+                          percentage={pillarProgress}
+                          color="rose-gradient"
+                          height="sm"
+                          className="bg-ferty-beige border-0"
+                        />
                       )}
                     </button>
                   );
@@ -1709,16 +1710,15 @@ const ProfileView = ({
 
               {/* Progress Bar */}
               <div className="bg-ferty-beigeLight px-4 py-2.5 rounded-xl border border-ferty-beige mb-4">
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-semibold text-ferty-gray">Progreso</p>
-                  <p className="text-[10px] font-bold text-ferty-coral">{progress.percentage}%</p>
-                </div>
-                <div className="w-full bg-ferty-beige rounded-full h-2 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-ferty-rose to-ferty-coral transition-all duration-500 rounded-full"
-                    style={{ width: `${progress.percentage}%` }}
-                  />
-                </div>
+                <ProgressBar 
+                  percentage={progress.percentage}
+                  color="rose-gradient"
+                  height="md"
+                  showLabel
+                  label="Progreso"
+                  showPercentage
+                  containerClassName="mb-0"
+                />
                 {progress.percentage === 100 && (
                   <p className="text-[9px] text-ferty-gray mt-1.5 text-center">
                     Puedes editarlo si surge algún cambio

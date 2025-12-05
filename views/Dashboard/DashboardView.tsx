@@ -3,6 +3,7 @@ import { NotificationList } from '../../components/NotificationSystem';
 import { MedicalReport } from '../../components/MedicalReport';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
 import FertyScoreCircular from '../../components/common/FertyScoreCircular';
+import ProgressBar from '../../components/common/ProgressBar';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { useMethodProgress } from '../../hooks/useMethodProgress';
 import {
@@ -135,13 +136,15 @@ const DashboardView = ({
           />
 
           <div className="mt-8 bg-ferty-beigeLight p-4 rounded-xl border border-ferty-beige">
-            <div className="flex justify-between text-xs text-ferty-coral font-bold mb-2 uppercase tracking-wide">
-              <span>Progreso del Método</span>
-              <span>{Math.round(progressPercent)}%</span>
-            </div>
-            <div className="h-2 w-full bg-white rounded-full overflow-hidden border border-ferty-beige">
-              <div className="h-full bg-ferty-flora-dark rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
-            </div>
+            <ProgressBar 
+              percentage={progressPercent}
+              color="rose-gradient"
+              height="md"
+              showLabel
+              label="Progreso del Método"
+              showPercentage
+              containerClassName="mb-2"
+            />
             <div className="flex justify-between text-[10px] text-ferty-gray mt-1">
               <span>{displayDay}/90 días</span>
             </div>
