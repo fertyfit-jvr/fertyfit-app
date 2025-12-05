@@ -135,7 +135,7 @@ const DashboardView = ({
             size={320}
           />
 
-          <div className="mt-8 bg-ferty-beigeLight p-4 rounded-xl border border-ferty-beige">
+          <div className="mt-8 bg-[#F9F6F4] p-4 rounded-xl border border-ferty-beige">
             <ProgressBar 
               percentage={progressPercent}
               color="rose-gradient"

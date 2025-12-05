@@ -1686,7 +1686,7 @@ const ProfileView = ({
                       type="button"
                       onClick={() => setFormType(tab.id)}
                       className={`rounded-3xl border px-4 py-4 text-left transition-all shadow-sm ${
-                        isActive ? 'border-ferty-rose bg-white shadow-lg' : 'border-ferty-beige bg-ferty-beigeLight hover:bg-white'
+                        isActive ? 'border-ferty-rose bg-white shadow-lg' : 'border-ferty-beige bg-white hover:bg-ferty-beigeLight'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-3">
