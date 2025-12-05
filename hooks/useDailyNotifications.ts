@@ -1,6 +1,11 @@
 /**
  * Custom hook for daily notification checks
  * Handles DAILY_CHECK rule evaluation and notification scheduling
+ * 
+ * ✅ Optimizado para escalabilidad y UX:
+ * - No ejecuta durante login (mejor performance)
+ * - Valida arrays antes de usar (previene errores)
+ * - Manejo robusto de errores (no rompe la app)
  */
 
 import { useEffect, useState } from 'react';
@@ -12,19 +17,23 @@ import { evaluateRules } from '../services/RuleEngine';
 import { buildRuleContext } from '../services/buildRuleContext';
 
 export function useDailyNotifications() {
-  const { user, logs, courseModules, setNotifications } = useAppStore();
+  const { user, logs, courseModules, setNotifications, view } = useAppStore();
   const [lastDailyCheckDate, setLastDailyCheckDate] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    // ✅ OPTIMIZACIÓN 1: No ejecutar durante login/onboarding
+    // Reduce llamadas innecesarias a Supabase y mejora performance
+    if (view === 'ONBOARDING' || !user?.id) return;
+    
+    // ✅ OPTIMIZACIÓN 2: Validar datos de ciclo antes de continuar
     if (!user.lastPeriodDate || !user.cycleLength) {
-      logger.warn('🔁 Cycle tracking skipped - missing data', {
-        userId: user.id,
-        hasLastPeriodDate: Boolean(user.lastPeriodDate),
-        hasCycleLength: Boolean(user.cycleLength)
-      });
-      return;
+      return; // Silently skip - no need to log during normal flow
     }
+
+    // ✅ OPTIMIZACIÓN 3: Validar arrays para prevenir errores
+    // Crítico para escalabilidad: previene crashes con datos inesperados
+    const safeLogs = Array.isArray(logs) ? logs : [];
+    const safeModules = Array.isArray(courseModules) ? courseModules : [];
 
     const todayKey = `fertyfit_daily_check_${user.id}`;
     const todayStr = formatDateForDB(new Date());
@@ -37,7 +46,7 @@ export function useDailyNotifications() {
 
     const runDailyCheck = async () => {
       try {
-        const context = await buildRuleContext(user, logs, courseModules);
+        const context = await buildRuleContext(user, safeLogs, safeModules);
         await evaluateRules('DAILY_CHECK', context, user.id!);
 
         if (!cancelled) {
@@ -47,7 +56,10 @@ export function useDailyNotifications() {
           }
         }
       } catch (err) {
+        // ✅ OPTIMIZACIÓN 4: Error handling silencioso
+        // No rompe la app, solo loguea para debugging
         logger.error('❌ Error running DAILY_CHECK trigger', err);
+        // No propagamos el error - la app debe seguir funcionando
       } finally {
         if (!cancelled) {
           localStorage.setItem(todayKey, todayStr);
@@ -59,6 +71,6 @@ export function useDailyNotifications() {
     runDailyCheck();
 
     return () => { cancelled = true; };
-  }, [user?.id, user?.lastPeriodDate, user?.cycleLength, logs, courseModules, lastDailyCheckDate, setNotifications]);
+  }, [user?.id, user?.lastPeriodDate, user?.cycleLength, logs, courseModules, lastDailyCheckDate, setNotifications, view]);
 }
 
