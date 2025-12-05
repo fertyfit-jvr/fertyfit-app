@@ -339,7 +339,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   markNotificationRead: async (notifId: number) => {
-    const { showNotif, setNotifications } = get();
+    const { showNotif, user, fetchNotifications } = get();
     try {
       const { error } = await supabase
         .from('notifications')
@@ -352,10 +352,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return;
       }
 
-      setNotifications((prev) => {
-        const safePrev = Array.isArray(prev) ? prev : [];
-        return safePrev.map((n) => (n.id === notifId ? { ...n, is_read: true } : n));
-      });
+      // Refrescar desde BD para sincronizar estado local
+      if (user?.id) {
+        await fetchNotifications(user.id);
+      }
     } catch (error) {
       logger.error('Error in markNotificationRead:', error);
       showNotif('Error inesperado al marcar la notificación. Intenta nuevamente.', 'error');
@@ -363,7 +363,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   deleteNotification: async (notifId: number) => {
-    const { showNotif, deletedNotificationIds, setDeletedNotificationIds, setNotifications } = get();
+    const { showNotif, deletedNotificationIds, setDeletedNotificationIds, user, fetchNotifications } = get();
     try {
       const { data: current, error: fetchError } = await supabase
         .from('notifications')
@@ -393,10 +393,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       setDeletedNotificationIds(newDeletedIds);
       localStorage.setItem('fertyfit_deleted_notifications', JSON.stringify(newDeletedIds));
 
-      setNotifications((prev) => {
-        const safePrev = Array.isArray(prev) ? prev : [];
-        return safePrev.filter((n) => n.id !== notifId);
-      });
+      // Refrescar desde BD para sincronizar estado local
+      if (user?.id) {
+        await fetchNotifications(user.id);
+      }
 
       logger.log('✅ Notification soft-deleted', notifId);
     } catch (error) {
