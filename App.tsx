@@ -23,6 +23,8 @@ const EducationView = lazy(() => import('./views/Education/EducationView'));
 const ConsultationsView = lazy(() => import('./views/Consultations/ConsultationsView'));
 const ProfileView = lazy(() => import('./views/Profile/ProfileView'));
 const MyProfileView = lazy(() => import('./views/MyProfile/MyProfileView'));
+const AnalyticsView = lazy(() => import('./views/Analytics/AnalyticsView'));
+const ReportsView = lazy(() => import('./views/Reports/ReportsView'));
 
 function AppContent() {
   const {
@@ -255,6 +257,30 @@ function AppContent() {
             setLogs={setLogs}
             onRestartMethod={handleRestartMethod}
             onLogout={handleLogout}
+          />
+          </Suspense>
+        )}
+        {view === 'ANALYTICS' && user && (
+          <Suspense fallback={<ViewLoading />}>
+          <AnalyticsView
+            user={user}
+            submittedForms={submittedForms}
+            showNotif={showNotif}
+            setView={setView}
+            fetchUserForms={fetchUserForms}
+          />
+          </Suspense>
+        )}
+        {view === 'REPORTS' && user && (
+          <Suspense fallback={<ViewLoading />}>
+          <ReportsView
+            user={user}
+            visibleNotifications={visibleNotifications}
+            showNotif={showNotif}
+            setView={setView}
+            markNotificationRead={markNotificationRead}
+            deleteNotification={deleteNotification}
+            onNotificationAction={handleNotificationAction}
           />
           </Suspense>
         )}

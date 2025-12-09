@@ -153,7 +153,7 @@ export interface AppNotification {
   metadata?: NotificationMetadata;
 }
 
-export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'MY_PROFILE';
+export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'MY_PROFILE' | 'ANALYTICS' | 'REPORTS';
 
 /**
  * Helper function to check if a notification type is an AI-generated notification
