@@ -22,6 +22,7 @@ const DashboardView = lazy(() => import('./views/Dashboard/DashboardView'));
 const EducationView = lazy(() => import('./views/Education/EducationView'));
 const ConsultationsView = lazy(() => import('./views/Consultations/ConsultationsView'));
 const ProfileView = lazy(() => import('./views/Profile/ProfileView'));
+const MyProfileView = lazy(() => import('./views/MyProfile/MyProfileView'));
 
 function AppContent() {
   const {
@@ -238,6 +239,24 @@ function AppContent() {
               </Suspense>
             )}
           </div>
+        )}
+        {view === 'MY_PROFILE' && user && (
+          <Suspense fallback={<ViewLoading />}>
+          <MyProfileView
+            user={user}
+            logs={logs}
+            submittedForms={submittedForms}
+            scores={dashboardScores}
+            showNotif={showNotif}
+            setView={setView}
+            fetchUserForms={fetchUserForms}
+            setUser={setUser}
+            fetchAllLogs={fetchAllLogs}
+            setLogs={setLogs}
+            onRestartMethod={handleRestartMethod}
+            onLogout={handleLogout}
+          />
+          </Suspense>
         )}
       </div>
       <nav className="fixed bottom-0 max-w-md w-full bg-white border-t border-ferty-beige px-6 py-2 flex justify-between rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
