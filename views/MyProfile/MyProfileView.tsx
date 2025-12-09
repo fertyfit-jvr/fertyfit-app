@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
-import { AppNotification, ConsultationForm, DailyLog, UserProfile, NotificationAction, ViewState, FormAnswer, isAINotification } from '../../types';
+import { ConsultationForm, DailyLog, UserProfile, ViewState, FormAnswer } from '../../types';
 
 // Type for form answers dictionary (questionId -> answer value)
 type FormAnswersDict = Record<string, string | number | boolean | string[] | undefined>;
@@ -20,20 +20,68 @@ type FormQuestion = {
   options?: string[];
   [key: string]: unknown; // For other dynamic properties
 };
-import { ReportsList } from '../../components/ReportsList';
+import { FORM_DEFINITIONS, FUNCTION_SECTIONS } from '../../constants/formDefinitions';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo } from '../../services/CycleCalculations';
+import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
+import { supabase } from '../../services/supabase';
 import { formatDate } from '../../services/utils';
 import { useMethodProgress } from '../../hooks/useMethodProgress';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
-import { FORM_DEFINITIONS, FUNCTION_SECTIONS } from '../../constants/formDefinitions';
-import { NotificationList } from '../../components/NotificationSystem';
-import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
-import { supabase } from '../../services/supabase';
 import { PILLAR_ICONS } from '../../constants/api';
 import { savePillarForm } from '../../services/pillarService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
 import ProgressBar from '../../components/common/ProgressBar';
+
+type PillarFormType = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
+
+const PILLAR_TABS: { id: PillarFormType; label: string; iconUrl: string; accent: string }[] = [
+  { id: 'FUNCTION', label: 'Function', iconUrl: PILLAR_ICONS.FUNCTION, accent: '#C7958E' },
+  { id: 'FOOD', label: 'Food', iconUrl: PILLAR_ICONS.FOOD, accent: '#B67977' },
+  { id: 'FLORA', label: 'Flora', iconUrl: PILLAR_ICONS.FLORA, accent: '#6F8A6E' },
+  { id: 'FLOW', label: 'Flow', iconUrl: PILLAR_ICONS.FLOW, accent: '#5B7A92' }
+];
+
+// Helper para mapear colores de acento a clases de Tailwind con opacidad
+const getPillarAccentClass = (accent: string) => {
+  const accentMap: Record<string, string> = {
+    '#C7958E': 'bg-ferty-rose/10',
+    '#B67977': 'bg-ferty-food-accent/10',
+    '#6F8A6E': 'bg-ferty-flora-accent/10',
+    '#5B7A92': 'bg-ferty-flow-accent/10',
+  };
+  return accentMap[accent] || 'bg-ferty-rose/10';
+};
+
+const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {
+  F1: 'FUNCTION',
+  F2: 'FOOD',
+  F3: 'FLOW'
+};
+
+const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
+  const matching = forms.filter(form => {
+    // Check if form type matches
+    const typeMatches = form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type;
+    if (!typeMatches) return false;
+    
+    // ⭐ IMPORTANTE: Excluir exámenes médicos (tienen exam_type en las respuestas)
+    // Solo para FUNCTION, filtrar los que son exámenes
+    if (type === 'FUNCTION' && form.answers && Array.isArray(form.answers)) {
+      const hasExamType = form.answers.some((a: any) => a.questionId === 'exam_type');
+      if (hasExamType) return false; // Es un examen, no el formulario FUNCTION
+    }
+    
+    return true;
+  });
+  
+  // Return the most recent one (last submitted)
+  return matching.sort((a, b) => {
+    const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+    const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+    return dateB - dateA;
+  })[0];
+};
 
 interface ProfileHeaderProps {
   user: UserProfile;
@@ -124,76 +172,107 @@ const ProfileHeader = React.memo(({ user, logs, logsCount, scores, submittedForm
   );
 });
 
-interface ProfileViewProps {
+interface MyProfileViewProps {
   user: UserProfile;
   logs: DailyLog[];
   submittedForms: ConsultationForm[];
   scores: { total: number; function: number; food: number; flora: number; flow: number };
-  visibleNotifications: AppNotification[];
   showNotif: (msg: string, type: 'success' | 'error') => void;
   setView: (view: ViewState) => void;
   fetchUserForms: (userId: string) => Promise<void>;
   setUser: (user: UserProfile | null) => void;
   fetchAllLogs?: (userId: string) => Promise<DailyLog[]>;
   setLogs?: (logs: DailyLog[]) => void;
-  markNotificationRead: (id: number) => Promise<void>;
-  deleteNotification: (id: number) => Promise<void>;
-  onNotificationAction: (notification: AppNotification, action: NotificationAction) => Promise<void>;
   onRestartMethod: () => Promise<void>;
   onLogout: () => Promise<void>;
 }
 
-const ProfileView = ({
+const MyProfileView = ({
   user,
   logs,
   submittedForms,
   scores,
-  visibleNotifications,
   showNotif,
   setView,
   fetchUserForms,
   setUser,
-  markNotificationRead,
-  deleteNotification,
-  onNotificationAction,
   onRestartMethod,
   onLogout,
   fetchAllLogs,
   setLogs
-}: ProfileViewProps) => {
+}: MyProfileViewProps) => {
+  // Estados locales
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(user.name);
+  const [isEditingF0, setIsEditingF0] = useState(false);
+  const [f0Answers, setF0Answers] = useState<FormAnswersDict>({});
+  const [isF0Expanded, setIsF0Expanded] = useState(false);
+  
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedAllHistory, setHasLoadedAllHistory] = useState(false);
-  
-  // Estados para analíticas
-  const [expandedExamAnswers, setExpandedExamAnswers] = useState<Record<number, boolean>>({});
-  const [visibleExamFormsCount, setVisibleExamFormsCount] = useState(3);
-  const [editingExamId, setEditingExamId] = useState<number | null>(null);
-  const [editingExamAnswers, setEditingExamAnswers] = useState<Record<number, FormAnswer[]>>({});
-  
-  // Variables de estado para F0
-  const [f0Answers, setF0Answers] = useState<FormAnswersDict>({});
-  const [isEditingF0, setIsEditingF0] = useState(false);
-  const [editName, setEditName] = useState(user?.name || '');
-  
-  // Variables de estado para pilares
+
+  // Estados para pilares
   const [formType, setFormType] = useState<PillarFormType>('FUNCTION');
   const [answers, setAnswers] = useState<FormAnswersDict>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  
-  // Variables de estado para tabs y UI
-  const [profileTab, setProfileTab] = useState<'HISTORIA' | 'PILARES'>('HISTORIA');
-  const [isF0Expanded, setIsF0Expanded] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [pillarScannerOpen, setPillarScannerOpen] = useState(false);
-  const [pillarExamType, setPillarExamType] = useState<'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'>('other');
+  const [pillarExamType, setPillarExamType] = useState<
+    'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'
+  >('hormonal');
   const [pillarExamName, setPillarExamName] = useState('');
-  
-  // Refs para auto-save
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autoSaveTimeoutPillarRef = useRef<NodeJS.Timeout | null>(null);
   const originalAnswers = useRef<FormAnswersDict>({});
+  const autoSaveTimeoutPillarRef = useRef<NodeJS.Timeout | null>(null);
+  
+  
+  // Guardar valores originales para poder cancelar
+  const originalEditName = useRef<string>(user.name);
   const originalF0Answers = useRef<FormAnswersDict>({});
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Sincronizar editName cuando cambie el usuario
+  useEffect(() => {
+    setEditName(user.name);
+    originalEditName.current = user.name;
+  }, [user.name]);
+
+  // Función local para guardar perfil
+  const handleSaveProfile = useCallback(async () => {
+    if (!user?.id) return;
+
+    const updateResult = await updateProfileForUser(user.id, { name: editName });
+    if (updateResult.success === false) {
+      showNotif(updateResult.error || 'No pudimos actualizar tu nombre', 'error');
+      return;
+    }
+    setUser({ ...user, name: editName });
+    setIsEditingProfile(false);
+    showNotif('Perfil actualizado correctamente', 'success');
+  }, [user, editName, showNotif, setUser]);
+
+  const handleProfileEditClick = useCallback(() => {
+    if (isEditingProfile) {
+      handleSaveProfile();
+    } else {
+      originalEditName.current = user.name;
+      setIsEditingProfile(true);
+    }
+  }, [isEditingProfile, handleSaveProfile, user.name]);
+
+  const handleProfileCancel = useCallback(() => {
+    setEditName(originalEditName.current);
+    setIsEditingProfile(false);
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleRestartClick = useCallback(async () => {
+    const confirmed = confirm('¿Estás segura de que deseas reiniciar el método?');
+    if (!confirmed) return;
+    await onRestartMethod();
+  }, [onRestartMethod]);
 
   const handleLoadFullHistory = useCallback(async () => {
     if (!user?.id || !fetchAllLogs || !setLogs) return;
@@ -217,144 +296,6 @@ const ProfileView = ({
     return logs.length >= 90 && !hasLoadedAllHistory && fetchAllLogs && setLogs;
   }, [logs.length, hasLoadedAllHistory, fetchAllLogs, setLogs]);
 
-  // Calcular si debería haber venido la regla
-  const shouldUpdatePeriod = useMemo(() => {
-    if (!user?.lastPeriodDate || !user?.cycleLength) return false;
-    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
-    return currentCycleDay >= user.cycleLength;
-  }, [user?.lastPeriodDate, user?.cycleLength]);
-
-  const daysOverdue = useMemo(() => {
-    if (!user?.lastPeriodDate || !user?.cycleLength) return 0;
-    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
-    return Math.max(0, currentCycleDay - user.cycleLength);
-  }, [user?.lastPeriodDate, user?.cycleLength]);
-
-  // Definir tipos y constantes
-  type PillarFormType = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
-  
-  const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {
-    F1: 'FUNCTION',
-    F2: 'FOOD',
-    F3: 'FLOW'
-  };
-
-  const PILLAR_TABS: { id: PillarFormType; label: string; iconUrl: string; accent: string }[] = [
-    { id: 'FUNCTION', label: 'Function', iconUrl: PILLAR_ICONS.FUNCTION, accent: '#C7958E' },
-    { id: 'FOOD', label: 'Food', iconUrl: PILLAR_ICONS.FOOD, accent: '#B67977' },
-    { id: 'FLORA', label: 'Flora', iconUrl: PILLAR_ICONS.FLORA, accent: '#6F8A6E' },
-    { id: 'FLOW', label: 'Flow', iconUrl: PILLAR_ICONS.FLOW, accent: '#5B7A92' }
-  ];
-
-  // Función helper para obtener el estilo de fondo basado en el color accent
-  const getPillarAccentClass = (accentColor: string): React.CSSProperties => {
-    // Convierte hex a rgba con transparencia del 20%
-    const hex = accentColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return {
-      backgroundColor: `rgba(${r}, ${g}, ${b}, 0.2)`
-    };
-  };
-
-  // Funciones para manejar analíticas
-  const handleDeleteExam = async (examFormId: number) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta analítica?')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('consultation_forms')
-        .delete()
-        .eq('id', examFormId);
-      
-      if (error) throw error;
-      
-      showNotif('Analítica eliminada correctamente', 'success');
-      await fetchUserForms(user.id);
-    } catch (error) {
-      showNotif('Error al eliminar la analítica', 'error');
-      console.error('Error deleting exam:', error);
-    }
-  };
-
-  const handleEditExam = (examForm: ConsultationForm) => {
-    // Activar modo edición inline
-    setEditingExamId(examForm.id);
-    // Guardar una copia de las respuestas para editar
-    const answersCopy = examForm.answers ? [...examForm.answers] : [];
-    setEditingExamAnswers(prev => ({ ...prev, [examForm.id]: answersCopy }));
-  };
-
-  const handleCancelEditExam = (examFormId: number) => {
-    setEditingExamId(null);
-    setEditingExamAnswers(prev => {
-      const newState = { ...prev };
-      delete newState[examFormId];
-      return newState;
-    });
-  };
-
-  const handleSaveExam = async (examForm: ConsultationForm) => {
-    if (!editingExamAnswers[examForm.id]) return;
-
-    try {
-      const { error } = await supabase
-        .from('consultation_forms')
-        .update({
-          answers: editingExamAnswers[examForm.id],
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', examForm.id);
-
-      if (error) throw error;
-
-      showNotif('Analítica actualizada correctamente', 'success');
-      setEditingExamId(null);
-      setEditingExamAnswers(prev => {
-        const newState = { ...prev };
-        delete newState[examForm.id];
-        return newState;
-      });
-      await fetchUserForms(user.id);
-    } catch (error) {
-      showNotif('Error al actualizar la analítica', 'error');
-      console.error('Error updating exam:', error);
-    }
-  };
-
-  const handleUpdateExamAnswer = (examFormId: number, questionId: string, value: any) => {
-    setEditingExamAnswers(prev => {
-      const answers = prev[examFormId] || [];
-      const updatedAnswers = answers.map(answer =>
-        answer.questionId === questionId ? { ...answer, answer: value } : answer
-      );
-      return { ...prev, [examFormId]: updatedAnswers };
-    });
-  };
-
-  // Función para encontrar formulario enviado
-  const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
-    const matching = forms.filter(form => {
-      const typeMatches = form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type;
-      if (!typeMatches) return false;
-      
-      if (type === 'FUNCTION' && form.answers && Array.isArray(form.answers)) {
-        const hasExamType = form.answers.some((a: any) => a.questionId === 'exam_type');
-        if (hasExamType) return false;
-      }
-      
-      return true;
-    });
-    
-    return matching.sort((a, b) => {
-      const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
-      const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
-      return dateB - dateA;
-    })[0];
-  };
-
-  // Función para guardar F0
   const handleF0Save = async (f0Form?: ConsultationForm) => {
     if (!user?.id) return;
 
@@ -401,9 +342,9 @@ const ProfileView = ({
     if (editName && editName !== user.name) {
       updates.name = editName;
     }
-    if (f0Answers['q2_weight']) updates.weight = parseFloat(String(f0Answers['q2_weight']));
-    if (f0Answers['q2_height']) updates.height = parseFloat(String(f0Answers['q2_height']));
-    if (f0Answers['q4_objective']) updates.mainObjective = String(f0Answers['q4_objective']);
+    if (f0Answers['q2_weight']) updates.weight = parseFloat(f0Answers['q2_weight']);
+    if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
+    if (f0Answers['q4_objective']) updates.mainObjective = f0Answers['q4_objective'];
     // Nota: cycle_length ya no se guarda en F0, se maneja desde FUNCTION
 
     // Set time_trying fields if q3_time_trying is present
@@ -446,12 +387,18 @@ const ProfileView = ({
     await fetchUserForms(user.id);
   };
 
-  // Función para reiniciar método
-  const handleRestartClick = async () => {
-    if (window.confirm('¿Estás segura de que quieres reiniciar el método? Esto eliminará todos tus datos de progreso.')) {
-      await onRestartMethod();
-    }
-  };
+  // Calcular si debería haber venido la regla
+  const shouldUpdatePeriod = useMemo(() => {
+    if (!user?.lastPeriodDate || !user?.cycleLength) return false;
+    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+    return currentCycleDay >= user.cycleLength;
+  }, [user?.lastPeriodDate, user?.cycleLength]);
+
+  const daysOverdue = useMemo(() => {
+    if (!user?.lastPeriodDate || !user?.cycleLength) return 0;
+    const currentCycleDay = calcularDiaDelCiclo(user.lastPeriodDate, user.cycleLength);
+    return Math.max(0, currentCycleDay - user.cycleLength);
+  }, [user?.lastPeriodDate, user?.cycleLength]);
 
   // Sincronizar f0Answers cuando user o submittedForms cambien (solo si no está editando)
   useEffect(() => {
@@ -1051,7 +998,7 @@ const ProfileView = ({
           <div className="flex items-center gap-3 flex-1">
             {currentTab && (
               <>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={getPillarAccentClass(currentTab.accent)}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${getPillarAccentClass(currentTab.accent)}`}>
                   <img src={currentTab.iconUrl} alt={`${currentTab.label} icono`} className="w-10 h-10 object-contain" />
                 </div>
                 <div>
@@ -1123,7 +1070,7 @@ const ProfileView = ({
           <div className="flex items-center gap-3 flex-1">
             {currentTab && (
               <>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={getPillarAccentClass(currentTab.accent)}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${getPillarAccentClass(currentTab.accent)}`}>
                   <img src={currentTab.iconUrl} alt={`${currentTab.label} icono`} className="w-10 h-10 object-contain" />
                 </div>
                 <div>
@@ -1319,367 +1266,45 @@ const ProfileView = ({
       />
 
       <div className="p-5 pt-0">
-        {/* Link discreto para editar perfil */}
+        {/* Link discreto para volver */}
         <div className="mb-4 flex justify-end">
           <button
-            onClick={() => setView('MY_PROFILE')}
+            onClick={() => setView('PROFILE')}
             className="text-xs text-ferty-gray hover:text-ferty-rose transition-colors underline"
           >
-            Editar perfil →
+            Volver
           </button>
         </div>
-
         {(() => {
           const f0Form = submittedForms.find(f => f.form_type === 'F0');
-          const medicalData = generarDatosInformeMedico(user, logs);
-          // Filtrar solo informes de IA para la vista Historia
-          const aiReports = visibleNotifications.filter(n => isAINotification(n.type));
           return (
-            <div className="space-y-4">
-              {/* Bloque de Salud General, Hábitos y Análisis de Edad */}
-              {medicalData && (
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-ferty-beige space-y-4">
-                  <div className="border-b border-ferty-beige pb-3">
-                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">Salud General</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Edad</p>
-                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.edad} años</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Peso</p>
-                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.pesoActual} kg</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Altura</p>
-                        <p className="text-sm font-semibold text-ferty-dark">
-                          {typeof user.height === 'number' ? `${user.height} cm` : user.height ?? '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">IMC</p>
-                        <p className="text-sm font-semibold text-ferty-dark">
-                          {medicalData.imc.valor} ({medicalData.imc.categoria})
-                        </p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Peso ideal</p>
-                        <p className="text-sm font-semibold text-ferty-dark">
-                          {medicalData.pesoIdeal.minimo}-{medicalData.pesoIdeal.maximo} kg
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Resumen F0: Ciclo / Objetivo e Historial, debajo de Salud General */}
-                  {f0Form && f0Form.answers && (() => {
-                    const getAnswer = (id: string) =>
-                      f0Form.answers.find(a => a.questionId === id)?.answer ?? null;
-
-                    const toSingleLine = (value: any, maxLength: number = 160) => {
-                      if (value == null) return null;
-                      let text = String(value).replace(/\s+/g, ' ').trim();
-                      if (!text) return null;
-                      if (text.length > maxLength) {
-                        text = text.slice(0, maxLength - 1) + '…';
+            <div className="space-y-6">
+              {/* Ficha personal (F0) - SIEMPRE mostrar si existe o si está editando */}
+              {!f0Form && !isEditingF0 ? (
+              <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
+                <FileText size={48} className="mx-auto text-stone-300 mb-4" />
+                <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
+                <button
+                  onClick={() => {
+                    setIsEditingF0(true);
+                    // Inicializar con valores por defecto si no existe
+                    const defaults: FormAnswersDict = {};
+                    FORM_DEFINITIONS.F0.questions.forEach(question => {
+                      if ('defaultValue' in question && question.defaultValue !== undefined) {
+                        defaults[question.id] = question.defaultValue as string | number | boolean | string[];
                       }
-                      return text;
-                    };
-
-                    const height = getAnswer('q2_height');
-                    const weight = getAnswer('q2_weight');
-                    // cycle_length y regularity ya no están en F0, se manejan desde FUNCTION
-                    const objective = getAnswer('q4_objective');
-                    const partner = getAnswer('q5_partner');
-                    const timeTrying = getAnswer('q3_time_trying');
-                    const treatments = getAnswer('q20_fertility_treatments');
-                    const diagnoses = getAnswer('q9_diagnoses');
-                    const familyHistory = getAnswer('q21_family_history');
-
-                    const renderField = (label: string, value: any) => (
-                      <div className="border-b border-ferty-beige pb-3 last:border-0">
-                        <p className="text-[11px] text-ferty-gray mb-0.5">{label}</p>
-                        <p className="text-sm font-semibold text-ferty-dark">
-                          {value ?? '—'}
-                        </p>
-                      </div>
-                    );
-
-                    return (
-                      <>
-                        {/* OBJETIVO (en Historia) */}
-                        <div className="border-b border-ferty-beige pb-3">
-                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
-                            OBJETIVO
-                          </p>
-                          <div className="grid grid-cols-2 gap-4">
-                            {/* cycle_length y regularity ya no están en F0, se muestran en FUNCTION */}
-                            {renderField('Tiempo buscando embarazo', toSingleLine(timeTrying))}
-                            {renderField('Objetivo principal', objective)}
-                            {renderField('Pareja o solitario', partner)}
-                            {renderField(
-                              'Tratamientos de fertilidad previos',
-                              toSingleLine(treatments)
-                            )}
-                          </div>
-                        </div>
-
-                        {/* HISTORIAL Y DIAGNÓSTICOS (en Historia, en una columna por bloque) */}
-                        <div>
-                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
-                            HISTORIAL Y DIAGNÓSTICOS
-                          </p>
-                          <div className="space-y-4">
-                            {renderField('Diagnósticos / Historia médica', toSingleLine(diagnoses))}
-                            {renderField('Historia familiar', toSingleLine(familyHistory))}
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                  
-                  {/* Análisis de Edad (justo después de datos físicos / ciclo / historial) */}
-                  <div>
-                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">Análisis de Edad</p>
-                    <p className="text-sm font-semibold text-ferty-dark mb-1">
-                      {medicalData.analisisEdad.categoria} - {medicalData.analisisEdad.probabilidad}
-                    </p>
-                    <p className="text-[10px] text-ferty-gray">{medicalData.analisisEdad.mensaje}</p>
-                  </div>
-
-                  {/* Hábitos (últimos 7 días) */}
-                  <div className="border-b border-ferty-beige pb-3">
-                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">Hábitos (últimos 7 días)</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Sueño</p>
-                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.sueno}h</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Estrés</p>
-                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.estres}/5</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Agua</p>
-                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.agua} vasos</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Vegetales</p>
-                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.vegetales} porcs</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-[10px] text-ferty-gray mb-0.5">Días con alcohol</p>
-                        <p className="text-sm font-semibold text-ferty-dark">{medicalData.promedios.diasConAlcohol}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Notificación discreta si debería actualizar la regla */}
-              {shouldUpdatePeriod && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
-                  <AlertCircle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-amber-800 mb-1">
-                      Actualiza tu ciclo menstrual
-                    </p>
-                    <p className="text-[10px] text-amber-700">
-                      {daysOverdue === 0 
-                        ? 'Tu ciclo ha concluido. ¿Te ha venido la regla?'
-                        : `Tu ciclo concluyó hace ${daysOverdue} día${daysOverdue > 1 ? 's' : ''}. Actualiza la fecha para mantener tus predicciones precisas.`
-                      }
-                    </p>
-                    <button
-                      onClick={() => {
-                        setView('TRACKER');
-                      }}
-                      className="mt-2 text-[10px] font-bold text-amber-700 hover:text-amber-900 underline"
-                    >
-                      Actualizar ahora →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Bloque de informes (solo IA) en Historia */}
-              <div className="mt-6">
-                <ReportsList
-                  reports={aiReports}
-                  onMarkRead={markNotificationRead}
-                  deleteNotification={deleteNotification}
-                  onAction={onNotificationAction}
-                />
+                    });
+                    setF0Answers(defaults);
+                    originalF0Answers.current = JSON.parse(JSON.stringify(defaults));
+                  }}
+                  className="mt-4 bg-ferty-rose text-white px-6 py-3 rounded-xl font-bold hover:bg-ferty-coral transition-colors"
+                >
+                  Completar F0
+                </button>
               </div>
-
-              {/* Analíticas guardadas */}
-              {(() => {
-                // Filtrar formularios que son exámenes (tienen exam_type en las respuestas)
-                const examForms = submittedForms.filter(form => {
-                  if (!form.answers || !Array.isArray(form.answers)) return false;
-                  return form.answers.some((a: FormAnswer) => a.questionId === 'exam_type');
-                });
-
-                if (examForms.length === 0) return null;
-
-                // Ordenar por fecha más reciente primero
-                const sortedExamForms = [...examForms].sort((a, b) => {
-                  const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
-                  const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
-                  return dateB - dateA;
-                });
-
-                // Mostrar solo las últimas N analíticas
-                const visibleForms = sortedExamForms.slice(0, visibleExamFormsCount);
-                const hasMore = sortedExamForms.length > visibleExamFormsCount;
-
-                return (
-                  <div className="mt-6">
-                    <div className="bg-white border border-ferty-beige rounded-3xl p-4 shadow-sm">
-                      <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-3">
-                        Analíticas guardadas
-                      </p>
-                      <div className="space-y-3">
-                        {visibleForms.map((examForm) => {
-                          const examTypeAnswer = examForm.answers?.find((a: FormAnswer) => a.questionId === 'exam_type');
-                          const examType = examTypeAnswer?.answer || 'Examen';
-                          const isEditing = editingExamId === examForm.id;
-                          const currentAnswers = isEditing && editingExamAnswers[examForm.id] 
-                            ? editingExamAnswers[examForm.id] 
-                            : examForm.answers || [];
-                          
-                          // Separar el comentario de validación
-                          const commentAnswer = currentAnswers.find((a: FormAnswer) => a.questionId === 'gemini_comment');
-                          const examAnswers = currentAnswers.filter((a: FormAnswer) => 
-                            a.questionId !== 'exam_type' && a.questionId !== 'gemini_comment'
-                          );
-                          
-                          const isExpanded = expandedExamAnswers[examForm.id] || false;
-                          const initialShowCount = 6;
-                          const showAll = isExpanded || examAnswers.length <= initialShowCount;
-
-                          return (
-                            <div key={examForm.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex-1">
-                                  <p className="text-sm font-bold text-ferty-dark">{examType}</p>
-                                  <p className="text-[10px] text-ferty-gray">
-                                    {examForm.submitted_at ? formatDate(examForm.submitted_at) : ''}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2 ml-4">
-                                  {isEditing ? (
-                                    <>
-                                      <button
-                                        onClick={() => handleSaveExam(examForm)}
-                                        className="p-1.5 text-ferty-rose hover:bg-ferty-beige rounded-lg transition-colors"
-                                        title="Guardar"
-                                      >
-                                        <Check size={14} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleCancelEditExam(examForm.id)}
-                                        className="p-1.5 text-ferty-coral hover:bg-ferty-beige rounded-lg transition-colors"
-                                        title="Cancelar"
-                                      >
-                                        <X size={14} />
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <button
-                                        onClick={() => handleEditExam(examForm)}
-                                        className="p-1.5 text-ferty-rose hover:bg-ferty-beige rounded-lg transition-colors"
-                                        title="Editar"
-                                      >
-                                        <Edit2 size={14} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteExam(examForm.id)}
-                                        className="p-1.5 text-ferty-coral hover:bg-ferty-beige rounded-lg transition-colors"
-                                        title="Eliminar"
-                                      >
-                                        <X size={14} />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                {(showAll ? examAnswers : examAnswers.slice(0, initialShowCount)).map((answer: FormAnswer) => (
-                                  <div key={answer.questionId} className="bg-white p-2 rounded-xl">
-                                    <p className="text-[10px] text-ferty-gray mb-0.5">{answer.question}</p>
-                                    {isEditing ? (
-                                      <input
-                                        type="text"
-                                        value={typeof answer.answer === 'object' ? JSON.stringify(answer.answer) : String(answer.answer || '')}
-                                        onChange={(e) => handleUpdateExamAnswer(examForm.id, answer.questionId, e.target.value)}
-                                        className="w-full text-xs font-semibold text-ferty-dark border border-ferty-beige rounded-lg p-1 focus:border-ferty-rose focus:outline-none"
-                                      />
-                                    ) : (
-                                      <p className="text-xs font-semibold text-ferty-dark">
-                                        {typeof answer.answer === 'object' ? JSON.stringify(answer.answer) : String(answer.answer)}
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
-                                {examAnswers.length > initialShowCount && !showAll && (
-                                  <button
-                                    onClick={() => setExpandedExamAnswers(prev => ({ ...prev, [examForm.id]: true }))}
-                                    className="col-span-2 text-center py-2 text-[10px] text-ferty-rose hover:text-ferty-coral font-semibold transition-colors"
-                                  >
-                                    +{examAnswers.length - initialShowCount} valores más
-                                  </button>
-                                )}
-                                {showAll && examAnswers.length > initialShowCount && (
-                                  <button
-                                    onClick={() => setExpandedExamAnswers(prev => ({ ...prev, [examForm.id]: false }))}
-                                    className="col-span-2 text-center py-2 text-[10px] text-ferty-gray hover:text-ferty-dark font-semibold transition-colors"
-                                  >
-                                    Mostrar menos
-                                  </button>
-                                )}
-                              </div>
-                              {/* Campo de comentario en columna completa (solo lectura) */}
-                              {commentAnswer && (
-                                <div className="mt-3 bg-white p-3 rounded-xl">
-                                  <p className="text-[10px] text-ferty-gray mb-1">
-                                    {commentAnswer.question.replace(' (Gemini)', '')}
-                                  </p>
-                                  <p className="text-xs font-semibold text-ferty-dark whitespace-pre-wrap">
-                                    {typeof commentAnswer.answer === 'string' ? commentAnswer.answer : String(commentAnswer.answer || '')}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {hasMore && (
-                        <button
-                          onClick={() => setVisibleExamFormsCount(prev => prev + 3)}
-                          className="w-full mt-4 py-2 text-xs text-ferty-rose hover:text-ferty-coral font-semibold transition-colors border border-ferty-beige rounded-xl hover:bg-ferty-beigeLight"
-                        >
-                          Cargar más analíticas
-                        </button>
-                      )}
-                      {visibleExamFormsCount > 3 && visibleForms.length < sortedExamForms.length && (
-                        <button
-                          onClick={() => setVisibleExamFormsCount(3)}
-                          className="w-full mt-2 py-2 text-xs text-ferty-gray hover:text-ferty-dark transition-colors"
-                        >
-                          Mostrar menos
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-            {profileTab === 'PILARES' && (() => {
-              const f0Form = submittedForms.find(f => f.form_type === 'F0');
-              return (
-                isEditingF0 ? (
+            ) : (f0Form || isEditingF0) ? (
+                <div className="space-y-4">
+                  {isEditingF0 ? (
                     <div className="bg-white rounded-3xl shadow-sm border border-ferty-beige overflow-hidden">
                       {/* Header con título y botones cuando está editando */}
                       <div className="p-6 flex items-center justify-between border-b border-ferty-beige">
@@ -2149,12 +1774,10 @@ const ProfileView = ({
                         </div>
                       )}
                     </div>
-                  ) : null
-              );
-            })()}
+                  ) : null}
+                </div>
+              ) : null}
 
-            {profileTab === 'PILARES' && (
-              <>
             {/* Bloques de Pilares (Function, Food, Flora, Flow) */}
             <div>
               <h3 className="font-bold text-ferty-dark mb-3 text-sm">Pilares FertyFit</h3>
@@ -2268,8 +1891,7 @@ const ProfileView = ({
                 </div>
               </div>
             )}
-              </>
-            )}
+
 
             {user.methodStartDate && (
               <button
@@ -2287,17 +1909,16 @@ const ProfileView = ({
               <LogOut size={20} />
               Cerrar Sesión
             </button>
-            </div>
+          </div>
           );
         })()}
-
       </div>
     </div>
   );
 };
 
-// Memoize ProfileView with custom comparison function
-export default React.memo(ProfileView, (prevProps, nextProps) => {
+// Memoize MyProfileView with custom comparison function
+export default React.memo(MyProfileView, (prevProps, nextProps) => {
   // Compare props that should trigger re-render
   return (
     prevProps.user?.id === nextProps.user?.id &&
@@ -2305,8 +1926,7 @@ export default React.memo(ProfileView, (prevProps, nextProps) => {
     prevProps.user?.methodStartDate === nextProps.user?.methodStartDate &&
     prevProps.logs.length === nextProps.logs.length &&
     prevProps.submittedForms.length === nextProps.submittedForms.length &&
-    prevProps.scores.total === nextProps.scores.total &&
-    prevProps.visibleNotifications.length === nextProps.visibleNotifications.length
+    prevProps.scores.total === nextProps.scores.total
   );
 });
 
