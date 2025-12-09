@@ -41,8 +41,22 @@ const ReportsView = ({
           </p>
         </div>
         
-        {/* Link discreto para volver */}
-        <div className="mb-4 flex justify-end">
+        {/* Links discretos para navegar */}
+        <div className="mb-4 flex justify-between items-center">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setView('CONSULTATIONS')}
+              className="text-xs font-bold text-ferty-dark hover:text-ferty-gray transition-colors underline"
+            >
+              Crear informe →
+            </button>
+            <button
+              onClick={() => setView('ANALYTICS')}
+              className="text-xs text-ferty-gray hover:text-ferty-rose transition-colors underline"
+            >
+              Analíticas →
+            </button>
+          </div>
           <button
             onClick={() => setView('PROFILE')}
             className="text-xs text-ferty-gray hover:text-ferty-rose transition-colors underline"
