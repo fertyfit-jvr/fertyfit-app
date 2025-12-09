@@ -83,95 +83,6 @@ const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
   })[0];
 };
 
-interface ProfileHeaderProps {
-  user: UserProfile;
-  logs: DailyLog[];
-  logsCount: number;
-  scores: { total: number; function: number; food: number; flora: number; flow: number };
-  submittedForms: ConsultationForm[];
-}
-
-const ProfileHeader = React.memo(({ user, logs, logsCount, scores, submittedForms }: ProfileHeaderProps) => {
-  // Calcular día y semana usando hook compartido (consistente con DashboardView)
-  const { displayDay, displayWeek, isStarted, isCompleted } = useMethodProgress(user.methodStartDate);
-
-  const level = logsCount > 30 ? 'Experta' : logsCount > 7 ? 'Comprometida' : 'Iniciada';
-
-  // Calculate months trying dynamically using new service
-  const monthsTrying = useMemo(() => {
-    if (!user.timeTryingStartDate) return null;
-    return calculateCurrentMonthsTrying(user.timeTryingStartDate, user.timeTryingInitialMonths || 0);
-  }, [user.timeTryingStartDate, user.timeTryingInitialMonths]);
-
-  return (
-    <div className="bg-gradient-to-br from-ferty-rose to-ferty-coral pt-10 pb-8 px-6 rounded-b-[2.5rem] shadow-lg mb-6 text-white relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-      <div className="relative z-10">
-        <div className="flex items-center gap-5 mb-3">
-          <div className="w-18 h-18 bg-white text-ferty-rose rounded-full flex items-center justify-center text-2xl font-bold border-4 border-white/20 shadow-inner">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
-            <div className="flex items-center gap-1 text-rose-50 bg-black/10 px-3 py-1 rounded-full w-fit mt-1 backdrop-blur-sm">
-              <Award size={12} />
-              <span className="text-xs font-medium">Nivel {level}</span>
-            </div>
-          </div>
-        </div>
-        <div className="mb-4 text-sm text-white/90 ml-1">
-          <p className="flex items-center gap-2">
-            {isStarted ? (
-              <>
-                <span className="opacity-75">Día:</span>
-                <span className="font-semibold">{displayDay}</span>
-                <span className="opacity-50">•</span>
-                <span className="opacity-75">Semana:</span>
-                <span className="font-semibold">{displayWeek}</span>
-                <span className="opacity-50">•</span>
-                <span className="opacity-75">Registros:</span>
-                <span className="font-semibold">{logsCount}</span>
-              </>
-            ) : (
-              <>
-                <span className="opacity-75">Método:</span>
-                <span className="font-semibold">No iniciado</span>
-                <span className="opacity-50">•</span>
-                <span className="opacity-75">Registros:</span>
-                <span className="font-semibold">{logsCount}</span>
-              </>
-            )}
-          </p>
-          {monthsTrying !== null && (
-            <p className="text-[11px] opacity-75 mt-1">
-              Buscando embarazo desde hace <span className="font-semibold">{monthsTrying}</span> meses
-            </p>
-          )}
-        </div>
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Ferty Score</p>
-              <p className="text-3xl font-bold">{scores.total}<span className="text-lg opacity-75">/100</span></p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-bold uppercase tracking-wider opacity-75 mb-1">Pilares</p>
-              <div className="flex gap-3 text-[10px]">
-                {(['function', 'food', 'flora', 'flow'] as const).map(key => (
-                  <div key={key} className="flex flex-col items-center">
-                    <span className="font-bold text-lg">{scores[key]}</span>
-                    <span className="opacity-75">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
-
 interface MyProfileViewProps {
   user: UserProfile;
   logs: DailyLog[];
@@ -1256,16 +1167,15 @@ const MyProfileView = ({
   };
 
   return (
-    <div className="pb-24">
-      <ProfileHeader
-        user={user}
-        logs={logs}
-        logsCount={logs.length}
-        scores={scores}
-        submittedForms={submittedForms}
-      />
-
+    <div className="pb-24 pt-0">
       <div className="p-5 pt-0">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-ferty-dark mb-1">Mi Perfil</h2>
+          <p className="text-[10px] text-ferty-gray">
+            Esta información es la base de tu Método Ferty Fit personalizado.
+          </p>
+        </div>
+        
         {/* Link discreto para volver */}
         <div className="mb-4 flex justify-end">
           <button
@@ -1309,10 +1219,24 @@ const MyProfileView = ({
                       {/* Header con título y botones cuando está editando */}
                       <div className="p-6 flex items-center justify-between border-b border-ferty-beige">
                         <div className="flex-1">
-                          <h3 className="font-bold text-lg text-ferty-dark mb-1">{FORM_DEFINITIONS.F0.title}</h3>
-                          <p className="text-xs text-ferty-gray">
-                            {FORM_DEFINITIONS.F0.description}
+                          <h3 className="font-bold text-lg text-ferty-dark mb-1">Ficha Personal</h3>
+                          <p className="text-xs text-ferty-gray mb-1">
+                            Actualiza estos sólo si es necesario
                           </p>
+                          {(user?.joinedAt || f0Form?.submitted_at) && (
+                            <div className="space-y-0.5">
+                              {user?.joinedAt && (
+                                <p className="text-[10px] text-ferty-gray">
+                                  Fecha de Registro: {formatDate(user.joinedAt, 'long')}
+                                </p>
+                              )}
+                              {f0Form?.submitted_at && (
+                                <p className="text-[10px] text-ferty-gray">
+                                  Última Actualización: {formatDate(f0Form.submitted_at, 'long')}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="ml-4 flex items-center gap-2 flex-shrink-0">
                           <button
@@ -1587,15 +1511,22 @@ const MyProfileView = ({
                           onClick={() => setIsF0Expanded(!isF0Expanded)}
                           className="flex-1 text-left hover:opacity-80 transition-opacity"
                         >
-                          <h3 className="font-bold text-lg text-ferty-dark mb-1">{FORM_DEFINITIONS.F0.title}</h3>
-                          <p className="text-xs text-ferty-gray">
-                            {FORM_DEFINITIONS.F0.description}
+                          <h3 className="font-bold text-lg text-ferty-dark mb-1">Ficha Personal</h3>
+                          <p className="text-xs text-ferty-gray mb-1">
+                            Actualiza estos sólo si es necesario
                           </p>
-                          {f0Form && (
-                            <div className="mt-2 space-y-0.5">
-                              <p className="text-[10px] text-ferty-gray">
-                                Registrado: {formatDate(f0Form.submitted_at || new Date().toISOString(), 'long')}
-                              </p>
+                          {(user?.joinedAt || f0Form?.submitted_at) && (
+                            <div className="space-y-0.5">
+                              {user?.joinedAt && (
+                                <p className="text-[10px] text-ferty-gray">
+                                  Fecha de Registro: {formatDate(user.joinedAt, 'long')}
+                                </p>
+                              )}
+                              {f0Form?.submitted_at && (
+                                <p className="text-[10px] text-ferty-gray">
+                                  Última Actualización: {formatDate(f0Form.submitted_at, 'long')}
+                                </p>
+                              )}
                             </div>
                           )}
                         </button>

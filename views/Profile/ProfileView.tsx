@@ -1309,7 +1309,7 @@ const ProfileView = ({
   };
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 pt-0">
       <ProfileHeader
         user={user}
         logs={logs}
