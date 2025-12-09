@@ -25,6 +25,7 @@ const ProfileView = lazy(() => import('./views/Profile/ProfileView'));
 const MyProfileView = lazy(() => import('./views/MyProfile/MyProfileView'));
 const AnalyticsView = lazy(() => import('./views/Analytics/AnalyticsView'));
 const ReportsView = lazy(() => import('./views/Reports/ReportsView'));
+const ChatView = lazy(() => import('./views/Chat/ChatView'));
 
 function AppContent() {
   const {
@@ -237,6 +238,7 @@ function AppContent() {
                 submittedForms={submittedForms}
                 showNotif={showNotif}
                 fetchUserForms={fetchUserForms}
+                setView={setView}
               />
               </Suspense>
             )}
@@ -281,6 +283,15 @@ function AppContent() {
             markNotificationRead={markNotificationRead}
             deleteNotification={deleteNotification}
             onNotificationAction={handleNotificationAction}
+          />
+          </Suspense>
+        )}
+        {view === 'CHAT' && user && (
+          <Suspense fallback={<ViewLoading />}>
+          <ChatView
+            user={user}
+            showNotif={showNotif}
+            setView={setView}
           />
           </Suspense>
         )}

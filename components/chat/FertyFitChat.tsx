@@ -174,7 +174,7 @@ export const FertyFitChat = ({ userId, dailyLimit = 5 }: FertyFitChatProps) => {
   };
 
   return (
-    <div className="bg-white border border-ferty-beige rounded-3xl shadow-sm overflow-hidden flex flex-col h-chat">
+    <div className="bg-white h-full overflow-hidden flex flex-col rounded-none border-0 shadow-none">
       {/* Header */}
       <div className="bg-ferty-beigeLight border-b border-ferty-beige p-4">
         <div className="flex items-center justify-between">

@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { AlertCircle, Camera, Loader2, FileText, X } from 'lucide-react';
-import { UserProfile } from '../../types';
+import { AlertCircle, Camera, Loader2, FileText, X, MessageCircle } from 'lucide-react';
+import { UserProfile, ViewState } from '../../types';
 import { ExamScanner } from '../../components/forms/ExamScanner';
-import { FertyFitChat } from '../../components/chat/FertyFitChat';
 
 interface ConsultationsViewProps {
   user: UserProfile;
@@ -10,9 +9,10 @@ interface ConsultationsViewProps {
   submittedForms: any[];
   showNotif: (msg: string, type: 'success' | 'error') => void;
   fetchUserForms: (userId: string) => Promise<void>;
+  setView: (view: ViewState) => void;
 }
 
-const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
+const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps) => {
   const [globalScannerOpen, setGlobalScannerOpen] = useState(false);
   const [globalExamType, setGlobalExamType] = useState<
     'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'
@@ -64,9 +64,20 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
 
   return (
     <div className="pb-24 space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-ferty-dark">Consultas</h2>
-        <p className="text-sm text-ferty-gray">Sube tus analíticas y ecografías para un análisis completo.</p>
+      <div className="mb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-ferty-dark mb-1">Consultas</h2>
+            <p className="text-sm text-ferty-gray">Sube tus analíticas y ecografías para un análisis completo.</p>
+          </div>
+          <button
+            onClick={() => setView('CHAT')}
+            className="w-10 h-10 rounded-full bg-ferty-rose text-white flex items-center justify-center shadow-lg shadow-rose-200 hover:scale-105 transition-transform flex-shrink-0"
+            title="Abrir chat"
+          >
+            <MessageCircle size={18} />
+          </button>
+        </div>
         <div className="mt-3 flex flex-wrap gap-3">
           <button
             type="button"
@@ -88,11 +99,6 @@ const ConsultationsView = ({ user, showNotif }: ConsultationsViewProps) => {
           </button>
         </div>
       </div>
-
-      {/* Chat FertyFit */}
-      {user?.id && (
-        <FertyFitChat userId={user.id} dailyLimit={5} />
-      )}
 
       {/* Bloque global de subida de analíticas/ecografías */}
       <div className="bg-white border border-ferty-beige rounded-3xl p-4 shadow-sm mb-6">
