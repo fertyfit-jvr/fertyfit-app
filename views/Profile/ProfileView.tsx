@@ -20,7 +20,7 @@ type FormQuestion = {
   options?: string[];
   [key: string]: unknown; // For other dynamic properties
 };
-import { ReportsList } from '../../components/ReportsList';
+// import { ReportsList } from '../../components/ReportsList'; // Componente no disponible en esta versión
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo } from '../../services/CycleCalculations';
 import { formatDate } from '../../services/utils';
@@ -938,7 +938,7 @@ const ProfileView = ({
           {showOtherField && (
             <input
               type="text"
-              value={answers[`${question.id}_otro`] || ''}
+              value={String(answers[`${question.id}_otro`] || '')}
               placeholder="Especifica..."
               onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
               className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
@@ -951,7 +951,7 @@ const ProfileView = ({
     if (question.type === 'textarea') {
       return (
         <textarea
-          value={answers[question.id] || ''}
+          value={String(answers[question.id] || '')}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
           rows={4}
           onChange={event => updateAnswer(question.id, event.target.value)}
@@ -974,7 +974,7 @@ const ProfileView = ({
     if (question.type === 'select') {
       return (
         <select
-          value={answers[question.id] || ''}
+          value={String(answers[question.id] || '')}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose"
         >
@@ -992,7 +992,7 @@ const ProfileView = ({
       return (
         <input
           type="date"
-          value={answers[question.id] || ''}
+          value={String(answers[question.id] || '')}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
         />
@@ -1010,7 +1010,7 @@ const ProfileView = ({
     return (
       <input
         type="text"
-        value={answers[question.id] || ''}
+        value={String(answers[question.id] || '')}
         onChange={event => updateAnswer(question.id, event.target.value)}
         className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
       />
@@ -1333,7 +1333,7 @@ const ProfileView = ({
           const f0Form = submittedForms.find(f => f.form_type === 'F0');
           const medicalData = generarDatosInformeMedico(user, logs);
           // Filtrar solo informes de IA para la vista Historia
-          const aiReports = visibleNotifications.filter(n => isAINotification(n.type));
+          const aiReports = visibleNotifications.filter(n => isAINotification(n.type as string));
           return (
             <div className="space-y-4">
               {/* Bloque de Salud General, Hábitos y Análisis de Edad */}
@@ -1503,14 +1503,15 @@ const ProfileView = ({
               )}
 
               {/* Bloque de informes (solo IA) en Historia */}
-              <div className="mt-6">
+              {/* ReportsList no disponible en esta versión - comentado temporalmente */}
+              {/* <div className="mt-6">
                 <ReportsList
                   reports={aiReports}
                   onMarkRead={markNotificationRead}
                   deleteNotification={deleteNotification}
                   onAction={onNotificationAction}
                 />
-              </div>
+              </div> */}
 
               {/* Analíticas guardadas */}
               {(() => {
@@ -1741,7 +1742,7 @@ const ProfileView = ({
                           </p>
                           <input
                             type="date"
-                            value={f0Answers['q1_birthdate'] || ''}
+                            value={String(f0Answers['q1_birthdate'] || '')}
                             className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                             onChange={e => setF0Answers({ ...f0Answers, q1_birthdate: e.target.value })}
                           />
@@ -1907,7 +1908,7 @@ const ProfileView = ({
                               </label>
                               {q.type === 'textarea' ? (
                                 <textarea
-                                  value={f0Answers[q.id] || ''}
+                                  value={String(f0Answers[q.id] || '')}
                                   className="w-full border border-ferty-beige rounded-xl p-3 text-sm h-28 bg-ferty-beige/30 focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose outline-none transition-all"
                                   onChange={e => updateAnswer(q.id, e.target.value)}
                                   maxLength={
@@ -1923,7 +1924,7 @@ const ProfileView = ({
                               ) : q.type === 'date' ? (
                                 <input
                                   type="date"
-                                  value={f0Answers[q.id] || ''}
+                                  value={String(f0Answers[q.id] || '')}
                                   className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                                   onChange={e => updateAnswer(q.id, e.target.value)}
                                 />
@@ -1934,7 +1935,7 @@ const ProfileView = ({
                               ) : (
                                 <input
                                   type={q.type === 'number' ? 'number' : 'text'}
-                                  value={f0Answers[q.id] || ''}
+                                  value={String(f0Answers[q.id] || '')}
                                   className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                                   onChange={e => updateAnswer(q.id, e.target.value)}
                                 />

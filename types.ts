@@ -153,4 +153,13 @@ export interface AppNotification {
   metadata?: NotificationMetadata;
 }
 
-export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE';
+export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'MY_PROFILE';
+
+/**
+ * Helper function to check if a notification type is an AI-generated notification
+ */
+export function isAINotification(type: NotificationType | string): boolean {
+  // AI notifications can be from NotificationType or custom types from database
+  const aiTypes = ['insight', 'tip', 'opportunity', 'REPORT', 'CHAT', 'LABS'];
+  return aiTypes.includes(type);
+}
