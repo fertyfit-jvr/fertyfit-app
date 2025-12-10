@@ -5,8 +5,14 @@ import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
 import { searchRagDirect } from '../../server/lib/ragUtils.js';
 import { logger } from '../../server/lib/logger.js';
-
-import type { UserProfile, DailyLog, ConsultationForm } from '../../types.js';
+import type { UserProfile, DailyLog, ConsultationForm, AppNotification } from '../../types.js';
+import {
+  buildReportContext,
+  getPromptForReportType,
+  getRAGQueryForReportType,
+  getReportTitle,
+  type ReportType,
+} from './report-helpers.js';
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
 // Usamos SERVICE ROLE KEY para bypassear RLS y poder leer todos los datos del usuario
@@ -58,6 +64,19 @@ function setCORSHeaders(res: VercelResponse, origin: string): string {
   return allowedOrigin;
 }
 
+/**
+ * Envía un evento de progreso al cliente (formato NDJSON)
+ */
+function sendProgress(
+  res: VercelResponse,
+  stage: string,
+  message: string,
+  data?: any
+): void {
+  const event = { stage, message, data, timestamp: new Date().toISOString() };
+  res.write(`${JSON.stringify(event)}\n`);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS primero
   const origin = (req.headers.origin as string) || '';
@@ -81,13 +100,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { userId } = req.body as { userId?: string };
+    const { userId, reportType = '360' } = req.body as {
+      userId?: string;
+      reportType?: ReportType;
+    };
 
     if (!userId) {
       throw createError('Falta el userId en la solicitud', 400, 'BAD_REQUEST');
     }
 
+    // Validar reportType
+    if (!['360', 'BASIC', 'DAILY'].includes(reportType)) {
+      throw createError('Tipo de informe inválido', 400, 'INVALID_REPORT_TYPE');
+    }
+
+    // Configurar streaming response (NDJSON)
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    sendProgress(res, 'INITIALIZING', 'Iniciando generación del informe...');
+
     // 1. Perfil (tabla profiles)
+    sendProgress(res, 'COLLECTING_PROFILE', 'Recopilando tu perfil y datos básicos...');
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -95,7 +130,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (profileError || !profile) {
-      throw createError('No se encontró el perfil de la usuaria', 404, 'PROFILE_NOT_FOUND');
+      sendProgress(res, 'ERROR', 'No se encontró el perfil de la usuaria', {
+        error: profileError?.message,
+      });
+      return res.end();
     }
 
     const userProfile: UserProfile = {
@@ -123,221 +161,212 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       alcoholConsumption: profile.alcohol_consumption || undefined,
     };
 
-    // 2. Registros diarios (tabla daily_logs)
-    const { data: logsData, error: logsError } = await supabase
-      .from('daily_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
+    // 2. Registros diarios (solo si es necesario)
+    let logs: DailyLog[] = [];
+    if (reportType === '360' || reportType === 'DAILY') {
+      sendProgress(res, 'COLLECTING_LOGS', 'Recopilando tus registros diarios...');
+      const { data: logsData, error: logsError } = await supabase
+        .from('daily_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
 
-    if (logsError) {
-      throw createError('Error al cargar los registros diarios', 500, 'LOGS_ERROR');
+      if (logsError) {
+        logger.warn('Error al cargar registros diarios:', logsError);
+      } else {
+        logs =
+          logsData?.map((dbLog: any) => ({
+            id: dbLog.id,
+            user_id: dbLog.user_id,
+            date: dbLog.date,
+            cycleDay: dbLog.cycle_day,
+            bbt: dbLog.bbt,
+            mucus: dbLog.mucus || '',
+            cervixHeight: dbLog.cervix_height || '',
+            cervixFirmness: dbLog.cervix_firmness || '',
+            cervixOpenness: dbLog.cervix_openness || '',
+            lhTest: dbLog.lh_test || 'No realizado',
+            symptoms: dbLog.symptoms || [],
+            sex: dbLog.sex,
+            sleepQuality: dbLog.sleep_quality,
+            sleepHours: dbLog.sleep_hours,
+            stressLevel: dbLog.stress_level,
+            activityMinutes: dbLog.activity_minutes || 0,
+            sunMinutes: dbLog.sun_minutes || 0,
+            waterGlasses: dbLog.water_glasses,
+            veggieServings: dbLog.veggie_servings,
+            alcohol: dbLog.alcohol,
+            alcoholUnits: dbLog.alcohol_units || undefined,
+          })) || [];
+      }
     }
 
-    const logs: DailyLog[] =
-      logsData?.map((dbLog: any) => ({
-        id: dbLog.id,
-        user_id: dbLog.user_id,
-        date: dbLog.date,
-        cycleDay: dbLog.cycle_day,
-        bbt: dbLog.bbt,
-        mucus: dbLog.mucus || '',
-        cervixHeight: dbLog.cervix_height || '',
-        cervixFirmness: dbLog.cervix_firmness || '',
-        cervixOpenness: dbLog.cervix_openness || '',
-        lhTest: dbLog.lh_test || 'No realizado',
-        symptoms: dbLog.symptoms || [],
-        sex: dbLog.sex,
-        sleepQuality: dbLog.sleep_quality,
-        sleepHours: dbLog.sleep_hours,
-        stressLevel: dbLog.stress_level,
-        activityMinutes: dbLog.activity_minutes || 0,
-        sunMinutes: dbLog.sun_minutes || 0,
-        waterGlasses: dbLog.water_glasses,
-        veggieServings: dbLog.veggie_servings,
-        alcohol: dbLog.alcohol,
-        alcoholUnits: dbLog.alcohol_units || undefined,
-      })) || [];
+    // 3. Formularios / exámenes (solo si es necesario)
+    let forms: ConsultationForm[] = [];
+    if (reportType === '360' || reportType === 'BASIC') {
+      sendProgress(res, 'COLLECTING_FORMS', 'Recopilando tus formularios y exámenes...');
+      const { data: formsData, error: formsError } = await supabase
+        .from('consultation_forms')
+        .select('*')
+        .eq('user_id', userId);
 
-    // 3. Formularios / exámenes (tabla consultation_forms)
-    const { data: formsData, error: formsError } = await supabase
-      .from('consultation_forms')
-      .select('*')
-      .eq('user_id', userId);
-
-    if (formsError) {
-      throw createError('Error al cargar los formularios', 500, 'FORMS_ERROR');
+      if (formsError) {
+        logger.warn('Error al cargar formularios:', formsError);
+      } else {
+        forms = (formsData as ConsultationForm[]) || [];
+      }
     }
 
-    const forms: ConsultationForm[] = (formsData as ConsultationForm[]) || [];
+    // 4. Informes previos (solo para informe 360)
+    let previousReports: AppNotification[] = [];
+    if (reportType === '360') {
+      sendProgress(res, 'COLLECTING_PREVIOUS_REPORTS', 'Revisando informes anteriores...');
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'REPORT')
+        .order('created_at', { ascending: false })
+        .limit(3);
 
-    // Construir contexto para Gemini (sin FertyScore ni pilares)
-    const context = {
-      perfil: {
-        id: userProfile.id,
-        nombre: userProfile.name,
-        edad: userProfile.age,
-        peso: userProfile.weight,
-        altura: userProfile.height,
-        objetivo: userProfile.mainObjective,
-        estado_pareja: userProfile.partnerStatus,
-        ciclo: {
-          longitud: userProfile.cycleLength,
-          regularidad: userProfile.cycleRegularity,
-          ultima_regla: userProfile.lastPeriodDate,
-          historial_reglas: userProfile.periodHistory,
-        },
-        diagnosticos: userProfile.diagnoses,
-        tratamientos_fertilidad: userProfile.fertilityTreatments,
-        suplementos: userProfile.supplements,
-        consumo_alcohol: userProfile.alcoholConsumption,
-        fumadora: userProfile.smoker,
-      },
-      registros_diarios: logs,
-      formularios: forms,
-      fecha_informe: new Date().toISOString(),
-    };
+      if (!reportsError && reportsData) {
+        previousReports = reportsData as AppNotification[];
+      }
+    }
 
-    // Obtener contexto metodológico FertyFit desde RAG
+    // 5. Buscar en base de conocimiento RAG
+    sendProgress(res, 'SEARCHING_KNOWLEDGE', 'Buscando información relevante en nuestra base de conocimiento...');
     let ragContext = '';
     let ragChunks: Array<{ content: string; metadata?: Record<string, any> }> = [];
     let ragUsed = false;
     let ragChunksCount = 0;
 
     try {
-      const ragQuery = `contexto metodológico FertyFit para un informe integral de fertilidad de una paciente de ${userProfile.age} años`;
-      
-      logger.log(`[RAG] Buscando contexto para informe de paciente ${userProfile.age} años`);
-      logger.log(`[RAG] Query: "${ragQuery}"`);
-      logger.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
-      
-      // Buscar sin filtros restrictivos - los documentos no tienen doc_type='Informe_Global' exacto
-      // La búsqueda vectorial encontrará los documentos más relevantes automáticamente
+      const ragQuery = getRAGQueryForReportType(reportType, userProfile.age);
       ragChunks = await searchRagDirect(ragQuery, undefined, 5);
-      
-      logger.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
-      
+
       if (ragChunks.length > 0) {
         ragChunksCount = ragChunks.length;
         ragContext = ragChunks.map((c) => c.content).join('\n\n');
         ragUsed = ragContext.length > 0;
-        
-        if (ragUsed) {
-          logger.log(`✅ RAG usado en informe: ${ragChunksCount} chunks encontrados para informe de paciente ${userProfile.age} años`);
-        }
-      } else {
-        logger.warn(`⚠️ RAG NO disponible en informe: No se encontraron chunks para informe de paciente ${userProfile.age} años`);
       }
     } catch (ragError: any) {
-      // Si falla el RAG, continuamos sin él (no rompemos el informe)
-      logger.error('❌ RAG EXCEPTION en informe:', ragError?.message || ragError);
-      logger.error('Stack:', ragError?.stack);
+      logger.error('RAG EXCEPTION en informe:', ragError?.message || ragError);
+      // Continuamos sin RAG
     }
 
-    const prompt = `
-Eres un experto en fertilidad y salud integral femenina siguiendo la metodología FertyFit.
+    // 6. Construir contexto según tipo de informe
+    sendProgress(res, 'ANALYZING_DATA', 'Analizando todos tus datos...');
+    const context = buildReportContext(
+      reportType,
+      userProfile,
+      logs,
+      forms,
+      previousReports.length > 0 ? previousReports : undefined
+    );
 
-${ragContext ? `IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
-NO uses conocimiento general que no esté en este contexto.
-PRIORIZA SIEMPRE el contexto metodológico FertyFit sobre cualquier conocimiento general.
-Si la información no está en este contexto, dilo explícitamente.
+    // 7. Generar prompt especializado
+    const ragChunksMetadata = ragChunks.map((c) => ({
+      document_id: c.metadata?.document_id || '',
+      document_title: c.metadata?.document_title || '',
+      chunk_index: c.metadata?.chunk_index || 0,
+    }));
 
-CONTEXTO METODOLÓGICO FERTYFIT (${ragChunksCount} fragmentos de documentación - fuente autorizada):
-${ragContext}
+    const prompt = getPromptForReportType(
+      reportType,
+      ragContext,
+      ragChunksCount,
+      previousReports.length > 0,
+      ragChunksMetadata
+    );
 
-` : ''}DATOS DE LA PACIENTE:
-Recibirás un JSON con:
-- Perfil de la usuaria.
-- Historial de registros diarios (temperatura, moco, sueño, estrés, hábitos).
-- Formularios y exámenes médicos guardados (incluyendo analíticas y ecografías).
-
-TAREA:
-1. Lee el JSON y construye un INFORME NARRATIVO COMPLETO para la usuaria.
-2. Estructura el informe en secciones con subtítulos claros, por ejemplo:
-   - Perfil general y contexto.
-   - Resumen de fertilidad general.
-   - Análisis de exámenes y datos médicos relevantes.
-   - Hábitos y estilo de vida (sueño, estrés, actividad, alimentación si está disponible).
-   - Síntesis de riesgos y fortalezas.
-   - Recomendaciones prácticas (3–5 puntos concretos).
-
-3. ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporcionado arriba. ' : ''}Usa un tono empático, claro y no alarmista.
-4. No inventes diagnósticos médicos; describe riesgos y patrones como "sugiere", "podría indicar".
-5. Escribe TODO el informe en español y dirigido en segunda persona ("tú").
-
-A continuación tienes el JSON de contexto de la paciente:
-`;
-
+    // 8. Generar informe con Gemini
+    sendProgress(res, 'GENERATING', 'Generando tu informe personalizado con IA...');
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [
-        { text: prompt },
-        { text: JSON.stringify(context) },
-      ],
+      contents: [{ text: prompt }, { text: JSON.stringify(context) }],
     } as any);
 
-    // Validar respuesta de Gemini de forma segura (preservar contexto RAG)
+    // Validar respuesta de Gemini
     let reportText: string;
     if (response && typeof response === 'object') {
       const responseText = (response as { text?: string }).text;
       if (typeof responseText === 'string' && responseText.length > 0) {
         reportText = responseText;
       } else {
-        logger.error('❌ Respuesta de Gemini sin texto válido para informe:', {
-          hasText: 'text' in response,
-          textType: typeof (response as { text?: unknown }).text,
-          responseKeys: Object.keys(response),
-        });
+        logger.error('Respuesta de Gemini sin texto válido para informe');
         reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
       }
     } else {
-      logger.error('❌ Respuesta de Gemini inválida para informe:', typeof response);
+      logger.error('Respuesta de Gemini inválida para informe');
       reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
     }
 
-    // Guardar el informe en notifications
+    // 9. Guardar el informe en notifications
     try {
-      const { error: saveError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: userId,
-          type: 'REPORT',
-          title: `Informe 360º - ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`,
-          message: reportText,
-          priority: 1,
-          is_read: false,
-          metadata: {
-            input: { userId },
-            sources: ragChunks.map((c) => ({
-              document_id: c.metadata?.document_id || '',
-              document_title: c.metadata?.document_title || '',
-              chunk_index: c.metadata?.chunk_index || 0,
-            })),
-            rag_used: ragUsed,
-            rag_chunks_count: ragChunksCount,
-            rag_context_length: ragContext.length,
-            generated_at: new Date().toISOString(),
-          },
-        });
+      const reportTitle = `${getReportTitle(reportType)} - ${new Date().toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })}`;
 
-      if (saveError) {
-        logger.warn('No se pudo guardar el informe en notifications:', saveError);
-        // No fallamos la request si falla el guardado
-      }
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'REPORT',
+        title: reportTitle,
+        message: reportText,
+        priority: 1,
+        is_read: false,
+        metadata: {
+          report_type: reportType,
+          input: { userId, reportType },
+          sources: ragChunks.map((c) => ({
+            document_id: c.metadata?.document_id || '',
+            document_title: c.metadata?.document_title || '',
+            chunk_index: c.metadata?.chunk_index || 0,
+          })),
+          rag_used: ragUsed,
+          rag_chunks_count: ragChunksCount,
+          rag_context_length: ragContext.length,
+          generated_at: new Date().toISOString(),
+        },
+      });
     } catch (saveError) {
       logger.warn('Error al guardar informe en notifications:', saveError);
       // No fallamos la request si falla el guardado
     }
 
-    return res.status(200).json({
+    // 10. Enviar resultado final
+    sendProgress(res, 'COMPLETE', 'Informe generado exitosamente', {
       report: reportText,
+      reportType,
       rag_used: ragUsed,
       rag_chunks_count: ragChunksCount,
+      data_sources: {
+        profile: true,
+        logs_count: logs.length,
+        forms_count: forms.length,
+        exams_count: forms.filter((f) =>
+          f.answers?.some((a: any) => a.questionId === 'exam_type')
+        ).length,
+        previous_reports_count: previousReports.length,
+      },
     });
-  } catch (error) {
+
+    res.end();
+  } catch (error: any) {
     // Aseguramos CORS también en errores
     setCORSHeaders(res, origin);
-    sendErrorResponse(res, error, req);
+    
+    // Intentar enviar error como progreso antes de cerrar
+    try {
+      sendProgress(res, 'ERROR', 'Error al generar el informe', {
+        error: error.message || 'Error desconocido',
+      });
+      res.end();
+    } catch (sendError) {
+      // Si falla el envío de progreso, usar respuesta JSON tradicional
+      sendErrorResponse(res, error, req);
+    }
   }
 }
-
