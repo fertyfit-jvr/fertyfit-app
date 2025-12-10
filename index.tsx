@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { logger } from './lib/logger';
 
 // Validate critical environment variables
 const requiredEnvVars = [
@@ -17,7 +18,7 @@ if (missingVars.length > 0) {
   const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env file.`;
   
   if (import.meta.env.DEV) {
-    console.error('❌', errorMessage);
+    logger.error('❌', errorMessage);
     // In development, show error but don't block
   } else {
     // In production, throw error to prevent app from running

@@ -3,6 +3,8 @@
  * Centralized error handling with proper logging and user-friendly messages
  */
 
+import { logger } from './logger.js';
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 export interface AppError extends Error {
@@ -38,7 +40,7 @@ export function handleError(error: unknown, req?: any): {
 } {
   // Log error details (only in development or to logging service)
   if (!isProduction) {
-    console.error('Error details:', error);
+    logger.error('Error details:', error);
   }
 
   // Handle known error types

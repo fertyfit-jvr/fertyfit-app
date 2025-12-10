@@ -1,6 +1,7 @@
 
 import { DailyLog } from '../types';
 import { parseLocalDate, formatToISO } from './dateUtils';
+import { logger } from '../lib/logger';
 
 export const calculateAverages = (logs: DailyLog[]) => {
   if (!logs || logs.length === 0) return { sleep: '0.0', veggies: '0.0', water: '0.0', stress: '0.0' };
@@ -121,7 +122,7 @@ export const calculateVitalityStats = (logs: DailyLog[]): string => {
 
 export const calculateDaysOnMethod = (startDateStr: string | undefined | null): number => {
     if (!startDateStr) {
-        console.warn('[calculateDaysOnMethod] No start date provided');
+        logger.warn('[calculateDaysOnMethod] No start date provided');
         return 0; // Returns 0 if not started
     }
     
@@ -130,7 +131,7 @@ export const calculateDaysOnMethod = (startDateStr: string | undefined | null): 
     
     const start = parseLocalDate(dateOnlyStr);
     if (!start) {
-        console.error('[calculateDaysOnMethod] Failed to parse start date:', startDateStr, '-> extracted:', dateOnlyStr);
+        logger.error('[calculateDaysOnMethod] Failed to parse start date:', startDateStr, '-> extracted:', dateOnlyStr);
         return 0;
     }
     
@@ -144,16 +145,14 @@ export const calculateDaysOnMethod = (startDateStr: string | undefined | null): 
     const result = Math.max(1, diffDays + 1);
     
     // Debug logging (only in development)
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('[calculateDaysOnMethod]', {
-            startDateStr,
-            dateOnlyStr,
-            start: start.toISOString().split('T')[0],
-            now: now.toISOString().split('T')[0],
-            diffDays,
-            result
-        });
-    }
+    logger.log('[calculateDaysOnMethod]', {
+        startDateStr,
+        dateOnlyStr,
+        start: start.toISOString().split('T')[0],
+        now: now.toISOString().split('T')[0],
+        diffDays,
+        result
+    });
     
     return result;
 };

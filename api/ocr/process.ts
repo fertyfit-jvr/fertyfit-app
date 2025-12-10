@@ -13,18 +13,7 @@ import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js
 import { applySecurityHeaders, validateImageUpload } from '../../server/lib/security.js';
 import { validateExtractedData, getErrorMessage } from '../../server/lib/medicalValidation.js';
 import { ai } from '../../server/lib/ai.js';
-
-// Logger simple para serverless functions (solo para serverless, no usar en frontend)
-const logger = {
-  log: (...args: unknown[]) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(...args);
-    }
-  },
-  error: (...args: unknown[]) => {
-    console.error(...args);
-  },
-};
+import { logger } from '../../server/lib/logger.js';
 
 // Extracción estructurada con Gemini 2.5 Flash
 async function extractStructuredDataWithGemini(

@@ -3,6 +3,7 @@ import { Check, Edit2, X } from 'lucide-react';
 import { ConsultationForm, FormAnswer, UserProfile, ViewState } from '../../types';
 import { formatDate } from '../../services/utils';
 import { supabase } from '../../services/supabase';
+import { logger } from '../../lib/logger';
 
 interface AnalyticsViewProps {
   user: UserProfile;
@@ -57,7 +58,7 @@ const AnalyticsView = ({
       await fetchUserForms(user.id!);
     } catch (error) {
       showNotif('Error al eliminar la analítica', 'error');
-      console.error('Error deleting exam:', error);
+      logger.error('Error deleting exam:', error);
     }
   };
 
@@ -100,7 +101,7 @@ const AnalyticsView = ({
       await fetchUserForms(user.id!);
     } catch (error) {
       showNotif('Error al actualizar la analítica', 'error');
-      console.error('Error updating exam:', error);
+      logger.error('Error updating exam:', error);
     }
   };
 
