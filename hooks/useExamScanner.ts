@@ -117,9 +117,12 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         setExtractedText(ocrResult.text);
       }
 
-      // Para ecografías e imágenes médicas, puede que no haya datos estructurados pero sí imagen
-      // Solo validar si no hay imagen ni datos
-      if ((!ocrResult.parsedData || Object.keys(ocrResult.parsedData).length === 0) && !image) {
+      // Para ecografías e imágenes médicas, puede que no haya datos estructurados pero sí imagen o hallazgos visuales
+      const hasHallazgosVisuales = ocrResult.raw?.hallazgos_visuales || ocrResult.parsedData?.hallazgos_visuales;
+      const hasParsedData = ocrResult.parsedData && Object.keys(ocrResult.parsedData).length > 0;
+      
+      // Solo validar si no hay imagen, datos ni hallazgos visuales
+      if (!hasParsedData && !image && !hasHallazgosVisuales) {
         throw new Error(
           'No se pudieron extraer datos estructurados del examen. Por favor, asegúrate de que la imagen sea clara y contenga los resultados visibles.'
         );
@@ -203,8 +206,8 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         textLength: ocrResult.text?.length || 0
       });
 
-      // Generar explicación RAG si hay datos válidos extraídos o imagen
-      if ((parsed && Object.keys(parsed).length > 0) || image) {
+      // Generar explicación RAG si hay datos válidos extraídos, imagen o hallazgos visuales
+      if ((parsed && Object.keys(parsed).length > 0) || image || hasHallazgosVisuales) {
         if (user?.id) {
           setIsGeneratingExplanation(true);
           try {

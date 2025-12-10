@@ -45,7 +45,8 @@ La imagen puede ser:
 
 INSTRUCCIONES:
 1. Si es una tabla de texto: Extrae todos los parámetros, valores, unidades y rangos de referencia.
-2. Si es una imagen de ecografía: Analiza las estructuras visibles, medidas, características morfológicas, y cualquier texto o anotaciones presentes.
+2. Si es una imagen de ecografía: Analiza las estructuras visibles, medidas, características morfológicas, y cualquier texto o anotaciones presentes. 
+   IMPORTANTE: Para ecografías, puedes devolver un array vacío en "resultados" si no hay parámetros numéricos estructurados, pero SIEMPRE debes incluir una descripción detallada en "hallazgos_visuales".
 3. Si es otro tipo de examen: Extrae toda la información estructurada disponible.
 
 DEVUELVE UN ÚNICO OBJETO JSON con la forma:
@@ -63,6 +64,8 @@ DEVUELVE UN ÚNICO OBJETO JSON con la forma:
   "hallazgos_visuales": string | null
 }
 
+IMPORTANTE: Si es una ecografía y no hay parámetros numéricos estructurados, devuelve "resultados": [] pero describe todo en "hallazgos_visuales".
+
 No añadas nada fuera del JSON (ni explicaciones, ni texto adicional).`
     : `
 Eres un experto en análisis de exámenes médicos especializado en fertilidad y salud reproductiva.
@@ -72,11 +75,13 @@ Analiza esta imagen de un examen médico y:
 1. PRIMERO identifica el tipo de examen:
    - Tipos comunes: "hormonal", "metabolic", "vitamin_d", "ecografia", "hsg", "espermio"
    - Pero puede ser CUALQUIER otro tipo de examen médico (ej: "hemograma", "coagulacion", "tiroides_completo", "vitamina_b12", "testosterona", etc.)
+   - Si es una imagen de ecografía (ultrasonido), identifícala como "ecografia"
    - Si no está seguro, usa un nombre descriptivo basado en lo que ve
 
 2. LUEGO extrae toda la información disponible:
    - Si es una tabla de texto: parámetros, valores, unidades, rangos
-   - Si es una imagen de ecografía: estructuras visibles, medidas, características, texto/anotaciones
+   - Si es una imagen de ecografía: estructuras visibles, medidas, características, texto/anotaciones. 
+     IMPORTANTE: Para ecografías, puedes devolver "resultados": [] si no hay parámetros numéricos estructurados, pero SIEMPRE debes incluir una descripción detallada en "hallazgos_visuales".
    - Si es otro tipo: toda la información estructurada que encuentres
 
 DEVUELVE UN ÚNICO OBJETO JSON con la forma:
@@ -93,6 +98,8 @@ DEVUELVE UN ÚNICO OBJETO JSON con la forma:
   ],
   "hallazgos_visuales": string | null
 }
+
+IMPORTANTE: Si es una ecografía y no hay parámetros numéricos estructurados, devuelve "resultados": [] pero describe todo en "hallazgos_visuales".
 
 No añadas nada fuera del JSON (ni explicaciones, ni texto adicional).`;
 
@@ -294,15 +301,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const resultados = Array.isArray(structuredData?.resultados)
       ? structuredData.resultados
       : [];
+    const hallazgosVisuales = structuredData?.hallazgos_visuales || null;
 
     // Tipos conocidos que tienen validación de rangos médicos
     const knownExamTypes = ['hormonal', 'metabolic', 'vitamin_d', 'espermio'];
     const isKnownType = knownExamTypes.includes(examTypeDetected.toLowerCase());
 
+    // Tipos de examen que son principalmente visuales (no requieren resultados estructurados)
+    const visualExamTypes = ['ecografia', 'hsg', 'ultrasonido', 'ecografía'];
+    const isVisualExam = visualExamTypes.some(type => 
+      examTypeDetected.toLowerCase().includes(type.toLowerCase())
+    );
+
     // Solo validar "no es examen médico" para tipos conocidos de laboratorio
+    // NO rechazar ecografías aunque no tengan resultados estructurados
     const labExamTypes = ['hormonal', 'metabolic', 'vitamin_d', 'espermio'];
     if (labExamTypes.includes(examTypeDetected.toLowerCase()) && (!resultados || resultados.length === 0)) {
       throw createError(getErrorMessage('NO_MEDICAL_EXAM', examTypeDetected), 400, 'NO_MEDICAL_EXAM');
+    }
+
+    // Para ecografías y exámenes visuales, aceptar aunque no haya resultados estructurados
+    // siempre que haya hallazgos_visuales o tipo_examen detectado
+    if (isVisualExam && (!resultados || resultados.length === 0) && !hallazgosVisuales) {
+      // Si es ecografía pero no hay hallazgos visuales ni resultados, puede ser que Gemini no pudo analizarla
+      // En este caso, aceptamos igualmente pero con advertencia
+      logger.warn('Ecografía detectada sin resultados estructurados ni hallazgos visuales, aceptando igualmente');
     }
 
     if (isKnownType) {
@@ -401,6 +424,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         rawParsedData[`${normalizedKey}_original`] = parametro;
       }
     }
+
+    // Agregar hallazgos_visuales si existe (para ecografías)
+    if (hallazgosVisuales) {
+      rawParsedData['hallazgos_visuales'] = hallazgosVisuales;
+    }
+
+    // También guardar el tipo de examen detectado
+    rawParsedData['tipo_examen_detectado'] = examTypeDetected;
 
     // Validar los datos extraídos solo para tipos conocidos
     let dataValidation;
