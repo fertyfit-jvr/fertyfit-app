@@ -10,7 +10,7 @@ type PillarCategory = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
 type LabsRagRequest = {
   userId: string;
-  labs: {
+  labs?: {
     amh?: number;
     fsh?: number;
     lh?: number;
@@ -21,6 +21,8 @@ type LabsRagRequest = {
     t3?: number;
     [key: string]: number | undefined;
   };
+  image?: string; // Imagen base64 opcional para ecografías
+  examType?: string; // Tipo de examen detectado
   filters?: {
     pillar_category?: PillarCategory;
   };
@@ -105,14 +107,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { userId, labs, filters }: LabsRagRequest = req.body || {};
+    const { userId, labs, image, examType, filters }: LabsRagRequest = req.body || {};
 
     if (!userId) {
       throw createError('Falta el userId en la solicitud', 400, 'BAD_REQUEST');
     }
 
-    if (!labs || Object.keys(labs).length === 0) {
-      throw createError('Faltan los valores de analítica en la solicitud', 400, 'BAD_REQUEST');
+    // Validar que haya labs o imagen
+    if ((!labs || Object.keys(labs).length === 0) && !image) {
+      throw createError('Faltan los valores de analítica o imagen en la solicitud', 400, 'BAD_REQUEST');
     }
 
     // (Opcional) Cargar perfil básico para contexto (edad)
@@ -139,15 +142,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let ragChunksCount = 0;
 
     try {
-      // Construir query para RAG basada en los valores de analítica
-      const labValues = Object.entries(labs)
-        .filter(([_, value]) => value !== undefined && value !== null)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(', ');
+      // Construir query para RAG
+      let ragQuery: string;
+      if (image && examType) {
+        // Si hay imagen, buscar contexto sobre ese tipo de examen
+        ragQuery = `contexto sobre interpretación de ${examType} y análisis de imágenes médicas de fertilidad para una mujer de ${age || 'edad no especificada'} años`;
+      } else if (labs && Object.keys(labs).length > 0) {
+        // Si hay valores de laboratorio
+        const labValues = Object.entries(labs)
+          .filter(([_, value]) => value !== undefined && value !== null)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
+        ragQuery = `contexto sobre interpretación general de analíticas de fertilidad (${labValues}) para una mujer de ${age || 'edad no especificada'} años`;
+      } else {
+        // Fallback genérico
+        ragQuery = `contexto sobre interpretación de exámenes médicos de fertilidad para una mujer de ${age || 'edad no especificada'} años`;
+      }
 
-      const ragQuery = `contexto sobre interpretación general de analíticas de fertilidad (${labValues}) para una mujer de ${age || 'edad no especificada'} años`;
-
-      logger.log(`[RAG] Buscando contexto para analíticas de paciente ${age || 'edad no especificada'} años`);
+      logger.log(`[RAG] Buscando contexto para ${examType || 'examen médico'} de paciente ${age || 'edad no especificada'} años`);
       logger.log(`[RAG] Query: "${ragQuery.substring(0, 100)}..."`);
       logger.log(`[RAG] Buscando sin filtros restrictivos (todos los documentos)`);
 
@@ -188,23 +200,67 @@ Si la información no está en este contexto, dilo explícitamente.
 CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de documentación):
 ${ragContext}
 
-` : ''}RESULTADOS ANALÍTICOS DE LA PACIENTE:
+FUENTES CONSULTADAS:
+${ragChunks.map((c, idx) => 
+  `${idx + 1}. ${c.metadata?.document_title || 'Documento sin título'} (ID: ${c.metadata?.document_id || 'N/A'})`
+).join('\n')}
+
+` : ''}${image ? `
+IMAGEN DEL EXAMEN:
+Analiza la imagen proporcionada. Si es una ecografía o imagen médica:
+- Describe los hallazgos visuales más relevantes (estructuras visibles, medidas, características)
+- Interpreta según la metodología FertyFit
+- Explica las implicaciones para la fertilidad
+- Si hay texto en la imagen, inclúyelo en el análisis
+
+` : ''}${labs && Object.keys(labs).length > 0 ? `
+RESULTADOS ANALÍTICOS DE LA PACIENTE:
 ${JSON.stringify({ labs, age: age || undefined }, null, 2)}
 
-TAREA:
-- Explica qué significan los valores de forma general (no es un diagnóstico médico individualizado).
-- Comenta posibles implicaciones en fertilidad a nivel educativo.
-- Sugiere preguntas que la paciente puede hacer a su médico.
-- No hagas recomendaciones médicas directas ni ajustes de medicación.
-- ${ragContext ? 'Recuerda: Solo usa la información del contexto FertyFit proporcionado arriba.' : 'Sé claro y educativo.'}
-- Escribe TODO en español y dirigido en segunda persona ("tú").
+` : ''}TAREA:
+Escribe una explicación CONCISA (máximo 3 párrafos breves, cada uno máximo 4-5 líneas) que incluya:
+
+1. PRIMER PÁRRAFO: Interpretación de los resultados/imagen
+   - Qué significan los valores o hallazgos visuales
+   - Implicaciones en fertilidad según metodología FertyFit
+
+2. SEGUNDO PÁRRAFO: Contexto y relevancia
+   - Por qué estos resultados son importantes
+   - Cómo se relacionan con la salud reproductiva
+
+3. TERCER PÁRRAFO: Próximos pasos
+   - Qué preguntas puede hacer a su médico
+   - Qué aspectos debe comentar en su próxima consulta
+
+${ragContext ? `\nIMPORTANTE: Al final de la explicación, incluye una línea breve con las fuentes consultadas:
+"Fuentes: ${ragChunks.map(c => c.metadata?.document_title || 'Documento').join(', ')}"` : ''}
+
+INSTRUCCIONES:
+- Máximo 3 párrafos breves (cada párrafo máximo 4-5 líneas)
+- Sé CONCISO y ve directo al punto
+- No hagas recomendaciones médicas directas ni ajustes de medicación
+- ${ragContext ? 'Solo usa información del contexto FertyFit proporcionado.' : 'Sé claro y educativo.'}
+- Escribe TODO en español y dirigido en segunda persona ("tú")
+- Si es una ecografía o imagen médica, enfócate en los hallazgos visuales más relevantes
+- Si el tipo de examen no está en el contexto FertyFit, explica de forma general pero educativa
 `;
+
+    // Si hay imagen, incluirla en el contenido
+    const contents = image 
+      ? [
+          { text: prompt },
+          {
+            inlineData: {
+              data: image.split(',')[1], // Remover data URL prefix
+              mimeType: 'image/jpeg',
+            },
+          },
+        ]
+      : [{ text: prompt }];
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [
-        { text: prompt },
-      ],
+      contents,
     } as any);
 
     // Validar respuesta de Gemini de forma segura (preservar contexto RAG)
@@ -228,18 +284,20 @@ TAREA:
 
     // Guardar la explicación en notifications
     try {
-      const labNames = Object.keys(labs).join(', ');
+      const labNames = labs && Object.keys(labs).length > 0 
+        ? Object.keys(labs).join(', ')
+        : examType || 'examen médico';
       const { error: saveError } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
           type: 'LABS',
-          title: `Análisis de analíticas - ${labNames}`,
+          title: `Análisis de ${labNames}`,
           message: explanation,
           priority: 1,
           is_read: false,
           metadata: {
-            input: { userId, labs, age: age || undefined },
+            input: { userId, labs, image: image ? 'provided' : undefined, examType, age: age || undefined },
             sources: ragChunks.map((c) => ({
               document_id: c.metadata?.document_id || '',
               document_title: c.metadata?.document_title || '',
@@ -263,7 +321,7 @@ TAREA:
 
     const responseData: LabsRagResponse = {
       explanation,
-      rawLabs: labs,
+      rawLabs: labs || {},
       rag_used: ragUsed,
       rag_chunks_count: ragChunksCount,
       ...(ragChunks.length > 0 && {

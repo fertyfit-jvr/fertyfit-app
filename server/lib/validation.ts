@@ -153,7 +153,7 @@ export const OCRRequestSchema = z.object({
   image: z.string()
     .min(100, 'Imagen inválida o demasiado pequeña')
     .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, 'Formato de imagen inválido'),
-  examType: z.enum(['hormonal', 'metabolic', 'vitamin_d', 'ecografia', 'hsg', 'espermio']),
+  examType: z.string().optional(), // Acepta cualquier tipo de examen o undefined para detección automática
 });
 
 

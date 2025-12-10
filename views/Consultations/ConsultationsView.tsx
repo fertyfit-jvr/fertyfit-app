@@ -23,10 +23,6 @@ interface ProgressEvent {
 
 const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps) => {
   const [globalScannerOpen, setGlobalScannerOpen] = useState(false);
-  const [globalExamType, setGlobalExamType] = useState<
-    'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'
-  >('hormonal');
-  const [globalExamName, setGlobalExamName] = useState('');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('360');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportText, setReportText] = useState<string | null>(null);
@@ -332,64 +328,28 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
 
       {/* Bloque global de subida de analíticas/ecografías */}
       <div className="bg-white border border-ferty-beige rounded-3xl p-4 shadow-sm mb-6">
-        <p className="text-sm font-bold text-ferty-dark mb-3">Subir analítica / Eco</p>
-        <div className="flex flex-col md:flex-row gap-3 items-stretch">
-          <select
-            value={globalExamType}
-            onChange={e => {
-              setGlobalExamType(e.target.value as any);
-              if (e.target.value !== 'other') {
-                setGlobalExamName('');
-              }
-            }}
-            className="flex-1 border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
-          >
-            <option value="hormonal">Panel hormonal</option>
-            <option value="metabolic">Panel metabólico</option>
-            <option value="vitamin_d">Vitamina D</option>
-            <option value="espermio">Espermiograma</option>
-            <option value="ecografia">Ecografía transvaginal + AFC</option>
-            <option value="hsg">Histerosalpingografía</option>
-            <option value="other">Otro (especificar)</option>
-          </select>
-
-          {globalExamType === 'other' && (
-            <input
-              type="text"
-              value={globalExamName}
-              onChange={e => setGlobalExamName(e.target.value)}
-              placeholder="¿Qué examen estás subiendo?"
-              className="flex-1 border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={() => setGlobalScannerOpen(true)}
-            className="px-6 py-3 rounded-2xl bg-ferty-rose text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-ferty-roseHover transition-colors shadow-sm"
-          >
-            <Camera size={18} />
-            Escanear examen
-          </button>
-        </div>
+        <p className="text-sm font-bold text-ferty-dark mb-3">Subir examen médico</p>
+        <p className="text-xs text-ferty-gray mb-4">
+          Puedes subir cualquier tipo de examen médico. Detectaremos automáticamente el tipo y extraeremos los datos.
+        </p>
+        <button
+          type="button"
+          onClick={() => setGlobalScannerOpen(true)}
+          className="w-full px-6 py-3 rounded-2xl bg-ferty-rose text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-ferty-roseHover transition-colors shadow-sm"
+        >
+          <Camera size={18} />
+          Escanear examen
+        </button>
       </div>
 
       {/* Exam Scanner Modal - Global */}
       {globalScannerOpen && (
         <ExamScanner
-          examType={
-            globalExamType === 'other'
-              ? undefined
-              : (globalExamType as 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio')
-          }
+          autoDetect={true}
           onDataExtracted={handleDataExtracted}
           onClose={() => {
             setGlobalScannerOpen(false);
-            setGlobalExamName('');
           }}
-          sectionTitle={globalExamType === 'other' ? globalExamName || 'Examen' : undefined}
-          autoDetect={globalExamType === 'other'}
-          examName={globalExamType === 'other' ? globalExamName : undefined}
         />
       )}
     </div>

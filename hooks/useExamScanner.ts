@@ -117,18 +117,25 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         setExtractedText(ocrResult.text);
       }
 
-      if (!ocrResult.parsedData || Object.keys(ocrResult.parsedData).length === 0) {
+      // Para ecografías e imágenes médicas, puede que no haya datos estructurados pero sí imagen
+      // Solo validar si no hay imagen ni datos
+      if ((!ocrResult.parsedData || Object.keys(ocrResult.parsedData).length === 0) && !image) {
         throw new Error(
           'No se pudieron extraer datos estructurados del examen. Por favor, asegúrate de que la imagen sea clara y contenga los resultados visibles.'
         );
       }
 
-      const parsed: Record<string, any> = ocrResult.parsedData;
+      const parsed: Record<string, any> = ocrResult.parsedData || {};
       let finalExamType: string | undefined = examType || ocrResult.examTypeDetected;
 
       // Si tenemos examType detectado por el backend, usarlo
       if (ocrResult.examTypeDetected) {
         finalExamType = ocrResult.examTypeDetected;
+      }
+
+      // Si no hay tipo pero hay imagen, usar tipo genérico
+      if (!finalExamType && image) {
+        finalExamType = 'examen_medico';
       }
 
       // Construir comentario breve a partir de warnings y errores
@@ -150,29 +157,33 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
           ? commentParts.join('\n')
           : 'Todos los valores están dentro de los rangos recomendados.';
 
-      // Guardar TODOS los exámenes (no solo genéricos)
-      if (parsed && Object.keys(parsed).length > 0 && user?.id) {
-        logger.log('💾 Saving exam to consultation_forms...', { examType: finalExamType });
-        try {
-          // Si hay un nombre de examen personalizado (caso "Otro"), usarlo como examTypeDetected
-          const finalExamTypeWithName = examName || finalExamType;
-          
-          const saveResult = await saveExamToConsultationForms(
-            user.id,
-            parsed,
-            examType,
-            finalExamTypeWithName,
-            ocrResult.text,
-            ocrResult.raw,
-            validationComment
-          );
-          if (saveResult.success) {
-            logger.log('✅ Exam saved successfully', { formId: saveResult.formId });
-          } else {
-            logger.warn('⚠️ Failed to save exam:', saveResult.error);
+      // Guardar TODOS los exámenes (incluso si solo hay imagen sin datos estructurados)
+      if ((parsed && Object.keys(parsed).length > 0) || image) {
+        if (!user?.id) {
+          logger.warn('No hay userId, no se puede guardar el examen');
+        } else {
+          logger.log('💾 Saving exam to consultation_forms...', { examType: finalExamType });
+          try {
+            // Si hay un nombre de examen personalizado (caso "Otro"), usarlo como examTypeDetected
+            const finalExamTypeWithName = examName || finalExamType;
+            
+            const saveResult = await saveExamToConsultationForms(
+              user.id,
+              parsed,
+              examType,
+              finalExamTypeWithName,
+              ocrResult.text,
+              ocrResult.raw,
+              validationComment
+            );
+            if (saveResult.success) {
+              logger.log('✅ Exam saved successfully', { formId: saveResult.formId });
+            } else {
+              logger.warn('⚠️ Failed to save exam:', saveResult.error);
+            }
+          } catch (saveError) {
+            logger.error('❌ Error saving exam:', saveError);
           }
-        } catch (saveError) {
-          logger.error('❌ Error saving exam:', saveError);
         }
       }
 
@@ -192,51 +203,53 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         textLength: ocrResult.text?.length || 0
       });
 
-      // Generar explicación RAG si hay datos válidos extraídos
-      if (parsed && Object.keys(parsed).length > 0 && user?.id) {
-        // Solo para exámenes de laboratorio (no ecografías/HSG)
-        const labExamTypes = ['hormonal', 'metabolic', 'vitamin_d', 'espermio'];
-        const examTypeKey = (finalExamType || examType || '').toLowerCase();
-
-        if (labExamTypes.includes(examTypeKey)) {
+      // Generar explicación RAG si hay datos válidos extraídos o imagen
+      if ((parsed && Object.keys(parsed).length > 0) || image) {
+        if (user?.id) {
           setIsGeneratingExplanation(true);
           try {
-            // Mapear los datos extraídos al formato que espera labs-rag
+            // Mapear los datos extraídos al formato que espera labs-rag (solo valores numéricos)
             const labs: Record<string, number> = {};
-            Object.entries(parsed).forEach(([key, value]) => {
-              // Extraer nombre del parámetro (ej: function_fsh -> fsh, function_amh -> amh)
-              const paramName = key.replace('function_', '').toLowerCase();
-              // Convertir a número si es posible
-              if (typeof value === 'number') {
-                labs[paramName] = value;
-              } else if (typeof value === 'string') {
-                const numValue = parseFloat(value);
-                if (!isNaN(numValue)) {
-                  labs[paramName] = numValue;
+            if (parsed && Object.keys(parsed).length > 0) {
+              Object.entries(parsed).forEach(([key, value]) => {
+                // Extraer nombre del parámetro (ej: function_fsh -> fsh, function_amh -> amh)
+                const paramName = key.replace('function_', '').replace('exam_', '').toLowerCase();
+                // Convertir a número si es posible
+                if (typeof value === 'number') {
+                  labs[paramName] = value;
+                } else if (typeof value === 'string') {
+                  const numValue = parseFloat(value);
+                  if (!isNaN(numValue)) {
+                    labs[paramName] = numValue;
+                  }
                 }
-              }
+              });
+            }
+
+            logger.log('🔍 Generating RAG explanation...', { 
+              labsCount: Object.keys(labs).length,
+              hasImage: !!image,
+              examType: finalExamType 
+            });
+            
+            const response = await fetch('/api/analysis/labs-rag', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.id,
+                labs: Object.keys(labs).length > 0 ? labs : undefined,
+                image: image || undefined,
+                examType: finalExamType || undefined,
+                filters: { pillar_category: 'FUNCTION' }
+              })
             });
 
-            if (Object.keys(labs).length > 0) {
-              logger.log('🔍 Generating RAG explanation for labs...', { labsCount: Object.keys(labs).length });
-              
-              const response = await fetch('/api/analysis/labs-rag', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  userId: user.id,
-                  labs,
-                  filters: { pillar_category: 'FUNCTION' }
-                })
-              });
-
-              if (response.ok) {
-                const data = await response.json();
-                setRagExplanation(data.explanation || null);
-                logger.log('✅ RAG explanation generated successfully');
-              } else {
-                logger.warn('⚠️ Failed to generate RAG explanation:', response.status);
-              }
+            if (response.ok) {
+              const data = await response.json();
+              setRagExplanation(data.explanation || null);
+              logger.log('✅ RAG explanation generated successfully');
+            } else {
+              logger.warn('⚠️ Failed to generate RAG explanation:', response.status);
             }
           } catch (ragError) {
             logger.warn('⚠️ Failed to generate RAG explanation:', ragError);
