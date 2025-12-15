@@ -240,35 +240,6 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                 </div>
               </div>
 
-              {/* Mostrar advertencias de validación */}
-              {warnings.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs font-bold text-amber-800">Advertencias:</p>
-                  </div>
-                  {warnings.map((warning, idx) => (
-                    <p key={idx} className="text-xs text-amber-700 ml-6">{warning}</p>
-                  ))}
-                </div>
-              )}
-
-              {/* Mostrar errores de validación */}
-              {validationErrors.length > 0 && (
-                <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs font-bold text-red-800">Valores fuera de rango:</p>
-                  </div>
-                  {validationErrors.map((err, idx) => (
-                    <p key={idx} className="text-xs text-red-700 ml-6">{err}</p>
-                  ))}
-                  <p className="text-xs text-red-600 mt-2 ml-6 italic">
-                    Estos valores no se incluirán. Por favor, verifica el examen original.
-                  </p>
-                </div>
-              )}
-
               {/* Mostrar texto completo extraído */}
               {extractedText && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">

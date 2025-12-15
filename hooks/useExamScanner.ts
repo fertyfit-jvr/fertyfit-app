@@ -81,6 +81,10 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
     setWarnings([]);
     setValidationErrors([]);
 
+    // Necesitamos conservar el formId fuera del bloque donde se guarda el examen
+    // para poder añadir después el análisis RAG a esa misma analítica
+    let savedFormId: number | undefined;
+
     try {
       // Validar que la imagen tenga el formato correcto
       if (!image.startsWith('data:image/')) {
@@ -148,10 +152,9 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         } else {
           logger.log('💾 Saving exam to consultation_forms...', { examType: finalExamType });
           try {
-            let savedFormId: number | undefined;
             // Si hay un nombre de examen personalizado (caso "Otro"), usarlo como examTypeDetected
             const finalExamTypeWithName = examName || finalExamType;
-            
+
             const saveResult = await saveExamToConsultationForms(
               user.id,
               parsed,
