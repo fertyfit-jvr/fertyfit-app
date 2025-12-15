@@ -161,6 +161,13 @@ const AnalyticsView = ({
                 {visibleForms.map((examForm) => {
                   const examTypeAnswer = examForm.answers?.find((a: FormAnswer) => a.questionId === 'exam_type');
                   const examType = examTypeAnswer?.answer || 'Examen';
+                  const examTypeStr = typeof examType === 'string' ? examType.toLowerCase() : '';
+                  const isVisualExam =
+                    examTypeStr.includes('ecografia') ||
+                    examTypeStr.includes('ecografía') ||
+                    examTypeStr.includes('ultrasonido') ||
+                    examTypeStr.includes('eco') ||
+                    examTypeStr.includes('hsg');
                   const isEditing = editingExamId === examForm.id;
                   const currentAnswers = isEditing && editingExamAnswers[examForm.id!] 
                     ? editingExamAnswers[examForm.id!] 
@@ -170,6 +177,20 @@ const AnalyticsView = ({
                   const aiAnalysisAnswer =
                     currentAnswers.find((a: FormAnswer) => a.questionId === 'rag_analysis') ||
                     currentAnswers.find((a: FormAnswer) => a.questionId === 'gemini_comment');
+                  const aiAnalysisText =
+                    aiAnalysisAnswer && typeof aiAnalysisAnswer.answer === 'string'
+                      ? aiAnalysisAnswer.answer
+                      : aiAnalysisAnswer
+                      ? String(aiAnalysisAnswer.answer || '')
+                      : null;
+                  const aiAnalysisPreview = aiAnalysisText
+                    ? (() => {
+                        const firstLine = aiAnalysisText.split('\n')[0];
+                        const trimmed = firstLine.trim();
+                        if (trimmed.length <= 120) return trimmed;
+                        return `${trimmed.slice(0, 117)}...`;
+                      })()
+                    : null;
                   const examAnswers = currentAnswers.filter((a: FormAnswer) => 
                     a.questionId !== 'exam_type' &&
                     a.questionId !== 'gemini_comment' &&
@@ -188,6 +209,12 @@ const AnalyticsView = ({
                           <p className="text-[10px] text-ferty-gray">
                             {examForm.submitted_at ? formatDate(examForm.submitted_at) : ''}
                           </p>
+                          {aiAnalysisPreview && (
+                            <p className="mt-1 text-[10px] text-ferty-gray line-clamp-2">
+                              <span className="font-semibold text-ferty-rose">Análisis IA: </span>
+                              {aiAnalysisPreview}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 ml-4">
                           {isEditing ? (
@@ -229,18 +256,33 @@ const AnalyticsView = ({
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         {(showAll ? examAnswers : examAnswers.slice(0, initialShowCount)).map((answer: FormAnswer) => (
-                          <div key={answer.questionId} className="bg-white p-2 rounded-xl">
+                          <div
+                            key={answer.questionId}
+                            className={`bg-white p-2 rounded-xl ${
+                              isVisualExam &&
+                              (answer.questionId === 'hallazgos_visuales' ||
+                                answer.questionId === 'tipo_examen_detectado')
+                                ? 'col-span-2'
+                                : ''
+                            }`}
+                          >
                             <p className="text-[10px] text-ferty-gray mb-0.5">{answer.question}</p>
                             {isEditing ? (
                               <input
                                 type="text"
-                                value={typeof answer.answer === 'object' ? JSON.stringify(answer.answer) : String(answer.answer || '')}
+                                value={
+                                  typeof answer.answer === 'object'
+                                    ? JSON.stringify(answer.answer)
+                                    : String(answer.answer || '')
+                                }
                                 onChange={(e) => handleUpdateExamAnswer(examForm.id!, answer.questionId, e.target.value)}
                                 className="w-full text-xs font-semibold text-ferty-dark border border-ferty-beige rounded-lg p-1 focus:border-ferty-rose focus:outline-none"
                               />
                             ) : (
                               <p className="text-xs font-semibold text-ferty-dark">
-                                {typeof answer.answer === 'object' ? JSON.stringify(answer.answer) : String(answer.answer)}
+                                {typeof answer.answer === 'object'
+                                  ? JSON.stringify(answer.answer)
+                                  : String(answer.answer)}
                               </p>
                             )}
                           </div>
