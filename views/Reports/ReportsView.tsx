@@ -21,8 +21,10 @@ const ReportsView = ({
   deleteNotification,
   onNotificationAction
 }: ReportsViewProps) => {
-  // Filtrar solo informes de IA
-  const aiReports = visibleNotifications.filter(n => isAINotification(n.type as string));
+  // Filtrar solo informes de IA, excluyendo explicaciones de analíticas (type: 'LABS')
+  const aiReports = visibleNotifications.filter(n => 
+    isAINotification(n.type as string) && n.type !== 'LABS'
+  );
 
   // Ordenar por fecha más reciente primero
   const sortedReports = [...aiReports].sort((a, b) => {
