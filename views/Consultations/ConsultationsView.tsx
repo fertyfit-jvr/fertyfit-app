@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Camera, Loader2, FileText, MessageCircle, Copy, Check } from 'lucide-react';
+import { AlertCircle, Camera, Loader2, FileText, MessageCircle } from 'lucide-react';
 import { UserProfile, ViewState } from '../../types';
 import { ExamScanner } from '../../components/forms/ExamScanner';
 
@@ -27,11 +27,7 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('360');
   const [labsScope, setLabsScope] = useState<LabsScope>('LAST');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [reportText, setReportText] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
-  const [progressStage, setProgressStage] = useState<string>('');
-  const [progressMessage, setProgressMessage] = useState<string>('');
-  const [copied, setCopied] = useState(false);
 
   const handleDataExtracted = (data: Record<string, any>) => {
     showNotif('Datos extraídos correctamente. Revisa y confirma los valores.', 'success');
@@ -42,9 +38,6 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
 
     setIsGeneratingReport(true);
     setReportError(null);
-    setReportText(null);
-    setProgressStage('INITIALIZING');
-    setProgressMessage('Iniciando generación del informe...');
 
     try {
       const response = await fetch('/api/analysis/report-extended', {
@@ -59,7 +52,7 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
 
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = `Error al generar el informe (${response.status})`;
+        let errorMessage = `Error al lanzar la generación del informe (${response.status})`;
         try {
           const errorData = JSON.parse(errorText);
           errorMessage = errorData.error || errorMessage;
@@ -67,99 +60,22 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
           // Si no es JSON, usar el texto tal cual
         }
         setReportError(errorMessage);
-        setIsGeneratingReport(false);
         return;
       }
 
-      // Leer el stream NDJSON
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('No se pudo leer la respuesta del servidor');
-      }
-
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Mantener la línea incompleta en el buffer
-
-        for (const line of lines) {
-          if (line.trim()) {
-            try {
-              const event: ProgressEvent = JSON.parse(line);
-              
-              setProgressStage(event.stage);
-              setProgressMessage(event.message);
-
-              if (event.stage === 'COMPLETE') {
-                setReportText(event.data?.report || 'No se pudo generar el informe.');
-                setIsGeneratingReport(false);
-              } else if (event.stage === 'ERROR') {
-                setReportError(event.data?.error || 'Error desconocido al generar el informe');
-                setIsGeneratingReport(false);
-              }
-            } catch (parseError) {
-              // Ignorar líneas que no son JSON válido
-            }
-          }
-        }
-      }
-
-      // Procesar cualquier línea restante en el buffer
-      if (buffer.trim()) {
-        try {
-          const event: ProgressEvent = JSON.parse(buffer);
-          setProgressStage(event.stage);
-          setProgressMessage(event.message);
-          if (event.stage === 'COMPLETE') {
-            setReportText(event.data?.report || 'No se pudo generar el informe.');
-            setIsGeneratingReport(false);
-          }
-        } catch {
-          // Ignorar si no es JSON válido
-        }
-      }
+      // Avisar a la usuaria de que el informe se está generando en segundo plano
+      showNotif(
+        'Estamos generando tu informe en segundo plano. Puedes ir a otra sección; lo encontrarás en la pestaña "Informes" cuando esté listo.',
+        'success'
+      );
     } catch (err: any) {
       setReportError(
         err?.message ||
           'Error al conectar con el servidor. Verifica tu conexión a internet e intenta de nuevo.'
       );
+    } finally {
       setIsGeneratingReport(false);
     }
-  };
-
-  const handleCopyReport = async () => {
-    if (!reportText) return;
-    try {
-      await navigator.clipboard.writeText(reportText);
-      setCopied(true);
-      showNotif('Informe copiado al portapapeles', 'success');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      showNotif('Error al copiar el informe', 'error');
-    }
-  };
-
-  const getProgressPercentage = (stage: string): number => {
-    const stageMap: Record<string, number> = {
-      INITIALIZING: 5,
-      COLLECTING_PROFILE: 15,
-      COLLECTING_LOGS: 30,
-      COLLECTING_FORMS: 45,
-      COLLECTING_PREVIOUS_REPORTS: 55,
-      SEARCHING_KNOWLEDGE: 70,
-      ANALYZING_DATA: 80,
-      GENERATING: 90,
-      COMPLETE: 100,
-      ERROR: 0,
-    };
-    return stageMap[stage] || 0;
   };
 
   const getReportTypeLabel = (type: ReportType): string => {
@@ -313,57 +229,6 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
           )}
         </button>
 
-        {/* Área de progreso */}
-        {isGeneratingReport && (
-          <div className="mt-6 space-y-3">
-            <div className="flex items-center gap-3">
-              <Loader2 size={20} className="animate-spin text-ferty-rose" />
-              <div className="flex-1">
-                <p className="text-sm font-bold text-ferty-dark">
-                  {progressMessage || 'Procesando...'}
-                </p>
-                <div className="mt-2 w-full bg-ferty-beige rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-ferty-rose h-2 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${getProgressPercentage(progressStage)}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Área de resultado */}
-        {reportText && !isGeneratingReport && !reportError && (
-          <div className="mt-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-lg font-bold text-ferty-dark">{getReportTypeLabel(selectedReportType)}</h4>
-              <button
-                onClick={handleCopyReport}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ferty-beigeLight hover:bg-ferty-beige text-sm text-ferty-dark transition-colors"
-              >
-                {copied ? (
-                  <>
-                    <Check size={16} />
-                    Copiado
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} />
-                    Copiar
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="bg-ferty-beigeLight border border-ferty-beige p-4 rounded-2xl">
-              <p className="text-sm text-ferty-dark whitespace-pre-line leading-relaxed">
-                {reportText}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Área de error */}
         {reportError && !isGeneratingReport && (
