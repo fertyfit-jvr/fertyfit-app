@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { processImageOCR } from '../services/googleCloud/visionService';
-import { saveExamToConsultationForms, appendRagAnalysisToExam } from '../services/examService';
+import { saveExamToConsultationForms } from '../services/examService';
 import { logger } from '../lib/logger';
 import { useAppStore } from '../store/useAppStore';
 
@@ -81,10 +81,6 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
     setWarnings([]);
     setValidationErrors([]);
 
-    // Necesitamos conservar el formId fuera del bloque donde se guarda el examen
-    // para poder añadir después el análisis RAG a esa misma analítica
-    let savedFormId: number | undefined;
-
     try {
       // Validar que la imagen tenga el formato correcto
       if (!image.startsWith('data:image/')) {
@@ -145,36 +141,6 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         finalExamType = 'examen_medico';
       }
 
-      // Guardar TODOS los exámenes (incluso si solo hay imagen sin datos estructurados)
-      if ((parsed && Object.keys(parsed).length > 0) || image) {
-        if (!user?.id) {
-          logger.warn('No hay userId, no se puede guardar el examen');
-        } else {
-          logger.log('💾 Saving exam to consultation_forms...', { examType: finalExamType });
-          try {
-            // Si hay un nombre de examen personalizado (caso "Otro"), usarlo como examTypeDetected
-            const finalExamTypeWithName = examName || finalExamType;
-
-            const saveResult = await saveExamToConsultationForms(
-              user.id,
-              parsed,
-              examType,
-              finalExamTypeWithName,
-              ocrResult.text,
-              ocrResult.raw
-            );
-            if (saveResult.success) {
-              savedFormId = saveResult.formId;
-              logger.log('✅ Exam saved successfully', { formId: saveResult.formId });
-            } else {
-              logger.warn('⚠️ Failed to save exam:', saveResult.error);
-            }
-          } catch (saveError) {
-            logger.error('❌ Error saving exam:', saveError);
-          }
-        }
-      }
-
       if (ocrResult.warnings && ocrResult.warnings.length > 0) {
         setWarnings(ocrResult.warnings);
         logger.warn('⚠️ OCR warnings:', ocrResult.warnings);
@@ -191,7 +157,9 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         textLength: ocrResult.text?.length || 0
       });
 
-      // Generar explicación RAG si hay datos válidos extraídos, imagen o hallazgos visuales
+      // 1) Generar explicación RAG (si aplica) y guardarla en una variable local
+      let ragText: string | undefined;
+
       if ((parsed && Object.keys(parsed).length > 0) || image || hasHallazgosVisuales) {
         if (user?.id) {
           setIsGeneratingExplanation(true);
@@ -234,20 +202,14 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
 
             if (response.ok) {
               const data = await response.json();
-              setRagExplanation(data.explanation || null);
-              logger.log('✅ RAG explanation generated successfully');
+              const explanation =
+                typeof data.explanation === 'string' && data.explanation.trim().length > 0
+                  ? data.explanation
+                  : '';
 
-              // Guardar la explicación RAG directamente en la analítica asociada, si existe
-              if (data.explanation && typeof data.explanation === 'string' && savedFormId) {
-                try {
-                  const result = await appendRagAnalysisToExam(savedFormId, data.explanation);
-                  if (!result.success) {
-                    logger.warn('⚠️ Failed to append RAG analysis to exam:', result.error);
-                  }
-                } catch (appendError) {
-                  logger.warn('⚠️ Exception while appending RAG analysis to exam:', appendError);
-                }
-              }
+              setRagExplanation(explanation || null);
+              ragText = explanation || undefined;
+              logger.log('✅ RAG explanation generated successfully');
             } else {
               logger.warn('⚠️ Failed to generate RAG explanation:', response.status);
             }
@@ -256,6 +218,37 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
             // No mostramos error al usuario, solo no mostramos explicación
           } finally {
             setIsGeneratingExplanation(false);
+          }
+        }
+      }
+
+      // 2) Guardar TODOS los exámenes (incluso si solo hay imagen sin datos estructurados),
+      //    incluyendo la explicación IA si la tenemos
+      if ((parsed && Object.keys(parsed).length > 0) || image) {
+        if (!user?.id) {
+          logger.warn('No hay userId, no se puede guardar el examen');
+        } else {
+          logger.log('💾 Saving exam to consultation_forms...', { examType: finalExamType });
+          try {
+            // Si hay un nombre de examen personalizado (caso "Otro"), usarlo como examTypeDetected
+            const finalExamTypeWithName = examName || finalExamType;
+
+            const saveResult = await saveExamToConsultationForms(
+              user.id,
+              parsed,
+              examType,
+              finalExamTypeWithName,
+              ocrResult.text,
+              ocrResult.raw,
+              ragText
+            );
+            if (saveResult.success) {
+              logger.log('✅ Exam saved successfully', { formId: saveResult.formId });
+            } else {
+              logger.warn('⚠️ Failed to save exam:', saveResult.error);
+            }
+          } catch (saveError) {
+            logger.error('❌ Error saving exam:', saveError);
           }
         }
       }

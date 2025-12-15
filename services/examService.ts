@@ -67,6 +67,7 @@ function formatFieldNameToLabel(fieldName: string): string {
 /**
  * Saves exam results to consultation_forms
  * Can handle both predefined exam types (FUNCTION) and generic exams
+ * and optionally includes the AI RAG explanation directly in answers.
  */
 export async function saveExamToConsultationForms(
   userId: string,
@@ -74,12 +75,22 @@ export async function saveExamToConsultationForms(
   examType?: string,
   examTypeDetected?: string,
   rawText?: string,
-  rawGeminiData?: any
+  rawGeminiData?: any,
+  ragExplanation?: string
 ): Promise<{ success: boolean; error?: string; formId?: number }> {
   try {
     // Convert parsed data to FormAnswer format
     const finalExamType = examTypeDetected || examType || 'unknown';
     const answers = convertParsedDataToFormAnswers(parsedData, finalExamType);
+
+    // Optionally include the AI analysis as an extra answer
+    if (ragExplanation && ragExplanation.trim().length > 0) {
+      answers.push({
+        questionId: 'rag_analysis',
+        question: 'Análisis del examen generado por IA (FertyFit RAG)',
+        answer: ragExplanation,
+      });
+    }
 
     if (answers.length === 0) {
       logger.warn('No data to save from exam');
@@ -138,57 +149,4 @@ export async function saveExamToConsultationForms(
     return { success: false, error: error.message };
   }
 }
-
-/**
- * Appends an AI RAG analysis to an existing exam form as a new FormAnswer.
- * This keeps the exam values and the AI explanation together in consultation_forms.answers.
- */
-export async function appendRagAnalysisToExam(
-  formId: number,
-  explanation: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { data, error } = await supabase
-      .from('consultation_forms')
-      .select('answers')
-      .eq('id', formId)
-      .single();
-
-    if (error) {
-      logger.error('Error fetching consultation_form for rag_analysis:', error);
-      return { success: false, error: error.message };
-    }
-
-    const currentAnswers: FormAnswer[] = Array.isArray(data?.answers) ? data.answers : [];
-
-    const updatedAnswers: FormAnswer[] = [
-      ...currentAnswers.filter(a => a.questionId !== 'rag_analysis'),
-      {
-        questionId: 'rag_analysis',
-        question: 'Análisis del examen generado por IA (FertyFit RAG)',
-        answer: explanation,
-      },
-    ];
-
-    const { error: updateError } = await supabase
-      .from('consultation_forms')
-      .update({
-        answers: updatedAnswers,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', formId);
-
-    if (updateError) {
-      logger.error('Error updating consultation_form with rag_analysis:', updateError);
-      return { success: false, error: updateError.message };
-    }
-
-    logger.log('✅ RAG analysis appended to consultation_form', { formId });
-    return { success: true };
-  } catch (error: any) {
-    logger.error('Error in appendRagAnalysisToExam:', error);
-    return { success: false, error: error.message };
-  }
-}
-
 
