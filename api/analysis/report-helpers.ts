@@ -1,6 +1,6 @@
 import type { UserProfile, DailyLog, ConsultationForm, AppNotification } from '../../types.js';
 
-export type ReportType = '360' | 'BASIC' | 'DAILY';
+export type ReportType = '360' | 'BASIC' | 'DAILY' | 'LABS';
 
 export interface ReportContext {
   perfil: any;
@@ -102,6 +102,18 @@ export function buildReportContext(
           },
         },
         registros_diarios: logs,
+        fecha_informe: new Date().toISOString(),
+      };
+    }
+
+    case 'LABS': {
+      // Informe centrado en analíticas:
+      // - Incluye siempre el perfil completo
+      // - Los formularios ya deben venir filtrados desde el handler:
+      //   F0 + pilares + analíticas (según alcance: última o todas)
+      return {
+        perfil: baseProfile,
+        formularios: forms,
         fecha_informe: new Date().toISOString(),
       };
     }
@@ -338,6 +350,8 @@ export function getRAGQueryForReportType(
       return `contexto metodológico FertyFit sobre los pilares Function, Food, Flora y Flow para evaluación de fertilidad`;
     case 'DAILY':
       return `contexto metodológico FertyFit para análisis de registros diarios y biomarcadores de fertilidad`;
+    case 'LABS':
+      return `contexto metodológico FertyFit para interpretación de analíticas de fertilidad y exámenes médicos de una paciente de ${userAge} años`;
     default:
       return `contexto metodológico FertyFit para análisis de fertilidad`;
   }
@@ -354,6 +368,8 @@ export function getReportTitle(reportType: ReportType): string {
       return 'Informe Básico';
     case 'DAILY':
       return 'Informe de Registros Diarios';
+    case 'LABS':
+      return 'Informe de Analíticas';
     default:
       return 'Informe';
   }

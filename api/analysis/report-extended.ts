@@ -100,9 +100,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { userId, reportType = '360' } = req.body as {
+    const { userId, reportType = '360', labsScope = 'LAST' } = req.body as {
       userId?: string;
       reportType?: ReportType;
+      labsScope?: 'LAST' | 'ALL';
     };
 
     if (!userId) {
@@ -110,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Validar reportType
-    if (!['360', 'BASIC', 'DAILY'].includes(reportType)) {
+    if (!['360', 'BASIC', 'DAILY', 'LABS'].includes(reportType)) {
       throw createError('Tipo de informe inválido', 400, 'INVALID_REPORT_TYPE');
     }
 
@@ -203,7 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 3. Formularios / exámenes (solo si es necesario)
     let forms: ConsultationForm[] = [];
-    if (reportType === '360' || reportType === 'BASIC') {
+    if (reportType === '360' || reportType === 'BASIC' || reportType === 'LABS') {
       sendProgress(res, 'COLLECTING_FORMS', 'Recopilando tus formularios y exámenes...');
       const { data: formsData, error: formsError } = await supabase
         .from('consultation_forms')
@@ -242,7 +243,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let ragChunksCount = 0;
 
     try {
-      const ragQuery = getRAGQueryForReportType(reportType, userProfile.age);
+      const ragQuery = getRAGQueryForReportType(
+        reportType === 'LABS' ? 'BASIC' : reportType,
+        userProfile.age
+      );
       ragChunks = await searchRagDirect(ragQuery, undefined, 5);
 
       if (ragChunks.length > 0) {
@@ -257,11 +261,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 6. Construir contexto según tipo de informe
     sendProgress(res, 'ANALYZING_DATA', 'Analizando todos tus datos...');
+
+    // Para LABS, construir subconjunto de formularios: F0 + pilares + analíticas (última o todas)
+    let formsForContext: ConsultationForm[] = forms;
+    if (reportType === 'LABS') {
+      const f0Forms = forms.filter((f) => f.form_type === 'F0');
+      const pillarForms = forms.filter((f) =>
+        ['FUNCTION', 'FOOD', 'FLORA', 'FLOW'].includes(f.form_type || '')
+      );
+      const examForms = forms.filter((f) =>
+        f.answers?.some((a: any) => a.questionId === 'exam_type')
+      );
+
+      const sortedExamForms = [...examForms].sort((a, b) => {
+        const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+        const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      const selectedExamForms =
+        labsScope === 'ALL' ? sortedExamForms : sortedExamForms.slice(0, 1);
+
+      formsForContext = [...f0Forms, ...pillarForms, ...selectedExamForms];
+    }
+
     const context = buildReportContext(
       reportType,
       userProfile,
       logs,
-      forms,
+      formsForContext,
       previousReports.length > 0 ? previousReports : undefined
     );
 
@@ -273,7 +301,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }));
 
     const prompt = getPromptForReportType(
-      reportType,
+      reportType === 'LABS' ? 'BASIC' : reportType,
       ragContext,
       ragChunksCount,
       previousReports.length > 0,
@@ -304,7 +332,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 9. Guardar el informe en notifications
     try {
-      const reportTitle = `${getReportTitle(reportType)} - ${new Date().toLocaleDateString('es-ES', {
+      const baseTitle =
+        reportType === 'LABS' ? 'Informe de Analíticas' : getReportTitle(reportType);
+      const reportTitle = `${baseTitle} - ${new Date().toLocaleDateString('es-ES', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -319,7 +349,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         is_read: false,
         metadata: {
           report_type: reportType,
-          input: { userId, reportType },
+          input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',
             document_title: c.metadata?.document_title || '',
@@ -345,8 +375,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       data_sources: {
         profile: true,
         logs_count: logs.length,
-        forms_count: forms.length,
-        exams_count: forms.filter((f) =>
+      forms_count: formsForContext.length,
+      exams_count: formsForContext.filter((f) =>
           f.answers?.some((a: any) => a.questionId === 'exam_type')
         ).length,
         previous_reports_count: previousReports.length,

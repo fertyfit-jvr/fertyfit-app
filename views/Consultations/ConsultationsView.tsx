@@ -3,7 +3,8 @@ import { AlertCircle, Camera, Loader2, FileText, MessageCircle, Copy, Check } fr
 import { UserProfile, ViewState } from '../../types';
 import { ExamScanner } from '../../components/forms/ExamScanner';
 
-type ReportType = '360' | 'BASIC' | 'DAILY';
+type ReportType = '360' | 'BASIC' | 'DAILY' | 'LABS';
+type LabsScope = 'LAST' | 'ALL';
 
 interface ConsultationsViewProps {
   user: UserProfile;
@@ -24,6 +25,7 @@ interface ProgressEvent {
 const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps) => {
   const [globalScannerOpen, setGlobalScannerOpen] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('360');
+  const [labsScope, setLabsScope] = useState<LabsScope>('LAST');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportText, setReportText] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -48,7 +50,11 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
       const response = await fetch('/api/analysis/report-extended', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, reportType }),
+        body: JSON.stringify({
+          userId: user.id,
+          reportType,
+          ...(reportType === 'LABS' ? { labsScope } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -164,6 +170,8 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
         return 'Informe Básico';
       case 'DAILY':
         return 'Informe Diario';
+      case 'LABS':
+        return 'Informe de Analíticas';
     }
   };
 
@@ -238,6 +246,51 @@ const ConsultationsView = ({ user, showNotif, setView }: ConsultationsViewProps)
                 Análisis de registros diarios
               </div>
             </button>
+          </div>
+
+          {/* Informe de Analíticas */}
+          <div className="space-y-3">
+            <button
+              onClick={() => setSelectedReportType('LABS')}
+              disabled={isGeneratingReport}
+              className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
+                selectedReportType === 'LABS'
+                  ? 'border-ferty-rose bg-ferty-rose/10'
+                  : 'border-ferty-beige hover:border-ferty-gray'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <div className="font-bold text-ferty-dark mb-1">Informe de Analíticas</div>
+              <div className="text-xs text-ferty-gray">
+                Perfil + F0 + pilares + analíticas (última o todas)
+              </div>
+            </button>
+
+            {selectedReportType === 'LABS' && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLabsScope('LAST')}
+                  className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border ${
+                    labsScope === 'LAST'
+                      ? 'border-ferty-rose bg-ferty-rose text-white'
+                      : 'border-ferty-beige text-ferty-dark bg-white'
+                  }`}
+                >
+                  Última analítica
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLabsScope('ALL')}
+                  className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border ${
+                    labsScope === 'ALL'
+                      ? 'border-ferty-rose bg-ferty-rose text-white'
+                      : 'border-ferty-beige text-ferty-dark bg-white'
+                  }`}
+                >
+                  Todas las analíticas
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
