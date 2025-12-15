@@ -166,10 +166,14 @@ const AnalyticsView = ({
                     ? editingExamAnswers[examForm.id!] 
                     : examForm.answers || [];
                   
-                  // Separar el comentario de validación
-                  const commentAnswer = currentAnswers.find((a: FormAnswer) => a.questionId === 'gemini_comment');
+                  // Separar el análisis IA / comentario
+                  const aiAnalysisAnswer =
+                    currentAnswers.find((a: FormAnswer) => a.questionId === 'rag_analysis') ||
+                    currentAnswers.find((a: FormAnswer) => a.questionId === 'gemini_comment');
                   const examAnswers = currentAnswers.filter((a: FormAnswer) => 
-                    a.questionId !== 'exam_type' && a.questionId !== 'gemini_comment'
+                    a.questionId !== 'exam_type' &&
+                    a.questionId !== 'gemini_comment' &&
+                    a.questionId !== 'rag_analysis'
                   );
                   
                   const isExpanded = expandedExamAnswers[examForm.id!] || false;
@@ -258,14 +262,18 @@ const AnalyticsView = ({
                           </button>
                         )}
                       </div>
-                      {/* Campo de comentario en columna completa (solo lectura) */}
-                      {commentAnswer && (
+                      {/* Campo de análisis IA / comentario en columna completa (solo lectura) */}
+                      {aiAnalysisAnswer && (
                         <div className="mt-3 bg-white p-3 rounded-xl">
                           <p className="text-[10px] text-ferty-gray mb-1">
-                            {commentAnswer.question.replace(' (Gemini)', '')}
+                            {aiAnalysisAnswer.questionId === 'rag_analysis'
+                              ? 'Análisis del examen generado por IA'
+                              : aiAnalysisAnswer.question.replace(' (Gemini)', '')}
                           </p>
                           <p className="text-xs font-semibold text-ferty-dark whitespace-pre-wrap">
-                            {typeof commentAnswer.answer === 'string' ? commentAnswer.answer : String(commentAnswer.answer || '')}
+                            {typeof aiAnalysisAnswer.answer === 'string'
+                              ? aiAnalysisAnswer.answer
+                              : String(aiAnalysisAnswer.answer || '')}
                           </p>
                         </div>
                       )}

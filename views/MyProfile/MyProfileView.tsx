@@ -1039,8 +1039,12 @@ const MyProfileView = ({
             }
             
             const filteredAnswers = (submittedForm?.answers || []).filter((answer: any) => {
-              // Excluir exam_type y gemini_comment (son de exámenes)
-              if (answer.questionId === 'exam_type' || answer.questionId === 'gemini_comment') {
+              // Excluir campos específicos de exámenes/análisis IA
+              if (
+                answer.questionId === 'exam_type' ||
+                answer.questionId === 'gemini_comment' ||
+                answer.questionId === 'rag_analysis'
+              ) {
                 return false;
               }
               
