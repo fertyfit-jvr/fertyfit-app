@@ -138,6 +138,7 @@ export interface NotificationMetadata {
   ruleId?: string;
   actions?: NotificationAction[];
   deleted?: boolean;
+  format?: 'markdown' | 'plain';
   [key: string]: any;
 }
 

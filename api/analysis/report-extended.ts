@@ -349,6 +349,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         is_read: false,
         metadata: {
           report_type: reportType,
+          format: 'markdown',
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',

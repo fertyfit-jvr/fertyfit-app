@@ -149,6 +149,14 @@ ${ragContext}
       return `
 Eres un experto en fertilidad y salud integral femenina siguiendo la metodología FertyFit.
 
+IMPORTANTE: El informe DEBE estar formateado en Markdown válido. Usa:
+- # Título para secciones principales
+- ## Subtítulo para subsecciones
+- - Lista para listas con viñetas
+- 1. Lista para listas numeradas
+- **texto** para negritas
+- *texto* para cursivas
+
 ${ragSection}DATOS DE LA PACIENTE:
 Recibirás un JSON con:
 - Perfil completo de la usuaria.
@@ -158,36 +166,36 @@ Recibirás un JSON con:
 ${hasPreviousReports ? '- Informes previos generados anteriormente (para contexto histórico).' : ''}
 
 TAREA:
-Construye un INFORME NARRATIVO COMPLETO pero CONCISO (máximo 2000 palabras). El informe DEBE incluir exactamente estas secciones en este orden:
+Construye un INFORME NARRATIVO COMPLETO pero CONCISO (máximo 2000 palabras) formateado en Markdown. El informe DEBE incluir exactamente estas secciones en este orden:
 
-1. RESUMEN EJECUTIVO (máximo 200 palabras)
+## 1. RESUMEN EJECUTIVO (máximo 200 palabras)
    - Síntesis de los hallazgos más relevantes
    - Estado general de salud reproductiva
    - Principales áreas de atención
 
-2. ANÁLISIS INTEGRAL
+## 2. ANÁLISIS INTEGRAL
    - Perfil general y contexto (breve)
    - Análisis de exámenes y datos médicos relevantes (solo lo más importante)
    - Análisis de pilares (Function, Food, Flora, Flow) - resumen por pilar
    - Patrones y tendencias en registros diarios (solo patrones significativos)
    ${hasPreviousReports ? '- Evolución desde informes anteriores (solo cambios significativos)' : ''}
 
-3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 300 palabras)
+## 3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 300 palabras)
    - Lista numerada de los 5-7 aspectos más relevantes encontrados
    - Cada aspecto debe ser claro, específico y accionable
    - Incluir tanto fortalezas como áreas de mejora
 
-4. PREGUNTAS PARA EL MÉDICO (máximo 200 palabras)
+## 4. PREGUNTAS PARA EL MÉDICO (máximo 200 palabras)
    - Lista de 3-5 preguntas específicas que la usuaria debería plantear a su médico
    - Basadas en los hallazgos del análisis
    - Formuladas de manera clara y profesional
 
-5. RECOMENDACIONES PRÁCTICAS (máximo 300 palabras)
+## 5. RECOMENDACIONES PRÁCTICAS (máximo 300 palabras)
    - Lista numerada de 5-7 recomendaciones concretas y accionables
    - Priorizadas por impacto en la salud reproductiva
    - Específicas y medibles cuando sea posible
 
-6. BIBLIOGRAFÍA CONSULTADA
+## 6. BIBLIOGRAFÍA CONSULTADA
    ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
    DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
    Metadatos de las fuentes consultadas:
@@ -205,6 +213,7 @@ INSTRUCCIONES IMPORTANTES:
 - Escribe TODO en español y dirigido en segunda persona ("tú").
 - Sé CONCISO: evita repeticiones y ve directo al punto.
 - El informe completo NO debe exceder 2000 palabras.
+- IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML. Formatea cada sección con los encabezados Markdown correspondientes (# y ##).
 
 A continuación tienes el JSON de contexto de la paciente:
 `;
@@ -213,6 +222,14 @@ A continuación tienes el JSON de contexto de la paciente:
       return `
 Eres un experto en fertilidad y salud integral femenina siguiendo la metodología FertyFit.
 
+IMPORTANTE: El informe DEBE estar formateado en Markdown válido. Usa:
+- # Título para secciones principales
+- ## Subtítulo para subsecciones
+- - Lista para listas con viñetas
+- 1. Lista para listas numeradas
+- **texto** para negritas
+- *texto* para cursivas
+
 ${ragSection}DATOS DE LA PACIENTE:
 Recibirás un JSON con:
 - Perfil básico de la usuaria.
@@ -220,36 +237,36 @@ Recibirás un JSON con:
 - Formularios de pilares (Function, Food, Flora, Flow).
 
 TAREA:
-Construye un INFORME NARRATIVO CONCISO (máximo 1500 palabras) enfocado en los pilares FertyFit. El informe DEBE incluir exactamente estas secciones:
+Construye un INFORME NARRATIVO CONCISO (máximo 1500 palabras) formateado en Markdown enfocado en los pilares FertyFit. El informe DEBE incluir exactamente estas secciones:
 
-1. RESUMEN EJECUTIVO (máximo 150 palabras)
+## 1. RESUMEN EJECUTIVO (máximo 150 palabras)
    - Síntesis del estado de los 4 pilares
    - Fortalezas principales identificadas
    - Áreas de mejora prioritarias
 
-2. ANÁLISIS POR PILAR
+## 2. ANÁLISIS POR PILAR
    - Pilar Function (funcionalidad reproductiva) - análisis breve
    - Pilar Food (nutrición pro-fértil) - análisis breve
    - Pilar Flora (microbiota y salud digestiva) - análisis breve
    - Pilar Flow (estilo de vida y bienestar) - análisis breve
    - Explica cómo cada pilar impacta la fertilidad de manera específica
 
-3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 250 palabras)
+## 3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 250 palabras)
    - Lista numerada de los 4-5 aspectos más relevantes por pilar
    - Enfócate en los hallazgos más significativos
    - Incluir tanto fortalezas como áreas de mejora
 
-4. PREGUNTAS PARA EL MÉDICO (máximo 150 palabras)
+## 4. PREGUNTAS PARA EL MÉDICO (máximo 150 palabras)
    - Lista de 2-3 preguntas específicas relacionadas con los pilares
    - Basadas en los hallazgos del análisis
    - Formuladas de manera clara y profesional
 
-5. RECOMENDACIONES PRÁCTICAS (máximo 250 palabras)
+## 5. RECOMENDACIONES PRÁCTICAS (máximo 250 palabras)
    - Lista numerada de 4-5 recomendaciones específicas por pilar
    - Priorizadas por impacto en la fertilidad
    - Concretas y accionables
 
-6. BIBLIOGRAFÍA CONSULTADA
+## 6. BIBLIOGRAFÍA CONSULTADA
    ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
    DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
    Metadatos de las fuentes consultadas:
@@ -266,6 +283,7 @@ INSTRUCCIONES IMPORTANTES:
 - Sé CONCISO: evita repeticiones y ve directo al punto.
 - Escribe TODO en español y dirigido en segunda persona ("tú").
 - El informe completo NO debe exceder 1500 palabras.
+- IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML. Formatea cada sección con los encabezados Markdown correspondientes (# y ##).
 
 A continuación tienes el JSON de contexto de la paciente:
 `;
@@ -274,42 +292,50 @@ A continuación tienes el JSON de contexto de la paciente:
       return `
 Eres un experto en fertilidad y salud integral femenina siguiendo la metodología FertyFit.
 
+IMPORTANTE: El informe DEBE estar formateado en Markdown válido. Usa:
+- # Título para secciones principales
+- ## Subtítulo para subsecciones
+- - Lista para listas con viñetas
+- 1. Lista para listas numeradas
+- **texto** para negritas
+- *texto* para cursivas
+
 ${ragSection}DATOS DE LA PACIENTE:
 Recibirás un JSON con:
 - Perfil básico de la usuaria (edad, ciclo).
 - Historial completo de registros diarios (temperatura basal, moco cervical, síntomas, hábitos de sueño, estrés, actividad física, alimentación).
 
 TAREA:
-Construye un INFORME NARRATIVO CONCISO (máximo 1200 palabras) enfocado en el análisis de patrones temporales. El informe DEBE incluir exactamente estas secciones:
+Construye un INFORME NARRATIVO CONCISO (máximo 1200 palabras) formateado en Markdown enfocado en el análisis de patrones temporales. El informe DEBE incluir exactamente estas secciones:
 
-1. RESUMEN EJECUTIVO (máximo 150 palabras)
+## 1. RESUMEN EJECUTIVO (máximo 150 palabras)
    - Período analizado
    - Patrones principales identificados
    - Hallazgos más relevantes sobre el ciclo y biomarcadores
 
-2. ANÁLISIS DE PATRONES
+## 2. ANÁLISIS DE PATRONES
    - Análisis de temperatura basal (patrones, ovulación detectada) - breve
    - Análisis de moco cervical y biomarcadores de fertilidad - breve
    - Patrones de ciclo y regularidad - breve
    - Análisis de hábitos de estilo de vida (sueño, estrés, actividad, alimentación) - solo correlaciones significativas
    - Correlaciones entre diferentes biomarcadores (solo las más relevantes)
 
-3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 200 palabras)
+## 3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 200 palabras)
    - Lista numerada de los 4-5 patrones o hallazgos más relevantes
    - Enfócate en los patrones más significativos y sus implicaciones
    - Incluir tanto patrones positivos como áreas de atención
 
-4. PREGUNTAS PARA EL MÉDICO (máximo 150 palabras)
+## 4. PREGUNTAS PARA EL MÉDICO (máximo 150 palabras)
    - Lista de 2-3 preguntas específicas sobre los patrones observados
    - Basadas en los hallazgos del análisis de registros
    - Formuladas de manera clara y profesional
 
-5. RECOMENDACIONES PRÁCTICAS (máximo 200 palabras)
+## 5. RECOMENDACIONES PRÁCTICAS (máximo 200 palabras)
    - Lista numerada de 3-4 recomendaciones basadas en los patrones observados
    - Específicas para mejorar el seguimiento y la interpretación de biomarcadores
    - Concretas y accionables
 
-6. BIBLIOGRAFÍA CONSULTADA
+## 6. BIBLIOGRAFÍA CONSULTADA
    ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
    DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
    Metadatos de las fuentes consultadas:
@@ -327,6 +353,7 @@ INSTRUCCIONES IMPORTANTES:
 - Sé CONCISO: evita repeticiones y ve directo al punto.
 - Escribe TODO en español y dirigido en segunda persona ("tú").
 - El informe completo NO debe exceder 1200 palabras.
+- IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML. Formatea cada sección con los encabezados Markdown correspondientes (# y ##).
 
 A continuación tienes el JSON de contexto de la paciente:
 `;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, AlertCircle, Star, Sparkles, ChevronDown, ChevronUp, Trash, Bell, X } from 'lucide-react';
-import { AppNotification, NotificationAction } from '../types';
+import { AppNotification, NotificationAction, isAINotification } from '../types';
+import { ReportViewer } from './ReportViewer';
 
 // --- Single Expandable Notification Card ---
 export const NotificationList: React.FC<{
@@ -10,6 +11,7 @@ export const NotificationList: React.FC<{
     onAction?: (notification: AppNotification, action: NotificationAction) => void;
 }> = ({ notifications, onMarkRead, deleteNotification, onAction }) => {
     const [expanded, setExpanded] = useState(false);
+    const [openReportId, setOpenReportId] = useState<number | null>(null);
 
     if (notifications.length === 0) {
         return (
@@ -51,6 +53,41 @@ export const NotificationList: React.FC<{
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
         return `${day}/${month}/${year} - ${hours}:${minutes}`;
+    };
+
+    // Función para obtener preview del mensaje
+    const getMessagePreview = (notif: AppNotification): { preview: string; isTruncated: boolean } => {
+        const isAIReport = isAINotification(notif.type);
+        const message = notif.message || '';
+        
+        // Si no es informe de IA, mostrar mensaje completo
+        if (!isAIReport) {
+            return { preview: message, isTruncated: false };
+        }
+        
+        // Para informes de IA, truncar si es muy largo
+        const maxLength = 250;
+        if (message.length <= maxLength) {
+            return { preview: message, isTruncated: false };
+        }
+        
+        // Limpiar Markdown básico para preview (opcional, solo para mejor visualización)
+        let cleanMessage = message
+            .replace(/#{1,6}\s+/g, '') // Eliminar headers
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Eliminar negritas
+            .replace(/\*(.*?)\*/g, '$1'); // Eliminar cursivas
+        
+        // Truncar en un punto razonable (buscar último espacio antes del límite)
+        let truncateAt = maxLength;
+        const lastSpace = cleanMessage.lastIndexOf(' ', maxLength);
+        if (lastSpace > maxLength * 0.7) {
+            truncateAt = lastSpace;
+        }
+        
+        return {
+            preview: cleanMessage.substring(0, truncateAt) + '...',
+            isTruncated: true,
+        };
     };
 
     return (
@@ -122,9 +159,29 @@ export const NotificationList: React.FC<{
                                         </div>
                                     </div>
 
-                                    <p className="text-xs text-ferty-gray leading-relaxed mb-2">
-                                        {notif.message}
-                                    </p>
+                                    {(() => {
+                                        const { preview, isTruncated } = getMessagePreview(notif);
+                                        const isAIReport = isAINotification(notif.type);
+                                        
+                                        return (
+                                            <>
+                                                <p className="text-xs text-ferty-gray leading-relaxed mb-2">
+                                                    {preview}
+                                                </p>
+                                                {isTruncated && isAIReport && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenReportId(notif.id);
+                                                        }}
+                                                        className="text-xs font-bold text-ferty-rose hover:text-ferty-roseHover transition-colors mb-2"
+                                                    >
+                                                        Leer más →
+                                                    </button>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
 
                                     {hasActions && (
                                         <div className="flex flex-wrap gap-2 mb-2">
@@ -168,6 +225,18 @@ export const NotificationList: React.FC<{
                     })}
                 </div>
             )}
+
+            {/* Report Viewer Modal */}
+            {openReportId !== null && (() => {
+                const report = notifications.find(n => n.id === openReportId);
+                if (!report) return null;
+                return (
+                    <ReportViewer
+                        report={report}
+                        onClose={() => setOpenReportId(null)}
+                    />
+                );
+            })()}
         </div>
     );
 };

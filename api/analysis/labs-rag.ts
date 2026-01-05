@@ -193,6 +193,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const prompt = `
 Eres experto en fertilidad siguiendo la metodología FertyFit.
 
+IMPORTANTE: Escribe la explicación en formato Markdown. Usa:
+- **texto** para negritas y énfasis
+- *texto* para cursivas
+- Formatea los párrafos de manera clara
+
 ${ragContext ? `IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
 NO uses conocimiento general que no esté en este contexto.
 Si la información no está en este contexto, dilo explícitamente.
@@ -218,17 +223,17 @@ RESULTADOS ANALÍTICOS DE LA PACIENTE:
 ${JSON.stringify({ labs, age: age || undefined }, null, 2)}
 
 ` : ''}TAREA:
-Escribe una explicación CONCISA (máximo 3 párrafos breves, cada uno máximo 4-5 líneas) que incluya:
+Escribe una explicación CONCISA en formato Markdown (máximo 3 párrafos breves, cada uno máximo 4-5 líneas) que incluya:
 
-1. PRIMER PÁRRAFO: Interpretación de los resultados/imagen
+**1. Interpretación de los resultados/imagen**
    - Qué significan los valores o hallazgos visuales
    - Implicaciones en fertilidad según metodología FertyFit
 
-2. SEGUNDO PÁRRAFO: Contexto y relevancia
+**2. Contexto y relevancia**
    - Por qué estos resultados son importantes
    - Cómo se relacionan con la salud reproductiva
 
-3. TERCER PÁRRAFO: Próximos pasos
+**3. Próximos pasos**
    - Qué preguntas puede hacer a su médico
    - Qué aspectos debe comentar en su próxima consulta
 
@@ -243,6 +248,7 @@ INSTRUCCIONES:
 - Escribe TODO en español y dirigido en segunda persona ("tú")
 - Si es una ecografía o imagen médica, enfócate en los hallazgos visuales más relevantes
 - Si el tipo de examen no está en el contexto FertyFit, explica de forma general pero educativa
+- IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML.
 `;
 
     // Si hay imagen, incluirla en el contenido
@@ -297,6 +303,7 @@ INSTRUCCIONES:
           priority: 1,
           is_read: false,
           metadata: {
+            format: 'markdown',
             input: { userId, labs, image: image ? 'provided' : undefined, examType, age: age || undefined },
             sources: ragChunks.map((c) => ({
               document_id: c.metadata?.document_id || '',
