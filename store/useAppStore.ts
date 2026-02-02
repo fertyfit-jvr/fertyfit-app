@@ -56,8 +56,6 @@ interface AppStore {
   dashboardScores: DashboardScores;
   notifications: AppNotification[];
   submittedForms: ConsultationForm[];
-  showPhaseModal: boolean;
-  currentPhase: number;
   email: string;
   password: string;
   name: string;
@@ -75,8 +73,6 @@ interface AppStore {
   setLogs: (logs: DailyLog[]) => void;
   setNotifications: (notifications: AppNotification[]) => void;
   setSubmittedForms: (forms: ConsultationForm[]) => void;
-  setShowPhaseModal: (open: boolean) => void;
-  setCurrentPhase: (phase: number) => void;
   setEmail: (email: string) => void;
   setPassword: (password: string) => void;
   setName: (name: string) => void;
@@ -101,7 +97,6 @@ interface AppStore {
   fetchEducation: (userId: string, methodStart?: string) => Promise<void>;
   markNotificationRead: (notifId: number) => Promise<void>;
   deleteNotification: (notifId: number) => Promise<void>;
-  handleModalClose: (dontShowAgain: boolean) => void;
   handleDateChange: (newDate: string) => void;
   saveDailyLog: () => Promise<void>;
   startMethod: () => Promise<void>;
@@ -117,8 +112,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   dashboardScores: emptyDashboardScores,
   notifications: [],
   submittedForms: [],
-  showPhaseModal: false,
-  currentPhase: 0,
   email: '',
   password: '',
   name: '',
@@ -136,8 +129,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setLogs: (logs) => set({ logs }),
   setNotifications: (notifications) => set({ notifications }),
   setSubmittedForms: (forms) => set({ submittedForms: forms }),
-  setShowPhaseModal: (open) => set({ showPhaseModal: open }),
-  setCurrentPhase: (phase) => set({ currentPhase: phase }),
   setEmail: (email) => set({ email }),
   setPassword: (password) => set({ password }),
   setName: (name) => set({ name }),
@@ -384,17 +375,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
-  handleModalClose: (dontShowAgain: boolean) => {
-    const { user, currentPhase, setShowPhaseModal } = get();
-    if (user?.id && dontShowAgain) {
-      localStorage.setItem(
-        'fertyfit_phase_seen_' + user.id + '_' + currentPhase,
-        'true'
-      );
-    }
-    setShowPhaseModal(false);
-  },
-
   handleDateChange: (newDate: string) => {
     const { logs, user, setTodayLog } = get();
     const existingLog = logs.find((l) => l.date === newDate);
@@ -442,9 +422,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
 
     // Proporcionar valores por defecto para campos opcionales antes de validar
-    const formattedLog = { 
-      ...todayLog, 
-      date: validDate, 
+    const formattedLog = {
+      ...todayLog,
+      date: validDate,
       cycleDay: correctCycleDay,
       // Solo BBT y mucus son obligatorios, el resto son opcionales
       sleepQuality: todayLog.sleepQuality,
@@ -503,7 +483,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch (validationError: unknown) {
       // Zod usa 'issues', no 'errors'
       let message = 'Algunos valores del registro diario no son válidos. Revisa los campos e inténtalo de nuevo.';
-      
+
       // Validar que sea un ZodError
       if (validationError && typeof validationError === 'object') {
         // ZodError tiene estructura { issues: Array<{ message: string, path: string[] }> }
@@ -511,7 +491,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           const firstIssue = validationError.issues[0];
           if (firstIssue && typeof firstIssue === 'object' && 'message' in firstIssue) {
             message = String(firstIssue.message);
-            
+
             // Agregar campo específico si está disponible para mejor UX
             if ('path' in firstIssue && Array.isArray(firstIssue.path) && firstIssue.path.length > 0) {
               const fieldName = firstIssue.path[firstIssue.path.length - 1];
@@ -520,13 +500,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
           }
         }
       }
-      
+
       logger.warn('❌ DailyLog validation failed:', {
         error: validationError,
         message,
         normalizedLog: normalizedLog, // Para debugging
       });
-      
+
       showNotif(message, 'error');
       return;
     }
@@ -560,19 +540,47 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     if (!error) {
       showNotif('Registro guardado con éxito', 'success');
-      
+
       // Refrescar datos en paralelo para mejor rendimiento
       const [logsResult] = await Promise.allSettled([
         fetchLogs(user.id),
         fetchNotifications(user.id)
       ]);
 
+      // ⭐ TRIGGER: FertyScore calculation (every 3 logs)
+      // Check if we should trigger based on logs count
+      // We use the updated logs count
+      const updatedLogs = logsResult.status === 'fulfilled' ? logsResult.value : logs;
+
+      if (updatedLogs.length > 0 && updatedLogs.length % 3 === 0) {
+        // Import dynamically or ensure imports are at top
+        // We will assume imports are available or use dynamic import if needed to avoid circle?
+        // useAppStore -> pillarService -> fetchAllPillars
+        // useAppStore -> fertyscoreService -> calculateAndSaveScore
+        try {
+          // Dynamic import to avoid potential circular dependency issues at module level
+          // if useAppStore is imported by services (unlikely but safer)
+          const { fetchAllPillars } = await import('../services/pillarService');
+          const { calculateAndSaveScore } = await import('../services/fertyscoreService');
+          const { fetchProfileForUser } = await import('../services/userDataService');
+
+          const profile = await fetchProfileForUser(user.id);
+          const pillars = await fetchAllPillars(user.id);
+
+          if (profile) {
+            await calculateAndSaveScore(user.id, profile as any, updatedLogs, pillars, 'daily_log');
+            logger.log('✅ Triggered FertyScore calculation from Daily Log');
+          }
+        } catch (err) {
+          logger.error('Error triggering FertyScore from Daily Log:', err);
+        }
+      }
+
       // Trigger DAILY_LOG_SAVED después de guardar
       try {
-        const updatedLogs = logsResult.status === 'fulfilled' ? logsResult.value : logs;
         const context = await buildRuleContext(user, updatedLogs, courseModules);
         await evaluateRules('DAILY_LOG_SAVED', context, user.id);
-        
+
         // Refrescar notificaciones después del trigger
         await fetchNotifications(user.id);
       } catch (triggerError) {
@@ -587,7 +595,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   startMethod: async () => {
-    const { user, showNotif, setView, fetchEducation, setUser, setCurrentPhase, setShowPhaseModal } = get();
+    const { user, showNotif, setView, fetchEducation, setUser } = get();
     if (!user?.id) return;
 
     const startDate = new Date().toISOString();
@@ -601,8 +609,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       setUser(updatedUser);
       showNotif('¡Método Activado! Bienvenida al Día 1.', 'success');
       fetchEducation(user.id, startDate);
-      setCurrentPhase(1);
-      setShowPhaseModal(true);
     } else {
       showNotif('Error: ' + error.message, 'error');
     }
@@ -685,7 +691,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const updatedModules = get().courseModules;
         const context = await buildRuleContext(user, logs, updatedModules);
         await evaluateRules('LESSON_COMPLETED', context, user.id);
-        
+
         // Refrescar notificaciones después del trigger
         await fetchNotifications(user.id);
       } catch (triggerError) {

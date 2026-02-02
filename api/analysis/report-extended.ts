@@ -247,7 +247,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         reportType === 'LABS' ? 'BASIC' : reportType,
         userProfile.age
       );
-      ragChunks = await searchRagDirect(ragQuery, undefined, 5);
+      ragChunks = await searchRagDirect(ragQuery, undefined, 15);
 
       if (ragChunks.length > 0) {
         ragChunksCount = ragChunks.length;
@@ -376,8 +376,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       data_sources: {
         profile: true,
         logs_count: logs.length,
-      forms_count: formsForContext.length,
-      exams_count: formsForContext.filter((f) =>
+        forms_count: formsForContext.length,
+        exams_count: formsForContext.filter((f) =>
           f.answers?.some((a: any) => a.questionId === 'exam_type')
         ).length,
         previous_reports_count: previousReports.length,
@@ -388,7 +388,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error: any) {
     // Aseguramos CORS también en errores
     setCORSHeaders(res, origin);
-    
+
     // Intentar enviar error como progreso antes de cerrar
     try {
       sendProgress(res, 'ERROR', 'Error al generar el informe', {

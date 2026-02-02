@@ -25,7 +25,7 @@ export interface UserProfile {
   surgicalHistory?: string;
   obstetricHistory?: string;
   recentBloodwork?: boolean;
-  
+
   // Legacy fields (migrated to pillar tables, kept for backward compatibility)
   diagnoses?: string[];
   fertilityTreatments?: string;
@@ -110,13 +110,13 @@ export interface ConsultationForm {
 }
 
 
-export type NotificationType = 'insight' | 'alert' | 'tip' | 'celebration' | 'opportunity' | 'confirmation';
+export type NotificationType = 'insight' | 'alert' | 'tip' | 'celebration' | 'opportunity' | 'confirmation' | 'REPORT' | 'LABS' | 'CHAT';
 
 /**
  * Strict type for notification handlers
  * Only these handlers are valid and will be processed
  */
-export type NotificationHandler = 
+export type NotificationHandler =
   | 'handlePeriodConfirmed'
   | 'handlePeriodDelayed'
   | 'handleOvulationDetected';

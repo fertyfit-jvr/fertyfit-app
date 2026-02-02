@@ -6,7 +6,7 @@
 import { logger } from '../../lib/logger';
 
 export interface OCRRequest {
-  image: string; // Base64 encoded image
+  images: string[]; // Base64 encoded images
   examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio';
 }
 
@@ -35,20 +35,20 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
 
     // 2) Fallback final: ruta relativa /api/ocr/process (solo funcionará si tienes API route montada)
     const apiUrl = customApiUrl || '/api/ocr/process';
-    
-    logger.log('🔍 Calling OCR API:', { 
-      url: apiUrl, 
+
+    logger.log('🔍 Calling OCR API:', {
+      url: apiUrl,
       examType: request.examType,
       hasCustomApiUrl: !!customApiUrl
     });
-    
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        image: request.image,
+        images: request.images,
         examType: request.examType,
       }),
     });
@@ -56,12 +56,12 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     if (!response.ok) {
       let errorMessage = `Error del servidor (${response.status})`;
       let errorCode = 'API_ERROR';
-      
+
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorData.message || errorMessage;
         errorCode = errorData.code || errorCode;
-        
+
         // Mensajes específicos según el código de error
         if (errorData.code === 'RATE_LIMIT_EXCEEDED') {
           errorMessage = 'Demasiadas solicitudes. Por favor, espera un momento e intenta de nuevo.';
@@ -82,11 +82,11 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
         } else if (errorData.code === 'CONFIG_ERROR' || errorData.code === 'VISION_INIT_ERROR') {
           errorMessage = 'Error de configuración del servidor. Por favor, contacta al soporte si el problema persiste.';
         }
-        
-        logger.error('❌ OCR API Error:', { 
-          status: response.status, 
+
+        logger.error('❌ OCR API Error:', {
+          status: response.status,
           code: errorCode,
-          error: errorData 
+          error: errorData
         });
       } catch (parseError) {
         const textError = await response.text().catch(() => '');
@@ -106,13 +106,13 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
             errorMessage = 'El servidor tardó demasiado en responder. Por favor, intenta con una imagen más pequeña.';
           }
         }
-        logger.error('❌ OCR API Error (no JSON):', { 
-          status: response.status, 
+        logger.error('❌ OCR API Error (no JSON):', {
+          status: response.status,
           text: textError,
-          errorMessage 
+          errorMessage
         });
       }
-      
+
       return {
         text: '',
         error: errorMessage,
@@ -120,13 +120,13 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     }
 
     const data = await response.json();
-    
+
     // Aceptar datos en parsedData o en otros formatos alternativos
     const parsedData =
       data.parsedData ||
       data.data ||
       (data.parsedData === undefined && Object.keys(data).length > 0 ? data : {});
-    
+
     return {
       text: data.text || data.rawText || '', // Texto extraído o datos estructurados de la API
       parsedData,
@@ -139,17 +139,17 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
       error: data.error,
     };
   } catch (error) {
-    logger.error('❌ Error calling OCR API:', { 
+    logger.error('❌ Error calling OCR API:', {
       error,
       errorName: error instanceof Error ? error.name : 'Unknown',
       errorMessage: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
       examType: request.examType,
-      imageLength: request.image?.length || 0
+      imagesCount: request.images?.length || 0
     });
-    
+
     let errorMessage = 'Error desconocido al conectar con el servidor';
-    
+
     if (error instanceof Error) {
       errorMessage = error.message;
     } else if (typeof error === 'string') {
@@ -157,7 +157,7 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     } else if (error && typeof error === 'object' && 'message' in error) {
       errorMessage = String(error.message);
     }
-    
+
     // Detectar errores de red/CORS
     if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('Network request failed')) {
       return {
@@ -165,7 +165,7 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
         error: 'Error de conexión. Verifica tu conexión a internet y que la API esté disponible. Si el problema persiste, intenta recargar la página.',
       };
     }
-    
+
     // Detectar errores CORS específicos
     if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control')) {
       return {
@@ -173,12 +173,12 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
         error: 'Error de configuración del servidor. Por favor, contacta al soporte.',
       };
     }
-    
+
     // Si el error es muy genérico, dar más contexto
     if (errorMessage.toLowerCase().includes('unknown') || errorMessage === 'Error desconocido al conectar con el servidor') {
       errorMessage = 'Error al procesar la imagen. Por favor:\n• Verifica tu conexión a internet\n• Asegúrate de que la imagen sea válida\n• Intenta recargar la página';
     }
-    
+
     return {
       text: '',
       error: errorMessage,

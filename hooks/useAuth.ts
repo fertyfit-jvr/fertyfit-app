@@ -92,27 +92,6 @@ export function useAuth() {
 
           setUser(userProfile);
 
-          // Determine phase based on method start date
-          let phase = 0;
-          if (profile.method_start_date) {
-            const start = new Date(profile.method_start_date);
-            start.setHours(0, 0, 0, 0);
-            const now = new Date();
-            now.setHours(0, 0, 0, 0);
-            const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-            const week = Math.ceil(days / 7) || 1;
-            if (week >= 1 && week <= 4) phase = 1;
-            else if (week >= 5 && week <= 8) phase = 2;
-            else if (week >= 9) phase = 3;
-          }
-          useAppStore.getState().setCurrentPhase(phase);
-
-          // Show Phase Modal only once per phase
-          const seenKey = `fertyfit_phase_seen_${session.user.id}_${phase}`;
-          if (!localStorage.getItem(seenKey)) {
-            useAppStore.getState().setShowPhaseModal(true);
-          }
-
           if (!profile.disclaimer_accepted) {
             setView('DISCLAIMER');
           } else {

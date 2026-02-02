@@ -8,7 +8,6 @@ import { useDailyNotifications } from './hooks/useDailyNotifications';
 import { useUserDataLoader } from './hooks/useUserDataLoader';
 import { useNotificationActions } from './hooks/useNotificationActions';
 import Notification from './components/common/Notification';
-import PhaseIntroModal from './components/common/PhaseIntroModal';
 import NavButton from './components/common/NavButton';
 import ViewLoading from './components/common/ViewLoading';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -36,8 +35,6 @@ function AppContent() {
     dashboardScores,
     notifications,
     submittedForms,
-    showPhaseModal,
-    currentPhase,
     email, setEmail,
     password, setPassword,
     name, setName,
@@ -54,7 +51,6 @@ function AppContent() {
     fetchUserForms,
     markNotificationRead,
     deleteNotification,
-    handleModalClose,
     handleDateChange,
     saveDailyLog,
     startMethod,
@@ -149,7 +145,6 @@ function AppContent() {
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-ferty-beige shadow-2xl relative overflow-hidden font-sans text-ferty-dark">
-      {showPhaseModal && <PhaseIntroModal phase={currentPhase} onClose={handleModalClose} />}
       {notif && <Notification message={notif.msg} type={notif.type} onClose={() => setNotif(null)} />}
 
       <div className="h-full overflow-y-auto custom-scrollbar">

@@ -8,6 +8,8 @@
  */
 
 import { UserProfile, DailyLog } from '../types';
+import { supabase } from './supabase';
+import { logger } from '../lib/logger';
 import { calculateBMI } from './dataService';
 import { PillarFunction, PillarFood, PillarFlora, PillarFlow } from '../types/pillars';
 
@@ -413,14 +415,14 @@ function calculateNewFoodBaseline(food?: PillarFood | null): number {
   if (!food) return NaN;
 
   // Verificar si tiene datos nuevos (sistema de puntos)
-  const hasNewData = food.eating_pattern || 
-                     food.fish_frequency != null || 
-                     food.vegetable_servings != null ||
-                     food.fat_type ||
-                     food.fertility_supplements ||
-                     food.sugary_drinks_frequency != null ||
-                     food.antioxidants ||
-                     food.carb_source;
+  const hasNewData = food.eating_pattern ||
+    food.fish_frequency != null ||
+    food.vegetable_servings != null ||
+    food.fat_type ||
+    food.fertility_supplements ||
+    food.sugary_drinks_frequency != null ||
+    food.antioxidants ||
+    food.carb_source;
 
   if (hasNewData) {
     // Usar nuevo sistema de puntos
@@ -656,10 +658,10 @@ function calculateNewFloraBaseline(flora?: PillarFlora | null): number {
 
   // Verificar si tiene datos nuevos (sistema de puntos)
   const hasNewData = flora.digestive_health != null ||
-                     flora.vaginal_health ||
-                     flora.antibiotics_last_year ||
-                     flora.fermented_foods_frequency != null ||
-                     flora.food_intolerances;
+    flora.vaginal_health ||
+    flora.antibiotics_last_year ||
+    flora.fermented_foods_frequency != null ||
+    flora.food_intolerances;
 
   if (hasNewData) {
     // Usar nuevo sistema de puntos
@@ -713,29 +715,37 @@ function calculateFloraBaseline(flora?: PillarFlora | null): number {
   return calculateNewFloraBaseline(flora);
 }
 
-function calculateSleepScoreFromLogs(logs: DailyLog[]): number {
+// ⭐ FLORA DINÁMICO: Basado en síntomas digestivos (Hinchazón, gases, estreñimiento)
+// Empezar con 100, restar 25 por cada síntoma negativo
+function calculateDigestiveSymptomsScore(logs: DailyLog[]): number {
   const recent = takeLastDays(logs, DYNAMIC_DAYS);
   if (!recent.length) return NaN;
 
-  const sleepValues = recent
-    .map(l => l.sleepHours)
-    .filter(v => typeof v === 'number') as number[];
+  const negativeSymptoms = ['hinchazon', 'gases', 'estreñimiento', 'dolor_abdominal', 'diarrea', 'acidez'];
 
-  if (!sleepValues.length) return NaN;
+  const dailyScores = recent.map(log => {
+    if (!log.symptoms || !Array.isArray(log.symptoms)) return 100;
 
-  const avgSleep = sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length;
+    // Normalizar síntomas del log a minúsculas
+    const logSymptoms = log.symptoms.map(s => s.toLowerCase());
 
-  if (avgSleep >= 7 && avgSleep <= 9) return 100;
-  if (avgSleep >= 6) return 80;
-  if (avgSleep >= 5) return 60;
-  if (avgSleep > 9 && avgSleep <= 10) return 90;
-  if (avgSleep > 10) return 75;
-  return 40;
+    // Contar cuántos síntomas negativos hay
+    const count = negativeSymptoms.reduce((acc, symptom) => {
+      // Buscar coincidencia parcial (ej: "hinchazón abdominal" incluye "hinchazon")
+      const match = logSymptoms.some(s => s.includes(symptom) || normalizeText(s).includes(symptom));
+      return match ? acc + 1 : acc;
+    }, 0);
+
+    // 100 - 25 * count, mínimo 0
+    return Math.max(0, 100 - (25 * count));
+  });
+
+  return average(dailyScores);
 }
 
 function calculateFloraScore(flora?: PillarFlora | null, logs: DailyLog[] = []): number {
   const baseline = calculateFloraBaseline(flora);
-  const dynamic = calculateSleepScoreFromLogs(logs);
+  const dynamic = calculateDigestiveSymptomsScore(logs); // Changed from Sleep to Digestive Symptoms
 
   if (Number.isNaN(dynamic) && !Number.isNaN(baseline)) return baseline;
   if (Number.isNaN(baseline) && !Number.isNaN(dynamic)) return dynamic;
@@ -871,13 +881,13 @@ function calculateNewFlowBaseline(flow?: PillarFlow | null): number {
 
   // Verificar si tiene datos nuevos (sistema de puntos)
   const hasNewData = flow.stress_level != null ||
-                     flow.sleep_hours != null ||
-                     flow.relaxation_frequency != null ||
-                     flow.exercise_type ||
-                     flow.morning_sunlight ||
-                     flow.endocrine_disruptors ||
-                     flow.bedtime_routine ||
-                     flow.emotional_state != null;
+    flow.sleep_hours != null ||
+    flow.relaxation_frequency != null ||
+    flow.exercise_type ||
+    flow.morning_sunlight ||
+    flow.endocrine_disruptors ||
+    flow.bedtime_routine ||
+    flow.emotional_state != null;
 
   if (hasNewData) {
     // Usar nuevo sistema de puntos
@@ -939,62 +949,55 @@ function calculateFlowBaseline(flow?: PillarFlow | null): number {
   return calculateNewFlowBaseline(flow);
 }
 
-// Estrés dinámico: solo días con dato de stressLevel (no usar ?? 0)
-function calculateStressDynamicScore(logs: DailyLog[]): number {
+// ⭐ FLOW DINÁMICO: Sueño (50%) + Estrés Diario (50%)
+function calculateFlowSleepDynamic(logs: DailyLog[]): number {
   const recent = takeLastDays(logs, DYNAMIC_DAYS);
   if (!recent.length) return NaN;
 
-  const values = recent
+  const sleepValues = recent
+    .map(l => l.sleepHours)
+    .filter(v => typeof v === 'number') as number[];
+
+  if (!sleepValues.length) return NaN;
+
+  const avgSleep = sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length;
+
+  // 7-9h = 100, 6h = 80, <5h = 60
+  if (avgSleep >= 7 && avgSleep <= 9) return 100;
+  if (avgSleep >= 6) return 80;
+  if (avgSleep < 6) return 60; // <5h covers everything below 6 essentially based on spec logic flow
+
+  return 60; // Fallback
+}
+
+// Estrés Diario: 1-2 = 100, 3 = 70, 4-5 = 30
+function calculateFlowStressDynamic(logs: DailyLog[]): number {
+  const recent = takeLastDays(logs, DYNAMIC_DAYS);
+  if (!recent.length) return NaN;
+
+  const stressValues = recent
     .map(l => l.stressLevel)
     .filter(v => typeof v === 'number') as number[];
 
-  if (!values.length) return NaN;
+  if (!stressValues.length) return NaN;
 
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const avgStress = stressValues.reduce((a, b) => a + b, 0) / stressValues.length;
 
-  // stressLevel 1 (muy bajo) → 100, 5 (muy alto) → 0
-  return clampScore(((5 - avg) / 4) * 100);
-}
-
-// Regularidad del ciclo: undefined → NaN (no inflar con 80)
-function calculateCycleRegularityScore(user: UserProfile): number {
-  if (user.cycleRegularity === 'Regular') return 100;
-  if (user.cycleRegularity === 'Irregular') return 70;
-  return NaN;
-}
-
-// Estabilidad BBT: usa solo valores numéricos válidos, mínimo 3
-function calculateBBTScore(logs: DailyLog[]): number {
-  const recent = takeLastDays(logs, DYNAMIC_DAYS);
-  if (!recent.length) return NaN;
-
-  const bbtValues = recent
-    .map(l => l.bbt)
-    .filter(v => typeof v === 'number' && !Number.isNaN(v)) as number[];
-
-  if (bbtValues.length < 3) return NaN;
-
-  const sd = calculateStandardDeviation(bbtValues);
-
-  if (sd <= 0.15) return 100;
-  if (sd >= 0.5) return 45;
-
-  const ratio = (sd - 0.15) / (0.5 - 0.15);
-  return clampScore(100 - ratio * (100 - 45));
+  if (avgStress <= 2) return 100;
+  if (avgStress <= 3) return 70;
+  return 30; // 4-5
 }
 
 const FLOW_DYNAMIC_WEIGHTS = {
-  stress: 0.4,
-  cycle: 0.3,
-  bbt: 0.3,
+  stress: 0.5,
+  sleep: 0.5,
 } as const;
 
 function calculateFlowDynamic(user: UserProfile, logs: DailyLog[]): number {
-  const stress = calculateStressDynamicScore(logs);
-  const cycle = calculateCycleRegularityScore(user);
-  const bbt = calculateBBTScore(logs);
+  const stress = calculateFlowStressDynamic(logs);
+  const sleep = calculateFlowSleepDynamic(logs);
 
-  const components = { stress, cycle, bbt };
+  const components = { stress, sleep };
   const valid = Object.entries(components).filter(
     ([, v]) => !Number.isNaN(v),
   ) as [keyof typeof FLOW_DYNAMIC_WEIGHTS, number][];
@@ -1054,5 +1057,69 @@ export const calculateFertyScore = (
     flow: Math.round(flowScore)
   };
 };
+
+/**
+ * Persist the score in the database
+ */
+async function saveFertyScoreToDB(
+  userId: string,
+  scores: { total: number; function: number; food: number; flora: number; flow: number },
+  trigger: string
+) {
+  try {
+    const { error } = await supabase.from('ferty_scores').insert({
+      user_id: userId,
+      global_score: scores.total,
+      function_score: scores.function,
+      food_score: scores.food,
+      flora_score: scores.flora,
+      flow_score: scores.flow,
+      calculation_trigger: trigger
+    });
+
+    if (error) {
+      logger.error('Error saving ferty_score:', error);
+    } else {
+      logger.log('✅ FertyScore saved to history:', scores);
+    }
+  } catch (err) {
+    logger.error('Exception saving ferty_score:', err);
+  }
+}
+
+/**
+ * Main entry point to calculate and save score
+ * Checks if it's necessary to save (modulo 3 logs)
+ */
+export async function calculateAndSaveScore(
+  userId: string,
+  user: UserProfile,
+  logs: DailyLog[],
+  pillars: FertyPillars,
+  trigger: 'profile_update' | 'daily_log' | 'manual_recalc'
+) {
+  // Calculate
+  const scores = calculateFertyScore(user, logs, pillars);
+
+  // Check condition to save
+  let shouldSave = false;
+
+  if (trigger === 'profile_update' || trigger === 'manual_recalc') {
+    shouldSave = true;
+  } else if (trigger === 'daily_log') {
+    // Only save every 3 logs
+    // We count how many logs user has. 
+    // logs.length is the total count.
+    if (logs.length > 0 && logs.length % 3 === 0) {
+      shouldSave = true;
+    }
+  }
+
+  if (shouldSave) {
+    await saveFertyScoreToDB(userId, scores, trigger);
+  }
+
+  return scores;
+}
 
 

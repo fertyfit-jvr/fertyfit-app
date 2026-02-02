@@ -45,7 +45,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
 async function embedQuery(query: string): Promise<number[]> {
   try {
     logger.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
-    
+
     // El SDK nuevo usa ai.models.embedContent directamente
     const resp = await (ai as any).models.embedContent({
       model: 'text-embedding-004',
@@ -77,9 +77,9 @@ export async function searchRagDirect(
     doc_type?: string;
     document_id?: string;
   },
-  limit: number = 5
+  limit: number = 15
 ): Promise<KnowledgeChunk[]> {
-  const matchCount = Math.min(Math.max(limit, 1), 20); // 1–20
+  const matchCount = Math.min(Math.max(limit, 1), 30); // 1–30
 
   // 1) Obtener embedding de la query
   const queryEmbedding = await embedQuery(query);
@@ -87,7 +87,7 @@ export async function searchRagDirect(
   // 2) Llamar a la función RPC en Supabase
   logger.log(`[RAG] Llamando RPC match_fertyfit_knowledge con match_count=${matchCount}`);
   logger.log(`[RAG] Filtros: pillar_category=${filters?.pillar_category || 'null'}, doc_type=${filters?.doc_type || 'null'}, document_id=${filters?.document_id || 'null'}`);
-  
+
   const { data, error } = await supabase.rpc('match_fertyfit_knowledge', {
     query_embedding: queryEmbedding,
     match_count: matchCount,
@@ -140,7 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Usar la función directa para evitar problemas de autenticación
-    const chunks = await searchRagDirect(query, filters, limit ?? 5);
+    const chunks = await searchRagDirect(query, filters, limit ?? 15);
 
     const response: SearchRagResponse = {
       chunks,

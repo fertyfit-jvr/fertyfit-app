@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Camera, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Camera, X, Loader2, CheckCircle, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { fileToBase64 } from '../../services/googleCloud/visionService';
 import { useExamScanner, ExamType } from '../../hooks/useExamScanner';
 import { logger } from '../../lib/logger';
@@ -24,7 +24,7 @@ const EXAM_TYPE_LABELS: Record<string, string> = {
 
 export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, autoDetect = false, examName }: ExamScannerProps) => {
   const {
-    image,
+    images,
     isProcessing,
     extractedData,
     extractedText,
@@ -34,7 +34,8 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
     detectedTypes,
     ragExplanation,
     isGeneratingExplanation,
-    setImageBase64,
+    addImages,
+    removeImage,
     setError,
     reset,
     processImage
@@ -44,40 +45,41 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    
-    const file = event.target.files?.[0];
-    if (!file) {
-      // Resetear el input si no hay archivo
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    if (!file.type.startsWith('image/')) {
-      setError('Por favor, selecciona una imagen válida');
-      // Resetear el input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+    const newImages: string[] = [];
+
+    // Validar tipo de archivo
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) {
+        setError('Por favor, selecciona solo imágenes válidas');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
       }
-      return;
     }
 
     try {
-      const base64 = await fileToBase64(file);
-      setImageBase64(base64);
-      setError(null);
-      // El hook ya se encarga de limpiar warnings/validation cuando procesa,
-      // aquí solo limpiamos error de selección
-      // Resetear el input para permitir seleccionar el mismo archivo de nuevo
+      for (let i = 0; i < files.length; i++) {
+        const base64 = await fileToBase64(files[i]);
+        newImages.push(base64);
+      }
+
+      addImages(newImages);
+      // El hook ya valida el máximo de imágenes
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al procesar la imagen';
+      const errorMessage = err instanceof Error ? err.message : 'Error al procesar las imágenes';
       setError(errorMessage);
-      logger.error('Error processing image:', err);
-      // Resetear el input en caso de error
+      logger.error('Error processing images:', err);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -103,14 +105,14 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
         <div className="flex items-center justify-between p-6 border-b border-ferty-beige">
           <div>
             <h3 className="text-lg font-bold text-ferty-dark">
-              {autoDetect || !examType 
-                ? 'Escanear examen médico' 
+              {autoDetect || !examType
+                ? 'Escanear examen médico'
                 : `Escanear ${sectionTitle || EXAM_TYPE_LABELS[examType]}`}
             </h3>
             <p className="text-xs text-ferty-gray mt-1">
-              {autoDetect || !examType 
-                ? 'Toma una foto del examen. Detectaremos automáticamente el tipo y extraeremos todos los valores.'
-                : 'Toma una foto nítida del examen médico'}
+              {autoDetect || !examType
+                ? 'Sube fotos del examen. Detectaremos automáticamente el tipo y extraeremos todos los valores.'
+                : 'Sube fotos nítidas del examen médico'}
             </p>
           </div>
           <button
@@ -123,7 +125,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {!image && (
+          {images.length === 0 && (
             <div className="space-y-4">
               {error && (
                 <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
@@ -150,30 +152,62 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                 <Camera size={48} className="text-ferty-rose mb-3" />
                 <span className="text-base font-bold text-ferty-dark">Escanear examen</span>
                 <span className="text-xs text-ferty-gray mt-1 text-center">
-                  Toca para tomar foto con la cámara o elegir de galería
+                  Toca para tomar foto o seleccionar imágenes de la galería (hasta 5)
                 </span>
               </button>
-              {/* INPUT MEJORADO con capture para móvil */}
+              {/* INPUT MEJORADO con multiple */}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
+                multiple
                 onChange={handleFileSelect}
                 className="hidden"
               />
             </div>
           )}
 
-          {image && !extractedData && (
+          {images.length > 0 && !extractedData && (
             <div className="space-y-4">
-              <div className="relative rounded-2xl overflow-hidden border border-ferty-beige">
-                <img
-                  src={image}
-                  alt="Examen escaneado"
-                  className="w-full h-auto"
-                />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative rounded-xl overflow-hidden border border-ferty-beige aspect-[3/4] group">
+                    <img
+                      src={img}
+                      alt={`Página ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-md opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Eliminar imagen"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+
+                {images.length < 5 && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-ferty-beige hover:border-ferty-cols aspect-[3/4] bg-ferty-beigeLight hover:bg-ferty-beige transition-colors"
+                  >
+                    <Plus size={24} className="text-ferty-gray mb-1" />
+                    <span className="text-xs font-bold text-ferty-gray">Añadir más</span>
+                  </button>
+                )}
               </div>
+
+              {/* Hidden input for adding more files */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
               {error && (
                 <div className="bg-red-50 border border-red-200 p-4 rounded-xl space-y-2">
                   <div className="flex items-start gap-3">
@@ -185,7 +219,8 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                   </div>
                 </div>
               )}
-              <div className="flex gap-3">
+
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -199,12 +234,12 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                   {isProcessing ? (
                     <>
                       <Loader2 size={20} className="animate-spin" />
-                      Procesando...
+                      Procesando {images.length} {images.length === 1 ? 'imagen' : 'imágenes'}...
                     </>
                   ) : (
                     <>
                       <CheckCircle size={20} />
-                      Procesar examen
+                      Procesar {images.length} {images.length === 1 ? 'imagen' : 'imágenes'}
                     </>
                   )}
                 </button>
@@ -218,7 +253,7 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
                   disabled={isProcessing}
                   className="px-6 py-3 border border-ferty-beigeBorder rounded-xl font-bold text-ferty-gray hover:bg-ferty-beige disabled:opacity-50"
                 >
-                  Cambiar foto
+                  Cancelar
                 </button>
               </div>
             </div>
@@ -329,4 +364,3 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
     </div>
   );
 };
-

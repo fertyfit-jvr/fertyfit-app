@@ -165,18 +165,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Buscar sin filtros restrictivos - los documentos no tienen doc_type='Analitica' exacto
       // Solo aplicar pillar_category si se especifica explícitamente
-      ragChunks = await searchRagDirect(ragQuery, 
-        filters?.pillar_category ? { pillar_category: filters.pillar_category } : undefined, 
-        5
+      ragChunks = await searchRagDirect(ragQuery,
+        filters?.pillar_category ? { pillar_category: filters.pillar_category } : undefined,
+        15
       );
-      
+
       logger.log(`[RAG] Chunks recibidos: ${ragChunks.length}`);
-      
+
       if (ragChunks.length > 0) {
         ragChunksCount = ragChunks.length;
         ragContext = ragChunks.map((c) => c.content).join('\n\n');
         ragUsed = ragContext.length > 0;
-        
+
         if (ragUsed) {
           logger.log(`✅ RAG usado en analíticas: ${ragChunksCount} chunks encontrados para labs: ${labValues.substring(0, 100)}...`);
         }
@@ -206,9 +206,9 @@ CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de documentación):
 ${ragContext}
 
 FUENTES CONSULTADAS:
-${ragChunks.map((c, idx) => 
-  `${idx + 1}. ${c.metadata?.document_title || 'Documento sin título'} (ID: ${c.metadata?.document_id || 'N/A'})`
-).join('\n')}
+${ragChunks.map((c, idx) =>
+      `${idx + 1}. ${c.metadata?.document_title || 'Documento sin título'} (ID: ${c.metadata?.document_id || 'N/A'})`
+    ).join('\n')}
 
 ` : ''}${image ? `
 IMAGEN DEL EXAMEN:
@@ -252,16 +252,16 @@ INSTRUCCIONES:
 `;
 
     // Si hay imagen, incluirla en el contenido
-    const contents = image 
+    const contents = image
       ? [
-          { text: prompt },
-          {
-            inlineData: {
-              data: image.split(',')[1], // Remover data URL prefix
-              mimeType: 'image/jpeg',
-            },
+        { text: prompt },
+        {
+          inlineData: {
+            data: image.split(',')[1], // Remover data URL prefix
+            mimeType: 'image/jpeg',
           },
-        ]
+        },
+      ]
       : [{ text: prompt }];
 
     const response = await ai.models.generateContent({
@@ -290,7 +290,7 @@ INSTRUCCIONES:
 
     // Guardar la explicación en notifications
     try {
-      const labNames = labs && Object.keys(labs).length > 0 
+      const labNames = labs && Object.keys(labs).length > 0
         ? Object.keys(labs).join(', ')
         : examType || 'examen médico';
       const { error: saveError } = await supabase

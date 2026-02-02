@@ -17,34 +17,35 @@ import { logger } from '../../server/lib/logger.js';
 
 // Extracción estructurada con Gemini 2.5 Flash
 async function extractStructuredDataWithGemini(
-  base64Image: string,
+  images: string[], // Array de imágenes base64
   examType?: string
 ) {
-  const prompt = examType 
+  const prompt = examType
     ? `
-Eres un experto en análisis de exámenes médicos especializado en fertilidad y salud reproductiva.
+Eres un analista de datos médicos riguroso y preciso. TU OBJETIVO ES LA PRECISIÓN ABSOLUTA.
 
-Analiza esta imagen de un examen médico de tipo "${examType}".
+Analiza las imágenes proporcionadas de un examen médico de tipo "${examType}".
+Las imágenes pueden corresponder a varias páginas del mismo documento o diferentes vistas del mismo examen.
 
-La imagen puede ser:
-- Una tabla de resultados de laboratorio (analíticas)
-- Una imagen real de ecografía transvaginal o abdominal
-- Un informe médico con texto estructurado
-- Cualquier otro tipo de examen médico relacionado con fertilidad
+REGLAS CRÍTICAS DE SEGURIDAD (ANTI-ALUCINACIONES):
+1. **NO INVENTES NADA.** Si un valor no es claramente legible, IGNÓRALO. No adivines.
+2. Si la imagen NO ES UN EXAMEN MÉDICO O CLÍNICO (ej: es una foto de una persona, paisaje, comida, ticket de compra, animal, etc.), DEBES RECHAZARLA.
+   - En este caso, devuelve: \`{ "tipo_examen": "NO_MEDICO", "hallazgos_visuales": "Descripción corta de por qué no es médico (ej: Foto de un gato)", "resultados": [] }\`
+3. Si es un examen médico, extrae SOLO lo que ves.
 
-INSTRUCCIONES:
-1. Si es una tabla de texto: Extrae todos los parámetros, valores, unidades y rangos de referencia.
+INSTRUCCIONES PARA EXÁMENES MÉDICOS:
+1. Si es una tabla de texto: Extrae todos los parámetros, valores, unidades y rangos de referencia de TODAS las imágenes.
 2. Si es una imagen de ecografía: Analiza las estructuras visibles, medidas, características morfológicas, y cualquier texto o anotaciones presentes. 
    IMPORTANTE: Para ecografías, puedes devolver un array vacío en "resultados" si no hay parámetros numéricos estructurados, pero SIEMPRE debes incluir una descripción detallada en "hallazgos_visuales".
 3. Si es otro tipo de examen: Extrae toda la información estructurada disponible.
 
 DEVUELVE UN ÚNICO OBJETO JSON con la forma:
 {
-  "tipo_examen": "${examType}",
+  "tipo_examen": "${examType}" (o "NO_MEDICO" si aplica),
   "resultados": [
     {
-      "parametro": string,
-      "valor": number | string,
+      "parametro": string, // Nombre exacto como aparece
+      "valor": number | string, // Valor exacto como aparece
       "unidades": string | null,
       "rango_referencia": string | null,
       "observaciones": string | null
@@ -53,29 +54,30 @@ DEVUELVE UN ÚNICO OBJETO JSON con la forma:
   "hallazgos_visuales": string | null
 }
 
-IMPORTANTE: Si es una ecografía y no hay parámetros numéricos estructurados, devuelve "resultados": [] pero describe todo en "hallazgos_visuales".
-
-No añadas nada fuera del JSON (ni explicaciones, ni texto adicional).`
+No añadas nada fuera del JSON.`
     : `
-Eres un experto en análisis de exámenes médicos especializado en fertilidad y salud reproductiva.
+Eres un analista de datos médicos riguroso y preciso. TU OBJETIVO ES LA PRECISIÓN ABSOLUTA.
 
-Analiza esta imagen de un examen médico y:
+Analiza las imágenes proporcionadas y determina si constituyen un documento médico o una imagen clínica válida.
 
-1. PRIMERO identifica el tipo de examen:
-   - Tipos comunes: "hormonal", "metabolic", "vitamin_d", "ecografia", "hsg", "espermio"
-   - Pero puede ser CUALQUIER otro tipo de examen médico (ej: "hemograma", "coagulacion", "tiroides_completo", "vitamina_b12", "testosterona", etc.)
-   - Si es una imagen de ecografía (ultrasonido), identifícala como "ecografia"
-   - Si no está seguro, usa un nombre descriptivo basado en lo que ve
+REGLAS CRÍTICAS DE SEGURIDAD (ANTI-ALUCINACIONES):
+1. **VALIDACIÓN DE TIPO:**
+   - Si la imagen NO es un documento médico (ej: selfie, paisaje, recibo, comida, mascota, meme), devuelve INMEDIATAMENTE:
+     \`{ "tipo_examen": "NO_MEDICO", "resultados": [], "hallazgos_visuales": "Descripción de lo que ves (ej: Es una foto de una playa)" }\`
+   - NO intentes extraer "datos médicos" de un ticket de compra o texto irrelevante.
 
-2. LUEGO extrae toda la información disponible:
-   - Si es una tabla de texto: parámetros, valores, unidades, rangos
-   - Si es una imagen de ecografía: estructuras visibles, medidas, características, texto/anotaciones. 
-     IMPORTANTE: Para ecografías, puedes devolver "resultados": [] si no hay parámetros numéricos estructurados, pero SIEMPRE debes incluir una descripción detallada en "hallazgos_visuales".
-   - Si es otro tipo: toda la información estructurada que encuentres
+2. **SI ES UN DOCUMENTO MÉDICO:**
+   - Identifica el tipo de examen (considerando todas las imágenes).
+   - Extrae SOLO los datos visibles y legibles. NO ADIVINES valores borrosos.
+   - Si es una ecografía, céntrate en "hallazgos_visuales".
+
+3. **EXTRACCIÓN:**
+   - Tipos comunes: "hormonal", "metabolic", "vitamin_d", "ecografia", "hsg", "espermio".
+   - Otros tipos: Usa un nombre descriptivo (ej: "hemograma_completo").
 
 DEVUELVE UN ÚNICO OBJETO JSON con la forma:
 {
-  "tipo_examen": string,
+  "tipo_examen": string (o "NO_MEDICO"),
   "resultados": [
     {
       "parametro": string,
@@ -88,33 +90,55 @@ DEVUELVE UN ÚNICO OBJETO JSON con la forma:
   "hallazgos_visuales": string | null
 }
 
-IMPORTANTE: Si es una ecografía y no hay parámetros numéricos estructurados, devuelve "resultados": [] pero describe todo en "hallazgos_visuales".
+No añadas nada fuera del JSON.`;
 
-No añadas nada fuera del JSON (ni explicaciones, ni texto adicional).`;
+  // Preparar partes de imagen para Gemini
+  const imageParts = images.map(base64Image => {
+    // Detectar tipo MIME de la imagen
+    let mimeType = 'image/jpeg'; // Default
+    let cleanBase64 = base64Image;
 
-  // Detectar tipo MIME de la imagen
-  let mimeType = 'image/jpeg'; // Default
-  if (base64Image.startsWith('/9j/') || base64Image.startsWith('iVBORw0KG')) {
-    mimeType = 'image/jpeg';
-  } else if (base64Image.startsWith('iVBORw0KG')) {
-    mimeType = 'image/png';
-  } else if (base64Image.startsWith('UklGR')) {
-    mimeType = 'image/webp';
-  }
+    // Si viene con el prefijo data:image..., extraerlo y setear mimeType
+    if (base64Image.includes(';base64,')) {
+      const parts = base64Image.split(';base64,');
+      const mimeMatch = parts[0].match(/:(.*?)$/);
+      if (mimeMatch) {
+        mimeType = mimeMatch[1];
+      }
+      cleanBase64 = parts[1];
+    } else {
+      // Fallback detección básica si viene sin prefijo (legacy)
+      if (base64Image.startsWith('/9j/') || base64Image.startsWith('iVBORw0KG')) {
+        mimeType = 'image/jpeg';
+      } else if (base64Image.startsWith('iVBORw0KG')) {
+        mimeType = 'image/png';
+      } else if (base64Image.startsWith('UklGR')) {
+        mimeType = 'image/webp';
+      }
+    }
+
+    return {
+      inlineData: {
+        data: cleanBase64,
+        mimeType,
+      },
+    };
+  });
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-1.5-flash', // Usando flash para velocidad, o 1.5-pro si se requiere más razonamiento
     contents: [
-      { text: prompt },
       {
-        inlineData: {
-          data: base64Image,
-          mimeType,
-        },
-      },
+        role: 'user',
+        parts: [
+          { text: prompt },
+          ...imageParts
+        ]
+      }
     ],
     config: {
       responseMimeType: 'application/json',
+      temperature: 0.1, // Baja temperatura para reducir alucinaciones y ser más determinista
     },
   } as any);
 
@@ -136,21 +160,21 @@ No añadas nada fuera del JSON (ni explicaciones, ni texto adicional).`;
   // Validar y parsear JSON de forma segura
   try {
     const parsed = JSON.parse(jsonText);
-    
+
     // Validar estructura mínima esperada (permitir campos adicionales para RAG)
     if (!parsed || typeof parsed !== 'object') {
       throw new Error('Respuesta de Gemini no es un objeto JSON válido');
     }
-    
+
     // Si tiene resultados, validar que sea un array (pero permitir otros campos)
     if (parsed.resultados !== undefined && !Array.isArray(parsed.resultados)) {
       logger.warn('Gemini response: resultados no es un array, convirtiendo a array vacío');
       parsed.resultados = [];
     }
-    
+
     // Extraer tipo detectado (puede ser cualquier string)
     const detectedType = parsed.tipo_examen || examType || 'examen_medico';
-    
+
     return {
       ...parsed,
       examTypeDetected: detectedType
@@ -174,7 +198,7 @@ function setCORSHeaders(res: VercelResponse, origin: string): string {
     'http://localhost:5174',
     'http://127.0.0.1:5173',
   ];
-  
+
   let allowedOrigin: string;
   if (origin && allowedOrigins.includes(origin)) {
     allowedOrigin = origin;
@@ -183,13 +207,13 @@ function setCORSHeaders(res: VercelResponse, origin: string): string {
   } else {
     allowedOrigin = 'https://method.fertyfit.com';
   }
-  
+
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin');
-  
+
   return allowedOrigin;
 }
 
@@ -212,7 +236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Apply security headers AFTER CORS
     applySecurityHeaders(res);
-    
+
     // Re-assert CORS headers after security headers to ensure they're not overwritten
     setCORSHeaders(res, origin);
 
@@ -238,36 +262,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Validate input
     const validatedData = OCRRequestSchema.parse(req.body);
-    const { image, examType } = validatedData;
+    const { images, examType } = validatedData;
+    // Note: images is now string[]
 
-    // Validate and sanitize image
-    const imageValidation = validateImageUpload(image, 5000); // Max 5MB
-    if (!imageValidation.valid) {
-      throw createError(
-        imageValidation.error || getErrorMessage('INVALID_IMAGE', examType || 'examen_medico'),
-        400,
-        'INVALID_IMAGE'
-      );
+    const validImages: string[] = [];
+
+    // Validate and sanitize images
+    for (const image of images) {
+      const imageValidation = validateImageUpload(image, 5000); // Max 5MB per image
+      if (!imageValidation.valid) {
+        // Log warning but skip invalid image if we have others? Or fail entire request?
+        // Failing is safer for now.
+        throw createError(
+          imageValidation.error || getErrorMessage('INVALID_IMAGE', examType || 'examen_medico'),
+          400,
+          'INVALID_IMAGE'
+        );
+      }
+      validImages.push(imageValidation.sanitized || image);
     }
 
-    const sanitizedImage = imageValidation.sanitized || image;
-
-    // Extract base64 data (remove data URL prefix)
-    const base64Data = sanitizedImage.split(',')[1];
-    if (!base64Data) {
-      throw createError('Invalid image format', 400, 'INVALID_IMAGE_FORMAT');
+    if (validImages.length === 0) {
+      throw createError('No valid images to process', 400, 'NO_VALID_IMAGES');
     }
 
-    // Tamaño máximo 10MB (igual que antes, pero usando longitud de base64)
-    const estimatedBytes = (base64Data.length * 3) / 4;
-    if (estimatedBytes > 10 * 1024 * 1024) {
+    // Check total estimated size
+    const totalEstimatedBytes = validImages.reduce((acc, img) => {
+      const base64Data = img.includes(';base64,') ? img.split(';base64,')[1] : img;
+      return acc + (base64Data.length * 3) / 4;
+    }, 0);
+
+    if (totalEstimatedBytes > 20 * 1024 * 1024) { // Max 20MB payload limit (adjust as needed)
       throw createError(getErrorMessage('IMAGE_TOO_LARGE', examType || 'examen_medico'), 400, 'IMAGE_TOO_LARGE');
     }
 
     // Llamar a Gemini para extracción estructurada
     let structuredData: any;
     try {
-      structuredData = await extractStructuredDataWithGemini(base64Data, examType);
+      structuredData = await extractStructuredDataWithGemini(validImages, examType);
     } catch (ocrError: any) {
       logger.error('Gemini OCR Error:', {
         message: ocrError instanceof Error ? ocrError.message : String(ocrError),
@@ -284,7 +316,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Extraer tipo detectado
     const examTypeDetected = structuredData.examTypeDetected || structuredData.tipo_examen || examType || 'examen_medico';
-    
+
+    // VALIDACIÓN CRÍTICA: Si Gemini determina que NO es un examen médico
+    if (examTypeDetected.toUpperCase() === 'NO_MEDICO') {
+      const reason = structuredData.hallazgos_visuales || 'No se detectó un documento médico válido.';
+      logger.warn('Rechazo de imagen no médica:', reason);
+      throw createError(
+        `La imagen no parece ser un examen médico. ${reason}`,
+        400,
+        'INVALID_IMAGE_CONTENT'
+      );
+    }
+
     // Mapeamos el JSON de Gemini a un objeto de campos numéricos
     const rawParsedData: Record<string, any> = {};
     const resultados = Array.isArray(structuredData?.resultados)
@@ -298,7 +341,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Tipos de examen que son principalmente visuales (no requieren resultados estructurados)
     const visualExamTypes = ['ecografia', 'hsg', 'ultrasonido', 'ecografía'];
-    const isVisualExam = visualExamTypes.some(type => 
+    const isVisualExam = visualExamTypes.some(type =>
       examTypeDetected.toLowerCase().includes(type.toLowerCase())
     );
 
@@ -406,9 +449,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .toLowerCase()
           .replace(/\s+/g, '_')
           .replace(/[^a-z0-9_]/g, '');
-        
+
         rawParsedData[normalizedKey] = valor;
-        
+
         // También guardar con el nombre original para referencia
         rawParsedData[`${normalizedKey}_original`] = parametro;
       }
@@ -458,14 +501,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     logger.error('OCR API Error:', {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      body: req.body ? { examType: req.body.examType, hasImage: !!req.body.image } : undefined,
+      body: req.body ? { examType: req.body.examType, imagesCount: req.body.images?.length } : undefined,
     });
-    
+
     // Ensure CORS headers are set before sending error response
     const origin = req.headers.origin || '';
     setCORSHeaders(res, origin);
-    
+
     sendErrorResponse(res, error, req);
   }
 }
-

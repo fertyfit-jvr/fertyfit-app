@@ -4,6 +4,7 @@ import { ai } from '../../server/lib/ai.js';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
 import { logger } from '../../server/lib/logger.js';
+import { calcularDiaDelCiclo, calcularVentanaFertil } from './cycle_utils.js';
 
 type ChatRequest = {
   userId: string;
@@ -53,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Verificar límite diario de chat (5 para free)
     const dailyChatLimit = 5;
-    
+
     try {
       const today = new Date().toISOString().split('T')[0];
       const { count, error: countError } = await supabase
@@ -80,18 +81,99 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       logger.warn('Error al verificar límite de chat:', limitError);
     }
 
+    // --------------------------------------------------------------------------
+    // 1. DATA FETCHING: Perfil + Logs recientes
+    // --------------------------------------------------------------------------
+    const [profileResult, logsResult] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase
+        .from('daily_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .limit(7)
+    ]);
+
+    const profile = profileResult.data;
+    const recentLogs = logsResult.data || [];
+
+    // --------------------------------------------------------------------------
+    // 2. CONTEXT BUILDING: Calcular estado del ciclo
+    // --------------------------------------------------------------------------
+    let cycleContext = 'No hay información suficiente sobre el ciclo menstrual.';
+    let healthContext = '';
+
+    if (profile) {
+
+      const cycleLength = profile.cycle_length || 28;
+      const lastPeriod = profile.last_period_date;
+
+      if (lastPeriod) {
+        const cycleDay = calcularDiaDelCiclo(lastPeriod, cycleLength);
+        const fertileWindow = calcularVentanaFertil(cycleLength);
+
+        let fertilityStatus = 'Fase no fértil';
+        if (cycleDay >= fertileWindow.inicio && cycleDay <= fertileWindow.fin) {
+          fertilityStatus = 'VENTANA FÉRTIL (Alta probabilidad de embarazo)';
+          if (cycleDay === fertileWindow.diaOvulacion) {
+            fertilityStatus += ' - POSIBLE DÍA DE OVULACIÓN';
+          }
+        }
+
+        cycleContext = `
+- Día del ciclo: ${cycleDay} (Ciclo promedio: ${cycleLength} días)
+- Estado: ${fertilityStatus}
+- Última regla: ${lastPeriod}
+`;
+      }
+
+      healthContext = `
+- Edad: ${profile.age || 'No especificada'}
+- Objetivo: ${profile.main_objective || 'General'}
+- Diagnósticos: ${profile.diagnoses ? profile.diagnoses.join(', ') : 'Ninguno'}
+- Tratamientos: ${profile.fertility_treatments || 'Ninguno'}
+`;
+    }
+
+    // Resumir últimos síntomas
+    let recentSymptoms = 'No hay registros recientes.';
+    if (recentLogs.length > 0) {
+      recentSymptoms = recentLogs.map((log: any) =>
+        `- Día ${log.date} (CD ${log.cycle_day}): ${log.symptoms?.join(', ') || 'Sin síntomas'}, BBT: ${log.bbt || 'N/A'}`
+      ).join('\n');
+    }
+
+    // --------------------------------------------------------------------------
+    // 3. PROMPT CONSTRUCTION
+    // --------------------------------------------------------------------------
+    const systemContext = `
+DATOS DE LA USUARIA (Información CONFIDENCIAL para personalizar tu respuesta):
+${healthContext}
+ESTADO DEL CICLO ACTUAL:
+${cycleContext}
+REGISTROS RECIENTES (Últimos 7 días):
+${recentSymptoms}
+PROFILAXIS:
+Si la usuaria pregunta por su estado actual, usa estos datos.
+Si sus síntomas coinciden con su fase del ciclo, explícalo.
+Adaptate a su objetivo (${profile?.main_objective || 'general'}).
+`;
+
     // Construir prompt para Gemini (SIN RAG - respuestas cortas)
     const historyText = conversation_history
       ? conversation_history
-          .map((msg) => `${msg.role === 'user' ? 'Usuario' : 'Asistente'}: ${msg.content}`)
-          .join('\n')
+        .map((msg) => `${msg.role === 'user' ? 'Usuario' : 'Asistente'}: ${msg.content}`)
+        .join('\n')
       : '';
 
     const prompt = `
 Eres el consultor experto de FertyFit, una metodología integral de fertilidad basada en 4 pilares: FUNCIÓN (hormonal), FLORA (microbiota), FOOD (nutrición) y FLOW (bienestar).
 
+${systemContext}
+
 INSTRUCCIONES CRÍTICAS:
 - Responde en MÁXIMO 2 párrafos cortos (3-4 líneas cada uno)
+- PERSONALIZA la respuesta usando los datos de arriba (nómbrala si sabes su nombre, menciona su día del ciclo).
 - Sé directo, claro y conciso
 - NO des diagnósticos médicos ni prescribas tratamientos
 - Si requiere diagnóstico médico, orienta a consultar con un especialista
@@ -102,11 +184,11 @@ ${historyText ? `HISTORIAL DE CONVERSACIÓN:\n${historyText}\n\n` : ''}
 PREGUNTA DEL USUARIO:
 ${query}
 
-Responde en máximo 2 párrafos cortos. Sé conciso y directo.
+Responde priorizando los datos personales de la usuaria.
 `;
 
     let answer = 'No se pudo generar una respuesta.';
-    
+
     try {
       logger.log(`[CHAT] Generando respuesta con Gemini para query: "${query.substring(0, 50)}..."`);
       const response = await ai.models.generateContent({

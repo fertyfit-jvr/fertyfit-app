@@ -130,7 +130,7 @@ export const RULES: Rule[] = [
         condition: (ctx) => {
             if (!ctx.currentCycleDay || !ctx.cycleLength) return false;
             // Excluir el día cycleLength + 5 (ese día se usa PM-2)
-            return ctx.currentCycleDay >= ctx.cycleLength 
+            return ctx.currentCycleDay >= ctx.cycleLength
                 && ctx.currentCycleDay !== ctx.cycleLength + 5;
         },
         buildNotification: (ctx) => {
@@ -186,22 +186,7 @@ export const RULES: Rule[] = [
         }
     },
 
-    // ============================================================================
-    // ADHERENCIA (1 regla)
-    // ============================================================================
 
-    {
-        id: 'ENG-1',
-        trigger: 'DAILY_CHECK',
-        priority: 2,
-        condition: (ctx) => (ctx.daysSinceLastDailyLog ?? 999) >= 3,
-        buildNotification: () => ({
-            title: 'Te echamos de menos en tu registro',
-            message: 'Hace 3 días que no registras tu ciclo. Volver a hacerlo hará tu FertyScore más preciso.',
-            type: 'alert',
-            priority: 2
-        })
-    },
 
 ];
 
@@ -217,7 +202,7 @@ const getActiveNotificationsToday = async (userId: string): Promise<Set<string>>
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStart = today.toISOString();
-    
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStart = tomorrow.toISOString();
@@ -241,9 +226,13 @@ const getActiveNotificationsToday = async (userId: string): Promise<Set<string>>
 
     // Filtrar en cliente: solo las que NO están eliminadas y tienen ruleId
     const activeRuleIds = data
-        .filter(n => !n.metadata?.deleted && n.metadata?.ruleId)
-        .map(n => n.metadata.ruleId as string);
-    
+        .filter(n => {
+            const metadata = n.metadata || {};
+            return !metadata.deleted && metadata.ruleId;
+        })
+        .map(n => (n.metadata?.ruleId as string))
+        .filter((id): id is string => Boolean(id));
+
     return new Set(activeRuleIds);
 };
 
@@ -301,7 +290,7 @@ export const evaluateRules = async (
 
     // Ordenar por prioridad y limitar
     preCandidates.sort((a, b) => a.priority - b.priority);
-    
+
     const max = TRIGGER_MAX[trigger];
     const finalNotifs = preCandidates.slice(0, max);
     const notifications: AppNotification[] = finalNotifs.map(notif => ({
@@ -336,7 +325,7 @@ export const saveNotifications = async (userId: string, notifications: AppNotifi
     }));
 
     const result = await createNotificationsForUser(userId, notificationsToCreate);
-    
+
     if (!result.success) {
         logger.error('Failed to save notifications:', result.error);
     } else {
@@ -365,7 +354,7 @@ export const handlePeriodConfirmed = async (userId: string, newPeriodDate: strin
 
     let newCycleLength = profileData?.cycle_length || 28;
     if (updatedHistory.length >= 2) {
-        const sortedHistory = [...updatedHistory].sort((a, b) => 
+        const sortedHistory = [...updatedHistory].sort((a, b) =>
             new Date(a).getTime() - new Date(b).getTime()
         );
         const cicloCalculado = calcularCicloPromedio(sortedHistory);
@@ -384,7 +373,7 @@ export const handlePeriodConfirmed = async (userId: string, newPeriodDate: strin
     }
 
     logger.log(`✅ Período confirmado: ${newPeriodDate}. Ciclo promedio actualizado: ${newCycleLength} días`);
-    
+
     return { newPeriodDate, newCycleLength, periodHistory: updatedHistory };
 };
 
@@ -402,15 +391,15 @@ export const calcularDuracionPromedioCiclo = async (userId: string, currentCycle
             .single();
 
         const periodHistory = (data?.period_history as string[]) || [];
-        
+
         // Si hay historial con al menos 2 períodos, calcular promedio real
         if (periodHistory.length >= 2) {
-            const sortedHistory = [...periodHistory].sort((a, b) => 
+            const sortedHistory = [...periodHistory].sort((a, b) =>
                 new Date(a).getTime() - new Date(b).getTime()
             );
             return calcularCicloPromedio(sortedHistory);
         }
-        
+
         // Si no hay historial suficiente, usar cycleLength actual o default
         return currentCycleLength || 28;
     } catch (error) {

@@ -9,12 +9,12 @@ import { logger } from '../lib/logger';
 import { calculateAverages } from './dataService';
 import { FormAnswer, ConsultationForm, DailyLog } from '../types';
 import { PillarFunction, PillarFood, PillarFlora, PillarFlow, PillarType, PillarData } from '../types/pillars';
+import { fetchProfileForUser, fetchLogsForUser } from './userDataService';
+import { calculateAndSaveScore, FertyPillars } from './fertyscoreService';
 
 type PillarFormType = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
 
-/**
- * Normalizes form answers into pillar table structure
- */
+
 function normalizeAnswersToPillar(
   formType: PillarFormType,
   answers: Record<string, any>
@@ -25,32 +25,32 @@ function normalizeAnswersToPillar(
     case 'FUNCTION':
       // Ciclo (movido desde F0)
       if (answers['function_cycle_length']) {
-        normalized.cycle_length = parseFloat(answers['function_cycle_length']) 
+        normalized.cycle_length = parseFloat(answers['function_cycle_length'])
           || parseInt(answers['function_cycle_length']);
       }
-      
+
       if (answers['function_cycle_regularity']) {
         normalized.cycle_regularity = answers['function_cycle_regularity'];
       }
-      
+
       // Nuevas preguntas FUNCTION
       normalized.regularity_detail = answers['function_regularity_detail'];
-      
+
       if (answers['function_luteal_phase']) {
         normalized.luteal_phase_days = parseInt(answers['function_luteal_phase']);
       }
-      
+
       normalized.fertile_mucus = answers['function_fertile_mucus'];
-      
+
       if (answers['function_pms_severity']) {
         normalized.pms_severity = parseInt(answers['function_pms_severity']);
       }
-      
+
       normalized.fertility_diagnosis = answers['function_fertility_diagnosis'];
       normalized.tsh_last = answers['function_tsh_last'];
       normalized.ovulation_tracking = answers['function_ovulation_tracking'];
       normalized.menstrual_bleeding = answers['function_menstrual_bleeding'];
-      
+
       // Mantener si los necesitas
       if (answers['q9_diagnoses']) {
         const diagnosesStr = String(answers['q9_diagnoses']);
@@ -64,25 +64,25 @@ function normalizeAnswersToPillar(
     case 'FOOD':
       // ⭐ NUEVOS CAMPOS (sistema de puntos)
       normalized.eating_pattern = answers['food_patron'] ? String(answers['food_patron']) : undefined;
-      
+
       if (answers['food_pescado']) {
         normalized.fish_frequency = parseInt(answers['food_pescado']);
       }
-      
+
       if (answers['food_vege']) {
         normalized.vegetable_servings = parseInt(answers['food_vege']);
       }
-      
+
       normalized.fat_type = answers['food_grasas'] ? String(answers['food_grasas']) : undefined;
       normalized.fertility_supplements = answers['food_suppl'] ? String(answers['food_suppl']) : undefined;
-      
+
       if (answers['food_azucar']) {
         normalized.sugary_drinks_frequency = parseInt(answers['food_azucar']);
       }
-      
+
       normalized.antioxidants = answers['food_antiox'] ? String(answers['food_antiox']) : undefined;
       normalized.carb_source = answers['food_carbos'] ? String(answers['food_carbos']) : undefined;
-      
+
       // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
       normalized.daily_protein = answers['food_proteina'] ? parseFloat(answers['food_proteina']) : undefined;
       normalized.daily_fiber = answers['food_fibra'] ? parseFloat(answers['food_fibra']) : undefined;
@@ -103,16 +103,16 @@ function normalizeAnswersToPillar(
       if (answers['flora_dig']) {
         normalized.digestive_health = parseInt(answers['flora_dig']);
       }
-      
+
       normalized.vaginal_health = answers['flora_vag'] ? String(answers['flora_vag']) : undefined;
       normalized.antibiotics_last_year = answers['flora_atb'] ? String(answers['flora_atb']) : undefined;
-      
+
       if (answers['flora_ferm']) {
         normalized.fermented_foods_frequency = parseInt(answers['flora_ferm']);
       }
-      
+
       normalized.food_intolerances = answers['flora_intol'] ? String(answers['flora_intol']) : undefined;
-      
+
       // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
       normalized.antibiotics_last_12_months = answers['flora_antibioticos'] ? String(answers['flora_antibioticos']) : undefined;
       normalized.vaginal_infections = answers['flora_infecciones'] === 'Sí' || answers['flora_infecciones'] === true;
@@ -129,24 +129,24 @@ function normalizeAnswersToPillar(
       if (answers['flow_stress']) {
         normalized.stress_level = parseInt(answers['flow_stress']);
       }
-      
+
       if (answers['flow_sueno']) {
         normalized.sleep_hours = parseFloat(answers['flow_sueno']);
       }
-      
+
       if (answers['flow_relax']) {
         normalized.relaxation_frequency = parseInt(answers['flow_relax']);
       }
-      
+
       normalized.exercise_type = answers['flow_ejer'] ? String(answers['flow_ejer']) : undefined;
       normalized.morning_sunlight = answers['flow_solar'] ? String(answers['flow_solar']) : undefined;
       normalized.endocrine_disruptors = answers['flow_tox'] ? String(answers['flow_tox']) : undefined;
       normalized.bedtime_routine = answers['flow_noche'] ? String(answers['flow_noche']) : undefined;
-      
+
       if (answers['flow_emocion']) {
         normalized.emotional_state = parseInt(answers['flow_emocion']);
       }
-      
+
       // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
       normalized.sleep_hours_avg = answers['flow_sleep_hours_avg'] ? parseFloat(answers['flow_sleep_hours_avg']) : undefined;
       normalized.smoker = answers['flow_smoker'] ? String(answers['flow_smoker']) : undefined;
@@ -219,18 +219,18 @@ export async function savePillarForm(
         const profileUpdates: any = {
           cycle_length: functionData.cycle_length
         };
-        
+
         if (functionData.cycle_regularity) {
-          profileUpdates.cycle_regularity = functionData.cycle_regularity === 'Regulares' 
-            ? 'regular' 
+          profileUpdates.cycle_regularity = functionData.cycle_regularity === 'Regulares'
+            ? 'regular'
             : 'irregular';
         }
-        
+
         const { error: profileError } = await supabase
           .from('profiles')
           .update(profileUpdates)
           .eq('id', userId);
-        
+
         if (profileError) {
           logger.warn('Error syncing cycle_length to profiles:', profileError);
         } else {
@@ -269,10 +269,52 @@ export async function savePillarForm(
       logger.warn('Pillar data saved but historical record failed');
     }
 
+    // 5. TRIGGER: Calculate and save FertyScore
+    // Fetch fresh profile and ALL pillars to ensure accuracy
+    const profile = await fetchProfileForUser(userId);
+    const pillars = await fetchAllPillars(userId);
+
+    // Ensure we have logs for dynamic score (if not provided, fetch them)
+    let logsForScore = logs;
+    if (!logsForScore || logsForScore.length === 0) {
+      const logsResult = await fetchLogsForUser(userId, 30);
+      if (logsResult.success) {
+        logsForScore = logsResult.data;
+      }
+    }
+
+    if (profile) {
+      await calculateAndSaveScore(userId, profile as any, logsForScore, pillars, 'profile_update');
+    }
+
     return { success: true };
   } catch (error: any) {
     logger.error('Error in savePillarForm:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetch all pillars for a user
+ */
+export async function fetchAllPillars(userId: string): Promise<FertyPillars> {
+  try {
+    const [func, food, flora, flow] = await Promise.all([
+      fetchPillarData<PillarFunction>(userId, 'FUNCTION'),
+      fetchPillarData<PillarFood>(userId, 'FOOD'),
+      fetchPillarData<PillarFlora>(userId, 'FLORA'),
+      fetchPillarData<PillarFlow>(userId, 'FLOW'),
+    ]);
+
+    return {
+      function: func,
+      food: food,
+      flora: flora,
+      flow: flow
+    };
+  } catch (error) {
+    logger.error('Error fetching all pillars:', error);
+    return {};
   }
 }
 

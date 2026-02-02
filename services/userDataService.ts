@@ -63,7 +63,7 @@ export async function fetchLogsForUser(
         .gte('date', cutoffDateStr)
         .order('date', { ascending: false })
         .limit(daysLimit);
-      
+
       if (result.error) {
         throw result.error;
       }
@@ -99,7 +99,7 @@ export async function fetchAllLogsForUser(userId: string): Promise<Result<DailyL
         .select('*')
         .eq('user_id', userId)
         .order('date', { ascending: false });
-      
+
       if (result.error) {
         throw result.error;
       }
@@ -135,7 +135,7 @@ export async function fetchNotificationsForUser(userId: string): Promise<Result<
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      
+
       if (result.error) {
         throw result.error;
       }
@@ -172,7 +172,7 @@ export async function fetchUserFormsForUser(userId: string): Promise<Result<Cons
         .from('consultation_forms')
         .select('*')
         .eq('user_id', userId);
-      
+
       if (result.error) {
         throw result.error;
       }
@@ -232,7 +232,7 @@ export async function fetchEducationForUser(
       const mapped = modulesData.map(m => {
         const safeContentLessons = Array.isArray(m.content_lessons) ? m.content_lessons : [];
         const safeCompletedSet = Array.isArray(Array.from(completedSet)) ? completedSet : new Set();
-        
+
         return {
           id: m.id,
           title: m.title,
@@ -319,15 +319,32 @@ export async function createNotificationForUser(
         })
         .select()
         .single();
-      
+
       if (result.error) {
+        // Ignorar error de duplicados (23505) - Idempotencia
+        if (result.error.code === '23505') {
+          logger.log('Duplicate notification prevented by DB constraint (idempotent success).');
+          // Retornamos success true pero sin data nueva (o simulamos la data si fuera crítico)
+          return { data: { id: -1, ...notification, created_at: new Date().toISOString(), is_read: false } as AppNotification, error: null };
+        }
         throw result.error;
       }
       return result;
     });
 
-    if (error || !data) {
+    if (error) {
+      // Doble chequeo por si el error subió
+      if (error.code === '23505') {
+        return { success: true, data: { id: -1, ...notification, created_at: new Date().toISOString(), is_read: false } as AppNotification };
+      }
       logger.error('❌ Notification creation failed:', error);
+      return {
+        success: false,
+        error: 'No pudimos crear la notificación.'
+      };
+    }
+
+    if (!data) {
       return {
         success: false,
         error: 'No pudimos crear la notificación.'
@@ -348,7 +365,10 @@ export async function createNotificationForUser(
         is_read: data.is_read || false
       }
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      return { success: true, data: { id: -1, ...notification, created_at: new Date().toISOString(), is_read: false } as AppNotification };
+    }
     logger.error('❌ Error creating notification after retries:', error);
     return {
       success: false,
@@ -487,7 +507,7 @@ export async function createProfileForUser(payload: ProfileInsertPayload): Promi
         age,
         disclaimer_accepted
       });
-      
+
       if (result.error) {
         throw result.error;
       }
@@ -538,7 +558,7 @@ export async function updateProfileForUser(
         .from('profiles')
         .update(updates)
         .eq('id', userId);
-      
+
       if (result.error) {
         throw result.error;
       }

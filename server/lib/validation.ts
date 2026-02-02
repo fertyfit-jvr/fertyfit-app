@@ -150,9 +150,11 @@ export const DailyLogSchema = z.object({
 
 
 export const OCRRequestSchema = z.object({
-  image: z.string()
+  images: z.array(z.string()
     .min(100, 'Imagen inválida o demasiado pequeña')
-    .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, 'Formato de imagen inválido'),
+    .regex(/^data:image\/(jpeg|jpg|png|webp);base64,/, 'Formato de imagen inválido'))
+    .min(1, 'Debes subir al menos una imagen')
+    .max(5, 'Máximo 5 imágenes permitidas'),
   examType: z.string().optional(), // Acepta cualquier tipo de examen o undefined para detección automática
 });
 
