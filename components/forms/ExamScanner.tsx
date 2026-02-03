@@ -288,28 +288,31 @@ export const ExamScanner = ({ examType, onDataExtracted, onClose, sectionTitle, 
               )}
 
               <div className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3 max-h-64 overflow-y-auto">
-                {Object.keys(extractedData).length === 0 ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-ferty-gray mb-2">
-                      No se encontraron datos estructurados en el examen.
-                    </p>
-                    {extractedText && (
-                      <p className="text-xs text-ferty-gray italic">
-                        Revisa el texto extraído arriba para verificar que la imagen sea correcta.
+                {(() => {
+                  const displayEntries = Object.entries(extractedData).filter(([key]) => !key.endsWith('_original'));
+                  return displayEntries.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-ferty-gray mb-2">
+                        No se encontraron datos estructurados en el examen.
                       </p>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-xs font-semibold text-ferty-gray mb-2">Valores extraídos:</p>
-                    {Object.entries(extractedData).map(([key, value]) => (
-                      <div key={key} className="flex justify-between items-center py-2 border-b border-ferty-beige last:border-0">
-                        <span className="text-xs font-bold text-ferty-coral uppercase">{key.replace('function_', '')}</span>
-                        <span className="text-sm font-semibold text-ferty-dark">{value}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
+                      {extractedText && (
+                        <p className="text-xs text-ferty-gray italic">
+                          Revisa el texto extraído arriba para verificar que la imagen sea correcta.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs font-semibold text-ferty-gray mb-2">Valores extraídos:</p>
+                      {displayEntries.map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-center py-2 border-b border-ferty-beige last:border-0">
+                          <span className="text-xs font-bold text-ferty-coral uppercase">{key.replace('function_', '')}</span>
+                          <span className="text-sm font-semibold text-ferty-dark">{value}</span>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Mostrar explicación RAG si está disponible */}
