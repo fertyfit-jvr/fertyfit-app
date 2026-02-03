@@ -25,6 +25,7 @@ const MyProfileView = lazy(() => import('./views/MyProfile/MyProfileView'));
 const AnalyticsView = lazy(() => import('./views/Analytics/AnalyticsView'));
 const ReportsView = lazy(() => import('./views/Reports/ReportsView'));
 const ChatView = lazy(() => import('./views/Chat/ChatView'));
+const ConsentView = lazy(() => import('./views/Auth/ConsentView'));
 
 function AppContent() {
   const {
@@ -68,21 +69,21 @@ function AppContent() {
     const safeNotifications = Array.isArray(notifications) ? notifications : [];
     return safeNotifications.filter(n => !deletedNotificationIds.includes(n.id));
   }, [notifications, deletedNotificationIds]);
-  
+
   const unreadNotifications = useMemo(() => {
     return visibleNotifications.filter(n => !n.is_read);
   }, [visibleNotifications]);
 
   // Check user session on mount
-  useEffect(() => { 
-    checkUser(); 
+  useEffect(() => {
+    checkUser();
   }, []);
 
   // Handle authentication
   const handleAuth = async () => {
     setAuthError('');
     const success = await authHandleAuth(email, password, name, isSignUp);
-    
+
     if (isSignUp && success) {
       showNotif("¡Registro exitoso! Revisa tu email.", 'success');
       setIsSignUp(false);
@@ -141,6 +142,48 @@ function AppContent() {
     return <DisclaimerView onAccept={acceptDisclaimer} />;
   }
 
+  // Consent View check - Force consent if not all critical consents are true
+  const hasConsents = user && (
+    user.consent_personal_data &&
+    user.consent_food &&
+    user.consent_flora &&
+    user.consent_flow &&
+    user.consent_function &&
+    user.consent_daily_log &&
+    user.consent_no_diagnosis
+  );
+
+  const handleConsentComplete = async () => {
+    // Optimistic update of user state
+    if (user) {
+      setUser({
+        ...user,
+        consent_personal_data: true,
+        consent_food: true,
+        consent_flora: true,
+        consent_flow: true,
+        consent_function: true,
+        consent_daily_log: true,
+        consent_no_diagnosis: true,
+      });
+      // Redirect to Profile to start onboarding as requested
+      setView('PROFILE');
+      showNotif('¡Gracias! Ahora completa tu perfil para comenzar.', 'success');
+    }
+  };
+
+  if (view !== 'DISCLAIMER' && view !== 'ONBOARDING' && user && !hasConsents) {
+    return (
+      <Suspense fallback={<ViewLoading />}>
+        <ConsentView
+          user={user}
+          onConsentComplete={handleConsentComplete}
+          showNotif={showNotif}
+        />
+      </Suspense>
+    );
+  }
+
   // --- DASHBOARD & MAIN VIEW ---
 
   return (
@@ -150,56 +193,56 @@ function AppContent() {
       <div className="h-full overflow-y-auto custom-scrollbar">
         {view === 'PROFILE' && user ? (
           <Suspense fallback={<ViewLoading />}>
-          <ProfileView
-            user={user}
-            logs={logs}
-            submittedForms={submittedForms}
-            scores={dashboardScores}
-            visibleNotifications={visibleNotifications}
-            showNotif={showNotif}
-            setView={setView}
-            fetchUserForms={fetchUserForms}
-            setUser={setUser}
-            markNotificationRead={markNotificationRead}
-            deleteNotification={deleteNotification}
-            onNotificationAction={handleNotificationAction}
-            onRestartMethod={handleRestartMethod}
-            onLogout={handleLogout}
-            fetchAllLogs={fetchAllLogs}
-            setLogs={setLogs}
-          />
+            <ProfileView
+              user={user}
+              logs={logs}
+              submittedForms={submittedForms}
+              scores={dashboardScores}
+              visibleNotifications={visibleNotifications}
+              showNotif={showNotif}
+              setView={setView}
+              fetchUserForms={fetchUserForms}
+              setUser={setUser}
+              markNotificationRead={markNotificationRead}
+              deleteNotification={deleteNotification}
+              onNotificationAction={handleNotificationAction}
+              onRestartMethod={handleRestartMethod}
+              onLogout={handleLogout}
+              fetchAllLogs={fetchAllLogs}
+              setLogs={setLogs}
+            />
           </Suspense>
         ) : (
           <div className="p-5">
             {view === 'DASHBOARD' && user && (
               <Suspense fallback={<ViewLoading />}>
-              <DashboardView
-                user={user}
-                logs={logs}
-                todayLog={todayLog}
-                scores={dashboardScores}
-                progressPercent={dashboardProgress}
-                daysActive={dashboardDaysActive}
-                unreadNotifications={unreadNotifications}
-                submittedForms={submittedForms}
-                onStartMethod={startMethod}
-                onNavigate={setView}
-                showNotif={showNotif}
-                onMarkNotificationRead={markNotificationRead}
-                onDeleteNotification={deleteNotification}
-                onNotificationAction={handleNotificationAction}
-              />
+                <DashboardView
+                  user={user}
+                  logs={logs}
+                  todayLog={todayLog}
+                  scores={dashboardScores}
+                  progressPercent={dashboardProgress}
+                  daysActive={dashboardDaysActive}
+                  unreadNotifications={unreadNotifications}
+                  submittedForms={submittedForms}
+                  onStartMethod={startMethod}
+                  onNavigate={setView}
+                  showNotif={showNotif}
+                  onMarkNotificationRead={markNotificationRead}
+                  onDeleteNotification={deleteNotification}
+                  onNotificationAction={handleNotificationAction}
+                />
               </Suspense>
             )}
             {view === 'TRACKER' && (
               <Suspense fallback={<ViewLoading />} key={`tracker-${user?.lastPeriodDate || 'no-date'}`}>
-              <TrackerView
-                todayLog={todayLog}
-                setTodayLog={setTodayLog}
-                submittedForms={submittedForms}
-                logs={logs}
-                handleDateChange={handleDateChange}
-                saveDailyLog={saveDailyLog}
+                <TrackerView
+                  todayLog={todayLog}
+                  setTodayLog={setTodayLog}
+                  submittedForms={submittedForms}
+                  logs={logs}
+                  handleDateChange={handleDateChange}
+                  saveDailyLog={saveDailyLog}
                   user={user}
                   onUserUpdate={async (updatedUser) => {
                     const currentUser = useAppStore.getState().user;
@@ -214,80 +257,80 @@ function AppContent() {
                   }}
                   showNotif={showNotif}
                   fetchUserForms={fetchUserForms}
-              />
+                />
               </Suspense>
             )}
             {view === 'EDUCATION' && (
               <Suspense fallback={<ViewLoading />}>
-              <EducationView
-                courseModules={Array.isArray(courseModules) ? courseModules : []}
-                onSelectLesson={setActiveLesson}
-              />
+                <EducationView
+                  courseModules={Array.isArray(courseModules) ? courseModules : []}
+                  onSelectLesson={setActiveLesson}
+                />
               </Suspense>
             )}
             {view === 'CONSULTATIONS' && user && (
               <Suspense fallback={<ViewLoading />}>
-              <ConsultationsView
-                user={user}
-                logs={logs}
-                submittedForms={submittedForms}
-                showNotif={showNotif}
-                fetchUserForms={fetchUserForms}
-                setView={setView}
-              />
+                <ConsultationsView
+                  user={user}
+                  logs={logs}
+                  submittedForms={submittedForms}
+                  showNotif={showNotif}
+                  fetchUserForms={fetchUserForms}
+                  setView={setView}
+                />
               </Suspense>
             )}
           </div>
         )}
         {view === 'MY_PROFILE' && user && (
           <Suspense fallback={<ViewLoading />}>
-          <MyProfileView
-            user={user}
-            logs={logs}
-            submittedForms={submittedForms}
-            scores={dashboardScores}
-            showNotif={showNotif}
-            setView={setView}
-            fetchUserForms={fetchUserForms}
-            setUser={setUser}
-            fetchAllLogs={fetchAllLogs}
-            setLogs={setLogs}
-            onRestartMethod={handleRestartMethod}
-            onLogout={handleLogout}
-          />
+            <MyProfileView
+              user={user}
+              logs={logs}
+              submittedForms={submittedForms}
+              scores={dashboardScores}
+              showNotif={showNotif}
+              setView={setView}
+              fetchUserForms={fetchUserForms}
+              setUser={setUser}
+              fetchAllLogs={fetchAllLogs}
+              setLogs={setLogs}
+              onRestartMethod={handleRestartMethod}
+              onLogout={handleLogout}
+            />
           </Suspense>
         )}
         {view === 'ANALYTICS' && user && (
           <Suspense fallback={<ViewLoading />}>
-          <AnalyticsView
-            user={user}
-            submittedForms={submittedForms}
-            showNotif={showNotif}
-            setView={setView}
-            fetchUserForms={fetchUserForms}
-          />
+            <AnalyticsView
+              user={user}
+              submittedForms={submittedForms}
+              showNotif={showNotif}
+              setView={setView}
+              fetchUserForms={fetchUserForms}
+            />
           </Suspense>
         )}
         {view === 'REPORTS' && user && (
           <Suspense fallback={<ViewLoading />}>
-          <ReportsView
-            user={user}
-            visibleNotifications={visibleNotifications}
-            showNotif={showNotif}
-            setView={setView}
-            markNotificationRead={markNotificationRead}
-            deleteNotification={deleteNotification}
-            onNotificationAction={handleNotificationAction}
-          />
+            <ReportsView
+              user={user}
+              visibleNotifications={visibleNotifications}
+              showNotif={showNotif}
+              setView={setView}
+              markNotificationRead={markNotificationRead}
+              deleteNotification={deleteNotification}
+              onNotificationAction={handleNotificationAction}
+            />
           </Suspense>
         )}
         {view === 'CHAT' && user && (
           <Suspense fallback={<ViewLoading />}>
-          <ChatView
-            user={user}
-            showNotif={showNotif}
-            setView={setView}
-          />
+            <ChatView
+              user={user}
+              showNotif={showNotif}
+              setView={setView}
+            />
           </Suspense>
         )}
       </div>

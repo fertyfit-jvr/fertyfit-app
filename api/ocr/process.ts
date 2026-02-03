@@ -300,18 +300,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let structuredData: any;
     try {
       structuredData = await extractStructuredDataWithGemini(validImages, examType);
+      structuredData = await extractStructuredDataWithGemini(validImages, examType);
     } catch (ocrError: any) {
       logger.error('Gemini OCR Error:', {
         message: ocrError instanceof Error ? ocrError.message : String(ocrError),
         stack: ocrError instanceof Error ? ocrError.stack : undefined,
         examType: examType || 'auto-detect',
       });
-      // Reusar mensaje de timeout o genérico según convenga
-      throw createError(
-        getErrorMessage('TIMEOUT_ERROR', examType || 'examen_medico'),
-        504,
-        'TIMEOUT_ERROR'
-      );
+
+      // Distinguir tipos de errores
+      const errorMessage = ocrError instanceof Error ? ocrError.message : String(ocrError);
+
+      if (errorMessage.includes('timeout') || errorMessage.includes('deadline')) {
+        throw createError(
+          getErrorMessage('TIMEOUT_ERROR', examType || 'examen_medico'),
+          504,
+          'TIMEOUT_ERROR'
+        );
+      } else if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('resource exhausted')) {
+        throw createError(
+          'El servicio de IA está saturado momentáneamente. Por favor intenta en unos minutos.',
+          429,
+          'RATE_LIMIT_EXCEEDED'
+        );
+      } else if (errorMessage.includes('400') || errorMessage.includes('invalid argument')) {
+        throw createError(
+          'La solicitud a la IA no fue válida. Verifica las imágenes.',
+          400,
+          'BAD_REQUEST'
+        );
+      } else {
+        // Error genérico pero NO timeout
+        throw createError(
+          `Error al procesar con IA: ${errorMessage}`,
+          500,
+          'AI_PROCESSING_ERROR'
+        );
+      }
     }
 
     // Extraer tipo detectado

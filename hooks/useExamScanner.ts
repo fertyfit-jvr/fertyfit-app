@@ -83,6 +83,61 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  /**
+   * Comprime una imagen (base64) si excede dimensiones máximas.
+   * Usa Canvas API para redimensionar.
+   */
+  const compressImage = async (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      // Si no es imagen (ej: PDF o string raro), devolver tal cual
+      if (!base64Str.startsWith('data:image')) {
+        resolve(base64Str);
+        return;
+      }
+
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const MAX_WIDTH = 1500;
+        const MAX_HEIGHT = 1500;
+        let width = img.width;
+        let height = img.height;
+
+        // Calcular nuevas dimensiones manteniendo aspect ratio
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(base64Str); // Fallback
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Comprimir a JPEG con calidad 0.8
+        // Esto reduce drásticamente el tamaño sin perder legibilidad de texto para OCR
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(compressed);
+      };
+      img.onerror = () => {
+        resolve(base64Str); // Fallback si falla carga
+      };
+    });
+  };
+
   const processImage = async () => {
     if (images.length === 0) {
       setError('No hay imágenes para procesar');
@@ -102,14 +157,19 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
         throw new Error('Formato de imagen inválido. Por favor, selecciona imágenes válidas.');
       }
 
-      logger.log('🖼️ Processing images with OCR...', {
+      logger.log('🖼️ Optimizing images...', { count: images.length });
+
+      // Comprimir imágenes antes de enviar
+      const optimizedImages = await Promise.all(images.map(img => compressImage(img)));
+
+      logger.log('🖼️ Processing optimized images with OCR...', {
         examType: examType || 'auto-detect',
         autoDetect,
-        imagesCount: images.length
+        imagesCount: optimizedImages.length
       });
 
       const ocrResult = await processImageOCR({
-        images,
+        images: optimizedImages,
         examType: examType || 'hormonal'
       });
 

@@ -163,18 +163,18 @@ const ProfileView = ({
 }: ProfileViewProps) => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedAllHistory, setHasLoadedAllHistory] = useState(false);
-  
+
   // Variables de estado para F0
   const [f0Answers, setF0Answers] = useState<FormAnswersDict>({});
   const [isEditingF0, setIsEditingF0] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
-  
+
   // Variables de estado para pilares
   const [formType, setFormType] = useState<PillarFormType>('FUNCTION');
   const [answers, setAnswers] = useState<FormAnswersDict>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  
+
   // Variables de estado para tabs y UI
   const [profileTab, setProfileTab] = useState<'HISTORIA' | 'PILARES'>('HISTORIA');
   const [isF0Expanded, setIsF0Expanded] = useState(false);
@@ -182,16 +182,63 @@ const ProfileView = ({
   const [pillarScannerOpen, setPillarScannerOpen] = useState(false);
   const [pillarExamType, setPillarExamType] = useState<'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'>('other');
   const [pillarExamName, setPillarExamName] = useState('');
-  
+
   // Refs para auto-save
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoSaveTimeoutPillarRef = useRef<NodeJS.Timeout | null>(null);
   const originalAnswers = useRef<FormAnswersDict>({});
   const originalF0Answers = useRef<FormAnswersDict>({});
+  const isGeneratingAutoReportRef = useRef(false);
+
+  // Auto-trigger BASIC report when all forms are submitted
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // 1. Check if Function, Food, Flora, Flow and F0 are submitted
+    const hasF0 = submittedForms.some(f => f.form_type === 'F0');
+    const hasFunction = !!findSubmission(submittedForms, 'FUNCTION');
+    const hasFood = !!findSubmission(submittedForms, 'FOOD');
+    const hasFlora = !!findSubmission(submittedForms, 'FLORA');
+    const hasFlow = !!findSubmission(submittedForms, 'FLOW');
+
+    const allFormsSubmitted = hasF0 && hasFunction && hasFood && hasFlora && hasFlow;
+
+    if (!allFormsSubmitted) return;
+
+    // 2. Check if report already exists
+    const hasBasicReport = visibleNotifications.some(n =>
+      n.type === 'REPORT' && n.metadata?.reportType === 'BASIC'
+    );
+
+    if (hasBasicReport) return;
+
+    // 3. Trigger generation
+    if (isGeneratingAutoReportRef.current) return;
+    isGeneratingAutoReportRef.current = true;
+
+    fetch('/api/analysis/report-extended', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        reportType: 'BASIC'
+      }),
+    }).then(async res => {
+      if (res.ok) {
+        showNotif('¡Excelente! Has completado tu perfil. Generando tu Informe Básico...', 'success');
+      }
+    }).catch(err => {
+      console.error('Error triggering auto-report:', err);
+    }).finally(() => {
+      // Prevent re-triggering for a while
+      setTimeout(() => { isGeneratingAutoReportRef.current = false }, 30000);
+    });
+
+  }, [submittedForms, visibleNotifications, user?.id]);
 
   const handleLoadFullHistory = useCallback(async () => {
     if (!user?.id || !fetchAllLogs || !setLogs) return;
-    
+
     setIsLoadingHistory(true);
     try {
       const allLogs = await fetchAllLogs(user.id);
@@ -226,7 +273,7 @@ const ProfileView = ({
 
   // Definir tipos y constantes
   type PillarFormType = 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
-  
+
   const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {
     F1: 'FUNCTION',
     F2: 'FOOD',
@@ -258,15 +305,15 @@ const ProfileView = ({
     const matching = forms.filter(form => {
       const typeMatches = form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type;
       if (!typeMatches) return false;
-      
+
       if (type === 'FUNCTION' && form.answers && Array.isArray(form.answers)) {
         const hasExamType = form.answers.some((a: any) => a.questionId === 'exam_type');
         if (hasExamType) return false;
       }
-      
+
       return true;
     });
-    
+
     return matching.sort((a, b) => {
       const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
       const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
@@ -331,7 +378,7 @@ const ProfileView = ({
       const initialMonths = parseInt(String(f0Answers['q3_time_trying']).replace(/\D/g, '')) || 0;
       const submissionDate = currentF0Form.submitted_at || new Date().toISOString();
       const startDate = submissionDate.split('T')[0]; // Get YYYY-MM-DD format
-      
+
       const success = await setTimeTryingStart(user.id, initialMonths, startDate);
       if (success) {
         updates.timeTryingStartDate = startDate;
@@ -351,7 +398,7 @@ const ProfileView = ({
       if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
       if (updates.height !== undefined) profileUpdates.height = updates.height;
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
-      
+
       const updateResult = await updateProfileForUser(user.id, profileUpdates);
       if (updateResult.success === false) {
         showNotif(updateResult.error || 'No pudimos actualizar tu perfil', 'error');
@@ -376,16 +423,16 @@ const ProfileView = ({
   // Sincronizar f0Answers cuando user o submittedForms cambien (solo si no está editando)
   useEffect(() => {
     if (isEditingF0) return; // No sincronizar si está editando para no perder cambios del usuario
-    
+
     const f0Form = submittedForms.find(f => f.form_type === 'F0');
     if (f0Form && f0Form.answers) {
       const syncedAnswers: FormAnswersDict = {};
-      f0Form.answers.forEach((a: FormAnswer) => { 
-        syncedAnswers[a.questionId] = a.answer; 
+      f0Form.answers.forEach((a: FormAnswer) => {
+        syncedAnswers[a.questionId] = a.answer;
       });
-      
+
       // Nota: cycle_length ya no está en F0, se maneja desde FUNCTION
-      
+
       setF0Answers(syncedAnswers);
     }
   }, [user?.lastPeriodDate, user?.cycleLength, submittedForms, isEditingF0]);
@@ -437,22 +484,22 @@ const ProfileView = ({
   // Calculate progress for current form based on submitted form, not local answers
   const progress = useMemo(() => {
     if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
-    
+
     // If no form has been submitted, progress is 0%
     if (!submittedForm || !submittedForm.answers || !Array.isArray(submittedForm.answers)) {
       return { answered: 0, total: definition.questions.length, percentage: 0 };
     }
-    
+
     const totalQuestions = definition.questions.length;
     const answeredQuestions = definition.questions.filter(question => {
       const answer = submittedForm.answers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
-      
+
       // Consider answered if value exists and is not empty string
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-      
+
       // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
       if ('defaultValue' in question && question.defaultValue !== undefined) {
         // Convert both to strings for comparison to handle number/string mismatches
@@ -460,16 +507,16 @@ const ProfileView = ({
         const valueStr = String(value);
         if (valueStr === defaultValueStr) return false;
       }
-      
+
       // For Flora "Otra" fields, check if contains ": " (combined format)
       if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
         const [, otherValue] = value.split(': ', 2);
         return Boolean(otherValue && otherValue.trim() !== '');
       }
-      
+
       return true;
     }).length;
-    
+
     return {
       answered: answeredQuestions,
       total: totalQuestions,
@@ -481,35 +528,35 @@ const ProfileView = ({
   const getPillarProgress = (pillarId: PillarFormType): number => {
     const form = findSubmission(submittedForms, pillarId);
     if (!form || !form.answers || !Array.isArray(form.answers)) return 0;
-    
+
     const pillarDef = FORM_DEFINITIONS[pillarId as keyof typeof FORM_DEFINITIONS];
     if (!pillarDef?.questions) return 0;
-    
+
     const totalQuestions = pillarDef.questions.length;
     const answeredQuestions = pillarDef.questions.filter(question => {
       const answer = form.answers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
-      
+
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-      
+
       // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
       if ('defaultValue' in question && question.defaultValue !== undefined) {
         const defaultValueStr = String(question.defaultValue);
         const valueStr = String(value);
         if (valueStr === defaultValueStr) return false;
       }
-      
+
       // For Flora "Otra" fields, check if contains ": " (combined format)
       if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
         const [, otherValue] = value.split(': ', 2);
         return Boolean(otherValue && otherValue.trim() !== '');
       }
-      
+
       return true;
     }).length;
-    
+
     return totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
   };
 
@@ -638,20 +685,20 @@ const ProfileView = ({
           .select('cycle_length, cycle_regularity')
           .eq('id', user.id)
           .single();
-        
+
         if (profile) {
           setUser({
             ...user,
             cycleLength: profile.cycle_length ?? user.cycleLength,
-            cycleRegularity: profile.cycle_regularity === 'regular' 
-              ? 'Regular' 
+            cycleRegularity: profile.cycle_regularity === 'regular'
+              ? 'Regular'
               : profile.cycle_regularity === 'irregular'
-              ? 'Irregular'
-              : user.cycleRegularity
+                ? 'Irregular'
+                : user.cycleRegularity
           });
         }
       }
-      
+
       showNotif('Formulario guardado correctamente.', 'success');
       fetchUserForms(user.id);
     } else {
@@ -682,8 +729,8 @@ const ProfileView = ({
       typeof rawValue === 'number'
         ? rawValue
         : rawValue !== undefined && rawValue !== ''
-        ? Number(rawValue)
-        : undefined;
+          ? Number(rawValue)
+          : undefined;
 
     const clampValue = (value: number) => {
       let next = value;
@@ -724,8 +771,8 @@ const ProfileView = ({
       typeof rawValue === 'number'
         ? rawValue
         : rawValue !== undefined && rawValue !== ''
-        ? Number(rawValue)
-        : question.defaultValue ?? min;
+          ? Number(rawValue)
+          : question.defaultValue ?? min;
     const safeValue = Number.isFinite(currentValue) ? currentValue : min;
 
     return (
@@ -768,9 +815,8 @@ const ProfileView = ({
               key={option}
               type="button"
               onClick={() => updateAnswer(question.id, optionValue)}
-              className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
-                isActive ? 'bg-ferty-rose text-white border-ferty-rose' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-              }`}
+              className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${isActive ? 'bg-ferty-rose text-white border-ferty-rose' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                }`}
             >
               {option}
             </button>
@@ -789,9 +835,8 @@ const ProfileView = ({
             key={option}
             type="button"
             onClick={() => updateAnswer(question.id, option)}
-            className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-              isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-            }`}
+            className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+              }`}
           >
             {option}
           </button>
@@ -818,11 +863,10 @@ const ProfileView = ({
                 key={value}
                 type="button"
                 onClick={() => updateAnswer(question.id, value)}
-                className={`flex-1 h-8 rounded-lg border transition-all ${
-                  isActive
-                    ? 'bg-ferty-rose border-ferty-rose'
-                    : 'bg-ferty-beige border-ferty-beigeBorder hover:bg-ferty-beigeBorder'
-                }`}
+                className={`flex-1 h-8 rounded-lg border transition-all ${isActive
+                  ? 'bg-ferty-rose border-ferty-rose'
+                  : 'bg-ferty-beige border-ferty-beigeBorder hover:bg-ferty-beigeBorder'
+                  }`}
               />
             );
           })}
@@ -851,7 +895,7 @@ const ProfileView = ({
     if (formType === 'FLORA' && (question.id === 'flora_pruebas' || question.id === 'flora_suplementos')) {
       const selectedValue = answers[question.id];
       const showOtherField = selectedValue === 'Otra' || selectedValue === 'Otro';
-      
+
       return (
         <div className="space-y-3">
           {renderButtons(question, question.options || [])}
@@ -947,7 +991,7 @@ const ProfileView = ({
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-4">
         {definition.questions.map(question => (
@@ -1036,7 +1080,7 @@ const ProfileView = ({
 
   const renderSubmittedView = () => {
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
-    
+
     return (
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-ferty-beige">
         <div className="flex items-center justify-between mb-4 border-b border-ferty-beige pb-4">
@@ -1084,22 +1128,22 @@ const ProfileView = ({
             </button>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           {(() => {
             // ⭐ Filtrar respuestas: solo mostrar las que corresponden a las preguntas ACTUALES del formulario
             // Esto asegura que solo se muestren las nuevas preguntas, no las antiguas
             const definition = FORM_DEFINITIONS[formType as keyof typeof FORM_DEFINITIONS];
-            const validQuestionIds = definition?.questions 
+            const validQuestionIds = definition?.questions
               ? new Set(definition.questions.map((q: any) => q.id))
               : new Set();
-            
+
             // También incluir campos legacy que pueden estar en FUNCTION
             if (formType === 'FUNCTION') {
               validQuestionIds.add('q9_diagnoses');
               validQuestionIds.add('q20_fertility_treatments');
             }
-            
+
             const filteredAnswers = (submittedForm?.answers || []).filter((answer: any) => {
               // Excluir campos específicos de exámenes/análisis IA
               if (
@@ -1109,12 +1153,12 @@ const ProfileView = ({
               ) {
                 return false;
               }
-              
+
               // ⭐ Para TODOS los pilares, solo mostrar respuestas que corresponden a las preguntas actuales del formulario
               // Esto asegura que solo se muestren las nuevas preguntas, no las antiguas
               return validQuestionIds.has(answer.questionId);
             });
-            
+
             // Si no hay respuestas filtradas, mostrar mensaje
             if (filteredAnswers.length === 0) {
               return (
@@ -1132,12 +1176,12 @@ const ProfileView = ({
                 </div>
               );
             }
-            
+
             // Función helper para renderizar un campo
             const renderField = (label: string, value: any, colSpan: number = 1) => {
               const displayValue = Array.isArray(value) ? value.join(', ') : (value ?? '—');
               const isEmpty = !value || (Array.isArray(value) && value.length === 0);
-              
+
               return (
                 <div key={label} className={colSpan === 2 ? 'col-span-2' : ''}>
                   <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
@@ -1147,7 +1191,7 @@ const ProfileView = ({
                 </div>
               );
             };
-            
+
             // Para FUNCTION: agrupar por secciones
             if (formType === 'FUNCTION') {
               const sections = FUNCTION_SECTIONS.map((section) => {
@@ -1155,9 +1199,9 @@ const ProfileView = ({
                 const sectionAnswers = filteredAnswers.filter((answer: any) => {
                   return section.fields.some(field => field.id === answer.questionId);
                 });
-                
+
                 if (sectionAnswers.length === 0) return null;
-                
+
                 return (
                   <div key={section.id} className="border-b border-ferty-beige pb-3 last:border-0">
                     <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
@@ -1169,22 +1213,22 @@ const ProfileView = ({
                         const label = field?.label || answer.question;
                         const value = answer.answer;
                         // Si la respuesta es muy larga o es un campo de texto largo, usar col-span-2
-                        const isLong = Array.isArray(value) && value.length > 1 || 
-                                      (typeof value === 'string' && value.length > 50);
+                        const isLong = Array.isArray(value) && value.length > 1 ||
+                          (typeof value === 'string' && value.length > 50);
                         return renderField(label, value, isLong ? 2 : 1);
                       })}
                     </div>
                   </div>
                 );
               }).filter(Boolean);
-              
+
               // También mostrar campos legacy que no están en secciones
               const legacyAnswers = filteredAnswers.filter((answer: any) => {
-                return !FUNCTION_SECTIONS.some(section => 
+                return !FUNCTION_SECTIONS.some(section =>
                   section.fields.some(field => field.id === answer.questionId)
                 );
               });
-              
+
               if (legacyAnswers.length > 0) {
                 sections.push(
                   <div key="legacy" className="border-b border-ferty-beige pb-3 last:border-0">
@@ -1195,18 +1239,18 @@ const ProfileView = ({
                       {legacyAnswers.map((answer: any) => {
                         const label = answer.question;
                         const value = answer.answer;
-                        const isLong = Array.isArray(value) && value.length > 1 || 
-                                      (typeof value === 'string' && value.length > 50);
+                        const isLong = Array.isArray(value) && value.length > 1 ||
+                          (typeof value === 'string' && value.length > 50);
                         return renderField(label, value, isLong ? 2 : 1);
                       })}
                     </div>
                   </div>
                 );
               }
-              
+
               return sections;
             }
-            
+
             // Para FOOD, FLORA, FLOW: mostrar en una sección general
             return (
               <div className="border-b border-ferty-beige pb-3">
@@ -1219,8 +1263,8 @@ const ProfileView = ({
                     const label = question?.text || answer.question;
                     const value = answer.answer;
                     // Si la respuesta es muy larga, usar col-span-2
-                    const isLong = Array.isArray(value) && value.length > 1 || 
-                                  (typeof value === 'string' && value.length > 80);
+                    const isLong = Array.isArray(value) && value.length > 1 ||
+                      (typeof value === 'string' && value.length > 80);
                     return renderField(label, value, isLong ? 2 : 1);
                   })}
                 </div>
@@ -1243,6 +1287,54 @@ const ProfileView = ({
       />
 
       <div className="p-5 pt-0">
+        {/* Guidance Banner for Onboarding */}
+        {(() => {
+          const formsStatus = {
+            F0: !!submittedForms.some(f => f.form_type === 'F0'),
+            FUNCTION: !!findSubmission(submittedForms, 'FUNCTION'),
+            FOOD: !!findSubmission(submittedForms, 'FOOD'),
+            FLORA: !!findSubmission(submittedForms, 'FLORA'),
+            FLOW: !!findSubmission(submittedForms, 'FLOW'),
+          };
+          const completedCount = Object.values(formsStatus).filter(Boolean).length;
+          const totalForms = 5;
+          const isComplete = completedCount === totalForms;
+
+          if (isComplete) return null; // Don't show if all done (or show a "All set!" message?)
+
+          return (
+            <div className="mb-6 bg-gradient-to-r from-ferty-rose/10 to-transparent p-4 rounded-2xl border border-ferty-rose/20">
+              <div className="flex items-start gap-4">
+                <div className="bg-white p-2 rounded-full shadow-sm text-ferty-rose mt-1">
+                  {/* Using CheckCircle as Sparkles isn't imported yet, or I should import it. 
+                       I'll stick to icons available or simple ones. CheckCircle is good. 
+                   */}
+                  <CheckCircle size={24} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-ferty-dark text-lg mb-1">
+                    ¡Completa tu Perfil!
+                  </h3>
+                  <p className="text-sm text-ferty-gray mb-3 leading-relaxed">
+                    Para generar tu primer <strong>Informe Básico</strong>, necesitamos que completes tu Ficha Personal (F0) y los 4 pilares.
+                  </p>
+
+                  {/* Progress Bar */}
+                  <div className="w-full bg-white h-2.5 rounded-full overflow-hidden mb-2 border border-ferty-beige">
+                    <div
+                      className="bg-ferty-rose h-full transition-all duration-1000 ease-out"
+                      style={{ width: `${(completedCount / totalForms) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs font-bold text-ferty-rose text-right">
+                    {completedCount} de {totalForms} completados
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Links discretos para navegar */}
         <div className="mb-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -1374,7 +1466,7 @@ const ProfileView = ({
                       </>
                     );
                   })()}
-                  
+
                   {/* Análisis de Edad (justo después de datos físicos / ciclo / historial) */}
                   <div>
                     <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">Análisis de Edad</p>
@@ -1422,7 +1514,7 @@ const ProfileView = ({
                       Actualiza tu ciclo menstrual
                     </p>
                     <p className="text-[10px] text-amber-700">
-                      {daysOverdue === 0 
+                      {daysOverdue === 0
                         ? 'Tu ciclo ha concluido. ¿Te ha venido la regla?'
                         : `Tu ciclo concluyó hace ${daysOverdue} día${daysOverdue > 1 ? 's' : ''}. Actualiza la fecha para mantener tus predicciones precisas.`
                       }

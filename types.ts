@@ -32,6 +32,16 @@ export interface UserProfile {
   supplements?: string;
   smoker?: string;
   alcoholConsumption?: string;
+
+  // Consent fields
+  consent_personal_data?: boolean;
+  consent_food?: boolean;
+  consent_flora?: boolean;
+  consent_flow?: boolean;
+  consent_function?: boolean;
+  consent_daily_log?: boolean;
+  consent_no_diagnosis?: boolean;
+  consents_at?: string;
 }
 
 export type MucusType = 'Seco' | 'Pegajoso' | 'Cremoso' | 'Clara de huevo' | 'Acuoso';
