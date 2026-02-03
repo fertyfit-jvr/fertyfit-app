@@ -14,7 +14,8 @@ async function checkDb() {
     const { data, error } = await supabase
         .from('fertyfit_knowledge')
         .select('id, document_id, chunk_id, metadata_json')
-        .limit(5);
+        .eq('document_id', 'FERTYFIT_METODOLOGIA_CORE.md')
+        .limit(3);
 
     if (error) {
         console.error('Error:', error);

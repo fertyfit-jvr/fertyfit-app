@@ -142,7 +142,7 @@ CONTEXTO METODOLÓGICO FERTYFIT (${ragChunksCount} fragmentos de documentación 
 ${ragContext}
 
 IMPORTANTE - CITACIÓN DE FUENTES:
-- DEBES citar información de AL MENOS 3-5 fuentes diferentes del contexto FertyFit en tu análisis.
+- DEBES citar información de AL MENOS 5 fuentes diferentes del contexto FertyFit en tu análisis.
 - Si un tema (como cannabis, alcohol, sueño, estrés, disruptores endocrinos) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..." o "La evidencia científica indica...".
 - Al final, en la sección de Bibliografía, lista TODAS las fuentes que usaste.
 

@@ -92,10 +92,26 @@ export async function searchRagDirect(
   const rawResults = data || [];
   logger.log(`[RAG] RPC devolvió ${rawResults.length} resultados crudos`);
 
-  // 3) Algoritmo de Diversidad
-  // Agrupamos por document_id
-  const chunksByDoc: Record<string, any[]> = {};
+  // 3) Algoritmo de Priorización y Diversidad
+  const PINNED_DOC_ID = 'FERTYFIT_METODOLOGIA_CORE.md';
+  const pinnedChunks: any[] = [];
+  const otherChunks: any[] = [];
+
   rawResults.forEach((row: any) => {
+    if (row.document_id === PINNED_DOC_ID) {
+      pinnedChunks.push(row);
+    } else {
+      otherChunks.push(row);
+    }
+  });
+
+  // Asegurar que tenemos al menos unos cuantos del Core si existen
+  // Tomamos hasta 3 del Core para empezar
+  const selectedChunks: any[] = pinnedChunks.slice(0, 3);
+
+  // Agrupamos el resto por document_id para diversidad
+  const chunksByDoc: Record<string, any[]> = {};
+  otherChunks.forEach((row: any) => {
     const docId = row.document_id || 'unknown';
     if (!chunksByDoc[docId]) {
       chunksByDoc[docId] = [];
@@ -104,70 +120,24 @@ export async function searchRagDirect(
   });
 
   const uniqueDocIds = Object.keys(chunksByDoc);
-  logger.log(`[RAG] Documentos únicos encontrados: ${uniqueDocIds.length}`);
+  logger.log(`[RAG] Documentos únicos encontrados (excluyendo Core): ${uniqueDocIds.length}`);
 
-  // Seleccionamos chunks asegurando diversidad
-  // Estrategia: Round Robin. Tomamos el mejor de cada documento, luego el segundo mejor, etc.
-  const selectedChunks: any[] = [];
-  const usedDocIds = new Set<string>();
-
+  // Estrategia Round Robin para el resto
   let maxChunksPerDoc = 0;
   uniqueDocIds.forEach(id => {
     maxChunksPerDoc = Math.max(maxChunksPerDoc, chunksByDoc[id].length);
   });
 
+  // Rellenar hasta desiredCount
   for (let i = 0; i < maxChunksPerDoc; i++) {
     for (const docId of uniqueDocIds) {
+      if (selectedChunks.length >= desiredCount) break;
+
       if (chunksByDoc[docId][i]) {
-        // Solo añadimos si aún no llegamos al límite deseado
-        if (selectedChunks.length < desiredCount) {
-          selectedChunks.push(chunksByDoc[docId][i]);
-        }
+        selectedChunks.push(chunksByDoc[docId][i]);
       }
     }
     if (selectedChunks.length >= desiredCount) break;
-  }
-
-  // Si después del round robin aún faltan (porque había pocos documentos), 
-  // rellenamos con lo que quede de los mejores scores globales que no hayamos cogido ya.
-  // (Aunque el round robin ya recorre todo, pero el orden es distinto. 
-  //  El round robin prioriza diversidad. Si queremos priorizar score puro después de asegurar min diversidad...)
-
-  // En este caso, el round robin simple ya nos da una buena mezcla ordenada "horizontalmente".
-  // Pero OJO: el "round robin" puede meter un chunk de muy baja calidad de un documento raro 
-  // antes que un chunk de muy alta calidad del documento top.
-  // MEJORA: Round Robin ponderado o simplemente limitar MaxChunksPerDoc.
-
-  // Vamos a usar una estrategia más simple y robusta para este caso de uso:
-  // 1. Tomar top 1 de cada documento único (hasta llenar cupo).
-  // 2. Si sobra cupo, rellenar con los siguientes mejores por score global (que no estén ya).
-
-  const finalResults: any[] = [];
-  const includedChunkIds = new Set();
-
-  // Paso A: Top 1 de cada documento (diversidad forzada)
-  for (const docId of uniqueDocIds) {
-    if (finalResults.length >= desiredCount) break;
-    const bestChunk = chunksByDoc[docId][0]; // El 0 es el mejor porque RPC devuelve ordenado por similitud? 
-    // RPC devuelve orden global, así que necesitamos ordenar cada grupo por score (o confiar en que el global order se mantiene relativo).
-    // El RPC ordena por similitud descendente global.
-    // Al agrupar, mantengamos el orden de aparición (que es orden de score).
-
-    if (bestChunk) {
-      finalResults.push(bestChunk);
-      includedChunkIds.add(bestChunk.chunk_id);
-    }
-  }
-
-  // Paso B: Rellenar con los mejores restantes (por score global)
-  if (finalResults.length < desiredCount) {
-    for (const row of rawResults) {
-      if (finalResults.length >= desiredCount) break;
-      if (!includedChunkIds.has(row.chunk_id)) {
-        finalResults.push(row);
-        includedChunkIds.add(row.chunk_id);
-      }
-    }
   }
 
   // Reordenar el resultado final por similitud real para que los mejores (incluso si diversos) salgan primero?
@@ -176,11 +146,11 @@ export async function searchRagDirect(
   // Pero si cortamos contexto, mejor que los más relevantes estén.
   // Vamos a reordenar por score de similitud descendente el set final.
 
-  finalResults.sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
+  selectedChunks.sort((a: any, b: any) => (b.similarity || 0) - (a.similarity || 0));
 
-  logger.log(`[RAG] Seleccionados ${finalResults.length} chunks finales de ${uniqueDocIds.length} fuentes distintas.`);
+  logger.log(`[RAG] Seleccionados ${selectedChunks.length} chunks finales de ${uniqueDocIds.length} fuentes distintas.`);
 
-  const chunks: KnowledgeChunk[] = finalResults.map((row: any) => ({
+  const chunks: KnowledgeChunk[] = selectedChunks.map((row: any) => ({
     content: row.content_chunk,
     metadata: row.metadata_json,
     similarity_score: typeof row.similarity === 'number' ? row.similarity : undefined,

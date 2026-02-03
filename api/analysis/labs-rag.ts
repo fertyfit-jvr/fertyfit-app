@@ -144,12 +144,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       // Construir query para RAG
       let ragQuery: string;
+      let labValues = '';
       if (image && examType) {
         // Si hay imagen, buscar contexto sobre ese tipo de examen
         ragQuery = `contexto sobre interpretación de ${examType} y análisis de imágenes médicas de fertilidad para una mujer de ${age || 'edad no especificada'} años`;
       } else if (labs && Object.keys(labs).length > 0) {
         // Si hay valores de laboratorio
-        const labValues = Object.entries(labs)
+        labValues = Object.entries(labs)
           .filter(([_, value]) => value !== undefined && value !== null)
           .map(([key, value]) => `${key}: ${value}`)
           .join(', ');
@@ -205,7 +206,7 @@ USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL, pero puedes complementar con con
 CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de ${new Set(ragChunks.map(c => c.metadata?.document_id)).size} fuentes diferentes):
 ${ragContext}
 
-FUENTES CONSULTADAS (DEBES CITAR AL MENOS 3 DIFERENTES):
+FUENTES CONSULTADAS (DEBES CITAR AL MENOS 5 DIFERENTES):
 ${ragChunks.map((c, idx) =>
       `${idx + 1}. ${c.metadata?.document_title || 'Documento sin título'} (ID: ${c.metadata?.document_id || 'N/A'})`
     ).join('\n')}
@@ -239,7 +240,7 @@ Escribe una explicación CONCISA en formato Markdown (máximo 3 párrafos breves
 
 ${ragContext ? `
 IMPORTANTE - CITACIÓN DE FUENTES:
-- DEBES citar información de AL MENOS 3 fuentes diferentes del contexto FertyFit.
+- DEBES citar información de AL MENOS 5 fuentes diferentes del contexto FertyFit.
 - Al final, incluye una sección "📚 Fuentes consultadas:" listando las fuentes que usaste.
 - Si un tema (como cannabis, alcohol, sueño, estrés) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..."` : ''}
 
