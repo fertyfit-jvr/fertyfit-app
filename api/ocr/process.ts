@@ -126,7 +126,7 @@ No añadas nada fuera del JSON.`;
   });
 
   const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash', // Usando flash para velocidad, o 1.5-pro si se requiere más razonamiento
+    model: 'gemini-2.5-flash',
     contents: [
       {
         role: 'user',
@@ -299,7 +299,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Llamar a Gemini para extracción estructurada
     let structuredData: any;
     try {
-      structuredData = await extractStructuredDataWithGemini(validImages, examType);
       structuredData = await extractStructuredDataWithGemini(validImages, examType);
     } catch (ocrError: any) {
       logger.error('Gemini OCR Error:', {

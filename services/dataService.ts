@@ -122,8 +122,7 @@ export const calculateVitalityStats = (logs: DailyLog[]): string => {
 
 export const calculateDaysOnMethod = (startDateStr: string | undefined | null): number => {
     if (!startDateStr) {
-        logger.warn('[calculateDaysOnMethod] No start date provided');
-        return 0; // Returns 0 if not started
+        return 0; // Returns 0 if not started (expected for new users)
     }
     
     // Normalize date string: if it includes time, extract only the date part
@@ -143,17 +142,6 @@ export const calculateDaysOnMethod = (startDateStr: string | undefined | null): 
     
     const diffDays = Math.floor((utc2 - utc1) / (1000 * 60 * 60 * 24));
     const result = Math.max(1, diffDays + 1);
-    
-    // Debug logging (only in development)
-    logger.log('[calculateDaysOnMethod]', {
-        startDateStr,
-        dateOnlyStr,
-        start: start.toISOString().split('T')[0],
-        now: now.toISOString().split('T')[0],
-        diffDays,
-        result
-    });
-    
     return result;
 };
 

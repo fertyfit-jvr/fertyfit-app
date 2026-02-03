@@ -349,7 +349,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ['FUNCTION', 'FOOD', 'FLORA', 'FLOW'].includes(f.form_type || '')
       );
       const examForms = forms.filter((f) =>
-        f.answers?.some((a: any) => a.questionId === 'exam_type')
+        f.form_type === 'EXAM' || f.answers?.some((a: any) => a.questionId === 'exam_type')
       );
 
       const sortedExamForms = [...examForms].sort((a, b) => {
@@ -457,7 +457,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         logs_count: logs.length,
         forms_count: formsForContext.length,
         exams_count: formsForContext.filter((f) =>
-          f.answers?.some((a: any) => a.questionId === 'exam_type')
+          f.form_type === 'EXAM' || f.answers?.some((a: any) => a.questionId === 'exam_type')
         ).length,
         previous_reports_count: previousReports.length,
       },

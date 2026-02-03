@@ -56,8 +56,14 @@ export interface PillarFlora {
   digestive_health?: number;        // dig: salud digestiva (0-10, slider)
   vaginal_health?: string;          // vag: salud vaginal
   antibiotics_last_year?: string;   // atb: antibióticos último año
-  fermented_foods_frequency?: number; // ferm: frecuencia alimentos fermentados (0-7 veces/semana o 0-30 veces/mes)
+  fermented_foods_frequency?: number; // ferm: frecuencia alimentos fermentados (0-7 veces/semana)
   food_intolerances?: string;        // intol: intolerancias alimentarias
+  // Nuevos campos Flora
+  digestive_symptoms?: string;      // flora_sintomas: síntomas digestivos (comma-separated)
+  sibo_diagnosed?: boolean;         // flora_sibo
+  hpylori_diagnosed?: boolean;      // flora_hpylori
+  skin_issues?: string;             // flora_piel (con _otro si aplica)
+  hair_issues?: string;             // flora_cabello (con _otro si aplica)
   // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
   antibiotics_last_12_months?: string;
   vaginal_infections?: boolean;
@@ -81,6 +87,8 @@ export interface PillarFlow {
   morning_sunlight?: string;         // solar: exposición a luz solar matutina
   endocrine_disruptors?: string;     // tox: medidas para reducir disruptores endocrinos
   bedtime_routine?: string;          // noche: rutina antes de dormir
+  social_environment?: string;       // flow_entorno_social: entorno social (checkboxes + otro)
+  healthy_relationships?: boolean;   // flow_relaciones_saludables: Sí/No
   emotional_state?: number;          // emocion: estado emocional respecto a búsqueda de embarazo (1-10, slider)
   // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
   mental_load?: number; // 0-4

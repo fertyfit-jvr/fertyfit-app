@@ -72,8 +72,8 @@ function normalizeAnswersToPillar(
       normalized.fat_type = answers['food_grasas'] ? String(answers['food_grasas']) : undefined;
       normalized.fertility_supplements = answers['food_suppl'] ? String(answers['food_suppl']) : undefined;
 
-      if (answers['food_azucar']) {
-        normalized.sugary_drinks_frequency = parseInt(answers['food_azucar']);
+      if (answers['food_azucar'] != null) {
+        normalized.sugary_drinks_frequency = parseInt(String(answers['food_azucar']));
       }
 
       normalized.antioxidants = answers['food_antiox'] ? String(answers['food_antiox']) : undefined;
@@ -96,8 +96,9 @@ function normalizeAnswersToPillar(
 
     case 'FLORA':
       // ⭐ NUEVOS CAMPOS (sistema de puntos)
-      if (answers['flora_dig']) {
-        normalized.digestive_health = parseInt(answers['flora_dig']);
+      if (answers['flora_dig'] != null) {
+        const v = parseInt(String(answers['flora_dig']));
+        normalized.digestive_health = v >= 1 && v <= 7 ? Math.round(v * 10 / 7) : v;
       }
 
       normalized.vaginal_health = answers['flora_vag'] ? String(answers['flora_vag']) : undefined;
@@ -107,7 +108,24 @@ function normalizeAnswersToPillar(
         normalized.fermented_foods_frequency = parseInt(answers['flora_ferm']);
       }
 
-      normalized.food_intolerances = answers['flora_intol'] ? String(answers['flora_intol']) : undefined;
+      const floraIntol = answers['flora_intol'] ? String(answers['flora_intol']) : undefined;
+      const floraIntolDetalle = answers['flora_intol_detalle'] ? String(answers['flora_intol_detalle']) : undefined;
+      normalized.food_intolerances = floraIntol
+        ? (floraIntolDetalle ? `${floraIntol}: ${floraIntolDetalle}` : floraIntol)
+        : undefined;
+
+      // Nuevos campos Flora (síntomas, SIBO, H.Pylori, piel, cabello)
+      normalized.digestive_symptoms = Array.isArray(answers['flora_sintomas'])
+        ? (answers['flora_sintomas'] as string[]).join(', ')
+        : answers['flora_sintomas'] ? String(answers['flora_sintomas']) : undefined;
+      normalized.sibo_diagnosed = answers['flora_sibo'] === 'Sí';
+      normalized.hpylori_diagnosed = answers['flora_hpylori'] === 'Sí';
+      const floraPiel = answers['flora_piel'] ? String(answers['flora_piel']) : undefined;
+      const floraPielOtro = answers['flora_piel_otro'] ? String(answers['flora_piel_otro']) : undefined;
+      normalized.skin_issues = floraPiel ? (floraPielOtro ? `${floraPiel}: ${floraPielOtro}` : floraPiel) : undefined;
+      const floraCabello = answers['flora_cabello'] ? String(answers['flora_cabello']) : undefined;
+      const floraCabelloOtro = answers['flora_cabello_otro'] ? String(answers['flora_cabello_otro']) : undefined;
+      normalized.hair_issues = floraCabello ? (floraCabelloOtro ? `${floraCabello}: ${floraCabelloOtro}` : floraCabello) : undefined;
 
       // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
       normalized.antibiotics_last_12_months = answers['flora_antibioticos'] ? String(answers['flora_antibioticos']) : undefined;
@@ -122,8 +140,9 @@ function normalizeAnswersToPillar(
 
     case 'FLOW':
       // ⭐ NUEVOS CAMPOS (sistema de puntos)
-      if (answers['flow_stress']) {
-        normalized.stress_level = parseInt(answers['flow_stress']);
+      if (answers['flow_stress'] != null) {
+        const v = parseInt(String(answers['flow_stress']));
+        normalized.stress_level = v >= 1 && v <= 7 ? Math.round(v * 10 / 7) : v;
       }
 
       if (answers['flow_sueno']) {
@@ -134,13 +153,30 @@ function normalizeAnswersToPillar(
         normalized.relaxation_frequency = parseInt(answers['flow_relax']);
       }
 
-      normalized.exercise_type = answers['flow_ejer'] ? String(answers['flow_ejer']) : undefined;
+      const flowEjer = answers['flow_ejer'];
+      normalized.exercise_type =
+        flowEjer && typeof flowEjer === 'object' && Object.keys(flowEjer).length > 0
+          ? JSON.stringify(flowEjer)
+          : flowEjer && typeof flowEjer === 'string' && flowEjer !== 'Ninguno'
+            ? flowEjer
+            : undefined;
       normalized.morning_sunlight = answers['flow_solar'] ? String(answers['flow_solar']) : undefined;
       normalized.endocrine_disruptors = answers['flow_tox'] ? String(answers['flow_tox']) : undefined;
       normalized.bedtime_routine = answers['flow_noche'] ? String(answers['flow_noche']) : undefined;
 
-      if (answers['flow_emocion']) {
-        normalized.emotional_state = parseInt(answers['flow_emocion']);
+      const flowEntorno = answers['flow_entorno_social'];
+      const flowEntornoOtro = answers['flow_entorno_social_otro'];
+      if (flowEntorno && typeof flowEntorno === 'string') {
+        normalized.social_environment = flowEntornoOtro
+          ? `${flowEntorno}::${flowEntornoOtro}`
+          : flowEntorno;
+      }
+
+      normalized.healthy_relationships = answers['flow_relaciones_saludables'] === 'Sí';
+
+      if (answers['flow_emocion'] != null) {
+        const v = parseInt(String(answers['flow_emocion']));
+        normalized.emotional_state = v >= 1 && v <= 7 ? Math.round(v * 10 / 7) : v;
       }
 
       // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
@@ -256,6 +292,7 @@ export async function savePillarForm(
         form_type: formType,
         answers: answersForHistory,
         status: 'pending',
+        submitted_at: new Date().toISOString(),
         snapshot_stats: calculateAverages(logs)
       });
 

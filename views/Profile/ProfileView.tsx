@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Smile, Meh, Frown, Angry, XCircle, Heart } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, NotificationAction, ViewState, FormAnswer } from '../../types';
 
 // Type for form answers dictionary (questionId -> answer value)
@@ -322,14 +322,7 @@ const ProfileView = ({
   const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
     const matching = forms.filter(form => {
       const typeMatches = form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type;
-      if (!typeMatches) return false;
-
-      if (type === 'FUNCTION' && form.answers && Array.isArray(form.answers)) {
-        const hasExamType = form.answers.some((a: any) => a.questionId === 'exam_type');
-        if (hasExamType) return false;
-      }
-
-      return true;
+      return typeMatches;
     });
 
     return matching.sort((a, b) => {
@@ -532,15 +525,10 @@ const ProfileView = ({
       if (!answer) return false;
       const value = answer.answer;
 
-      // Consider answered if value exists and is not empty string
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-
-      // For Flora "Otra" fields, check if contains ": " (combined format)
-      if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
-        const [, otherValue] = value.split(': ', 2);
-        return Boolean(otherValue && otherValue.trim() !== '');
-      }
+      if (Array.isArray(value) && value.length === 0) return false;
+      if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return false;
 
       return true;
     }).length;
@@ -581,11 +569,8 @@ const ProfileView = ({
 
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-
-      if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
-        const [, otherValue] = value.split(': ', 2);
-        return Boolean(otherValue && otherValue.trim() !== '');
-      }
+      if (Array.isArray(value) && value.length === 0) return false;
+      if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return false;
 
       return true;
     }).length;
@@ -1257,13 +1242,13 @@ const ProfileView = ({
               );
             }
 
-            // Función helper para renderizar un campo
-            const renderField = (label: string, value: any, colSpan: number = 1) => {
+            // Función helper para renderizar un campo (una columna)
+            const renderField = (label: string, value: any) => {
               const displayValue = Array.isArray(value) ? value.join(', ') : (value ?? '—');
               const isEmpty = !value || (Array.isArray(value) && value.length === 0);
 
               return (
-                <div key={label} className={colSpan === 2 ? 'col-span-2' : ''}>
+                <div key={label} className="border-b border-ferty-beige/50 pb-3 last:border-0 last:pb-0">
                   <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
                   <p className={`text-sm font-semibold ${isEmpty ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
                     {isEmpty ? 'Sin respuesta' : displayValue}
@@ -1272,39 +1257,92 @@ const ProfileView = ({
               );
             };
 
-            // Para FUNCTION y otros pilares: mostrar en una sección general
+            const visibleFilteredAnswers = filteredAnswers.filter((answer: any) =>
+              isQuestionVisible(answer.questionId, submittedForm.answers)
+            );
 
-            // Para FOOD, FLORA, FLOW: mostrar en una sección general
             return (
               <div className="border-b border-ferty-beige pb-3">
                 <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
                   {currentTab?.label || 'Formulario'}
                 </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredAnswers.map((answer: any) => {
+                <div className="flex flex-col gap-3">
+                  {visibleFilteredAnswers.map((answer: any) => {
                     const question = definition?.questions?.find((q: any) => q.id === answer.questionId);
-
-                    // Check visibility logic
-                    if (question && !isQuestionVisible(question.id, submittedForm.answers)) {
-                      return null;
-                    }
-
                     const label = question?.text || answer.question;
                     const value = answer.answer;
 
-                    // Si es tipo 'faces', renderizar bonito
+                    // Si es tipo 'faces', mostrar icono + etiqueta
                     if (question?.type === 'faces' && typeof value === 'number') {
-                      const faces = ['😀', '😐', '🙁', '😠', '🤬'];
-                      const labels = ['Nada', 'Leve', 'Moderado', 'Fuerte', 'Insoportable'];
-                      const face = faces[value] || '';
-                      const faceLabel = labels[value] || '';
-                      return renderField(label, `${face} ${faceLabel} (${value})`);
+                      const FaceIconsView = [Smile, Meh, Frown, Angry, XCircle];
+                      const faceLabels = ['Nada', 'Leve', 'Moderado', 'Fuerte', 'Insoportable'];
+                      const IconComponent = FaceIconsView[value] || Meh;
+                      const faceLabel = faceLabels[value] ?? '';
+                      return (
+                        <div key={label} className="border-b border-ferty-beige/50 pb-3 last:border-0 last:pb-0">
+                          <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
+                          <div className="flex items-center gap-2">
+                            <IconComponent size={24} strokeWidth={1.5} className="text-ferty-coral" />
+                            <p className="text-sm font-semibold text-ferty-dark">{faceLabel}</p>
+                          </div>
+                        </div>
+                      );
                     }
 
-                    // Si la respuesta es muy larga, usar col-span-2
-                    const isLong = Array.isArray(value) && value.length > 1 ||
-                      (typeof value === 'string' && value.length > 80);
-                    return renderField(label, value, isLong ? 2 : 1);
+                    // flow_stress / flow_emocion / flora_dig: iconos 1-7
+                    if ((answer.questionId === 'flow_stress' || answer.questionId === 'flow_emocion' || answer.questionId === 'flora_dig') && typeof value === 'number') {
+                      const stressIcons = [Smile, Meh, Meh, Frown, Frown, Angry, XCircle];
+                      const emotionIcons = [Frown, Meh, Meh, Meh, Smile, Smile, Heart];
+                      const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile];
+                      const icons = answer.questionId === 'flow_emocion' ? emotionIcons : answer.questionId === 'flora_dig' ? digestiveIcons : stressIcons;
+                      const idx = Math.min(Math.max(value - 1, 0), 6);
+                      const IconComponent = icons[idx] || Meh;
+                      const iconColor = answer.questionId === 'flora_dig' ? 'text-ferty-flora-accent' : 'text-ferty-coral';
+                      return (
+                        <div key={label} className="border-b border-ferty-beige/50 pb-3 last:border-0 last:pb-0">
+                          <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
+                          <div className="flex items-center gap-2">
+                            <IconComponent size={24} strokeWidth={1.5} className={iconColor} />
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // flow_ejer: JSON → texto legible
+                    if (answer.questionId === 'flow_ejer' && typeof value === 'string' && value !== 'Ninguno') {
+                      try {
+                        const obj = JSON.parse(value);
+                        const parts = Object.entries(obj).map(([k, v]: [string, any]) =>
+                          v?.cantidad != null ? `${k}: ${v.cantidad} veces/sem, ${v.intensidad || 'Media'}` : null
+                        ).filter(Boolean);
+                        return renderField(label, parts.length > 0 ? parts.join(' • ') : '—');
+                      } catch {
+                        return renderField(label, value);
+                      }
+                    }
+
+                    // flow_entorno_social
+                    if (answer.questionId === 'flow_entorno_social' && typeof value === 'string') {
+                      const display = value.includes('::') ? value.replace('::', ' — ') : value;
+                      return renderField(label, display || '—');
+                    }
+
+                    // flow_sueno, flow_relax, steppers con unidad
+                    if (answer.questionId === 'flow_sueno' && (typeof value === 'number' || typeof value === 'string')) {
+                      const num = typeof value === 'string' ? parseFloat(value) : value;
+                      return renderField(label, Number.isFinite(num) ? `${num} horas` : value);
+                    }
+                    if ((answer.questionId === 'flow_relax' || answer.questionId === 'food_azucar' || answer.questionId === 'food_pescado' || answer.questionId === 'flora_ferm') && (typeof value === 'number' || typeof value === 'string')) {
+                      return renderField(label, `${value} veces/semana`);
+                    }
+                    if (answer.questionId === 'food_vege' && (typeof value === 'number' || typeof value === 'string')) {
+                      return renderField(label, `${value} raciones`);
+                    }
+                    if ((answer.questionId === 'function_cycle_length' || answer.questionId === 'function_luteal_phase') && (typeof value === 'number' || typeof value === 'string')) {
+                      return renderField(label, `${value} días`);
+                    }
+
+                    return renderField(label, value);
                   })}
                 </div>
               </div>

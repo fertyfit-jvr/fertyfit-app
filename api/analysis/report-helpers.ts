@@ -49,8 +49,8 @@ export function buildReportContext(
         ['FUNCTION', 'FOOD', 'FLORA', 'FLOW'].includes(f.form_type || '')
       );
       const examForms = forms.filter(f => {
-        // Exámenes tienen exam_type en answers
-        return f.answers?.some((a: any) => a.questionId === 'exam_type');
+        // Exámenes: form_type EXAM o legacy (exam_type en answers)
+        return f.form_type === 'EXAM' || f.answers?.some((a: any) => a.questionId === 'exam_type');
       });
 
       const context: ReportContext = {

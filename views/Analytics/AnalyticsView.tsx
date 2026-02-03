@@ -26,8 +26,9 @@ const AnalyticsView = ({
   const [editingExamId, setEditingExamId] = useState<number | null>(null);
   const [editingExamAnswers, setEditingExamAnswers] = useState<Record<number, FormAnswer[]>>({});
 
-  // Filtrar formularios que son exámenes (tienen exam_type en las respuestas)
+  // Filtrar formularios que son exámenes (form_type EXAM o legacy: exam_type en respuestas)
   const examForms = submittedForms.filter(form => {
+    if (form.form_type === 'EXAM') return true;
     if (!form.answers || !Array.isArray(form.answers)) return false;
     return form.answers.some((a: FormAnswer) => a.questionId === 'exam_type');
   });

@@ -110,7 +110,7 @@ export interface FormAnswer {
 export interface ConsultationForm {
   id?: number;
   user_id?: string;
-  form_type: 'F0' | 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW';
+  form_type: 'F0' | 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW' | 'EXAM';
   submitted_at?: string;
 
   answers: FormAnswer[]; // Structured answers

@@ -32,7 +32,7 @@ const FOOD_QUESTIONS = [
     options: [
       'a) Consumo frecuente de comida rápida, ultraprocesados.',
       'b) Una mezcla de comida casera y procesados.',
-      'c) Mayor parte comida real/casera, con consumo ocasional.',
+      'c) Mayor parte comida real/casera, con consumo ocasional de ultraprocesados.',
       'd) Alimentos frescos, integrales y sin procesar, estilo mediterráneo.'
     ],
     defaultValue: 'b) Una mezcla de comida casera y procesados.'
@@ -108,7 +108,8 @@ const FOOD_QUESTIONS = [
       'a) Raramente.',
       'b) Algunas veces por semana.',
       'c) Casi todos los días.',
-      'd) Diariamente, de forma consciente y variada.'
+      'd) Diariamente, de forma consciente y variada.',
+      'e) No estoy segura.'
     ],
     defaultValue: 'b) Algunas veces por semana.'
   },
@@ -129,14 +130,15 @@ const FOOD_QUESTIONS = [
 ];
 
 const FLORA_QUESTIONS = [
-  // 1. Salud digestiva general (slider 0-10)
+  // 1. Salud digestiva general (iconos minimalistas 1-7, sin números)
   {
     id: 'flora_dig',
     text: '¿Cómo describirías tu salud digestiva general?',
-    type: 'segmented',
-    min: 0,
-    max: 10,
-    defaultValue: 5
+    type: 'flow_faces',
+    min: 1,
+    max: 7,
+    variant: 'digestive',
+    defaultValue: 4
   },
 
   // 2. Salud vaginal
@@ -167,18 +169,18 @@ const FLORA_QUESTIONS = [
     defaultValue: 'd) No, no he tomado antibióticos en los últimos años.'
   },
 
-  // 4. Alimentos fermentados (conteo diario/semanal)
+  // 4. Alimentos fermentados (conteo semanal)
   {
     id: 'flora_ferm',
     text: '¿Incluyes alimentos fermentados (kéfir, yogur, chucrut) en tu dieta?',
     type: 'stepper',
     min: 0,
-    max: 30,
-    unit: 'veces/mes',
-    defaultValue: 4
+    max: 7,
+    unit: 'veces/semana',
+    defaultValue: 2
   },
 
-  // 5. Intolerancias alimentarias
+  // 5. Intolerancias alimentarias (con campo de texto si marca Sí)
   {
     id: 'flora_intol',
     text: '¿Sufres de intolerancias o sensibilidades alimentarias?',
@@ -190,21 +192,82 @@ const FLORA_QUESTIONS = [
       'd) No, no tengo ninguna intolerancia o sensibilidad conocida.'
     ],
     defaultValue: 'd) No, no tengo ninguna intolerancia o sensibilidad conocida.'
+  },
+
+  // 6. Síntomas digestivos (multi-selección)
+  {
+    id: 'flora_sintomas',
+    text: '¿Tienes alguno de estos síntomas?',
+    type: 'checkboxes',
+    options: [
+      'Distensión abdominal',
+      'Diarrea',
+      'Estreñimiento',
+      'Reflujo-acidez',
+      'Digestiones lentas'
+    ],
+    defaultValue: []
+  },
+
+  // 7. Diagnóstico SIBO
+  {
+    id: 'flora_sibo',
+    text: '¿Te han diagnosticado alguna vez de SIBO?',
+    type: 'yesno',
+    defaultValue: 'No'
+  },
+
+  // 8. Diagnóstico H. Pylori
+  {
+    id: 'flora_hpylori',
+    text: '¿Te han diagnosticado alguna vez de H. Pylori?',
+    type: 'yesno',
+    defaultValue: 'No'
+  },
+
+  // 9. Problemas de piel (Sí/No, si Sí: dermatitis, eczema, psoriasis, otra)
+  {
+    id: 'flora_piel',
+    text: '¿Tienes algún problema de piel?',
+    type: 'buttons',
+    options: [
+      'No',
+      'Sí - dermatitis',
+      'Sí - eczema',
+      'Sí - psoriasis',
+      'Sí - otra (especificar)'
+    ],
+    defaultValue: 'No'
+  },
+
+  // 10. Problemas de cabello (caída, pelo fino, otra con campo texto)
+  {
+    id: 'flora_cabello',
+    text: '¿Tienes algún problema de cabello?',
+    type: 'buttons',
+    options: [
+      'No',
+      'Caída',
+      'Pelo fino',
+      'Otra (especificar)'
+    ],
+    defaultValue: 'No'
   }
 ];
 
 const FLOW_QUESTIONS = [
-  // 1. Nivel de estrés percibido (slider 0-10)
+  // 1. Nivel de estrés percibido (1-7, iconos visuales sin número)
   {
     id: 'flow_stress',
     text: '¿Cómo calificarías tu nivel de estrés percibido en el día a día?',
-    type: 'segmented',
-    min: 0,
-    max: 10,
-    defaultValue: 5
+    type: 'flow_faces',
+    min: 1,
+    max: 7,
+    variant: 'stress',
+    defaultValue: 4
   },
 
-  // 2. Horas de sueño de calidad (slider, se mapea a puntos 1-10)
+  // 2. Horas de sueño de calidad (slider con step 0.5 para 5.5, 6.5, etc.)
   {
     id: 'flow_sueno',
     text: '¿Cuántas horas de sueño de calidad tienes por noche de media?',
@@ -227,18 +290,13 @@ const FLOW_QUESTIONS = [
     defaultValue: 2
   },
 
-  // 4. Tipo y frecuencia de ejercicio
+  // 4. Tipo y frecuencia de ejercicio (Cardiovascular y Fuerza con Cantidad e Intensidad)
   {
     id: 'flow_ejer',
     text: '¿Qué tipo de ejercicio realizas y con qué frecuencia?',
-    type: 'buttons',
-    options: [
-      'a) No hago o hago ejercicio de muy alta intensidad.',
-      'b) Hago ejercicio de forma irregular.',
-      'c) Realizo ejercicio moderado 2-3 veces por semana.',
-      'd) Combino moderado con prácticas restaurativas.'
-    ],
-    defaultValue: 'b) Hago ejercicio de forma irregular.'
+    type: 'exercise_type',
+    options: ['Cardiovascular', 'Fuerza'],
+    defaultValue: {}
   },
 
   // 5. Exposición a luz solar matutina
@@ -264,7 +322,8 @@ const FLOW_QUESTIONS = [
       'a) No, no he hecho ningún cambio.',
       'b) He hecho algunos cambios pequeños.',
       'c) He cambiado varios productos en la cocina y el baño.',
-      'd) He realizado una auditoría completa.'
+      'd) He realizado una auditoría completa.',
+      'e) No sé qué es eso.'
     ],
     defaultValue: 'a) No, no he hecho ningún cambio.'
   },
@@ -283,14 +342,36 @@ const FLOW_QUESTIONS = [
     defaultValue: 'b) Intento apagar las pantallas un poco antes.'
   },
 
-  // 8. Estado emocional respecto a búsqueda de embarazo (slider 1-10)
+  // 8. Entorno Social (solo una opción, color marrón)
+  {
+    id: 'flow_entorno_social',
+    text: '¿Cómo describirías tu entorno social?',
+    type: 'buttons',
+    options: [
+      'Relación familiar estable',
+      'Soledad',
+      'Otra (especificar)'
+    ],
+    defaultValue: 'Relación familiar estable'
+  },
+
+  // 9. Relaciones Saludables
+  {
+    id: 'flow_relaciones_saludables',
+    text: '¿Tienes relaciones saludables en tu vida?',
+    type: 'yesno',
+    defaultValue: 'Sí'
+  },
+
+  // 10. Estado emocional respecto a búsqueda de embarazo (iconos visuales 1-7, sin número)
   {
     id: 'flow_emocion',
     text: '¿Cómo te sientes emocionalmente respecto a la búsqueda de embarazo?',
-    type: 'segmented',
+    type: 'flow_faces',
     min: 1,
-    max: 10,
-    defaultValue: 5
+    max: 7,
+    variant: 'emotion',
+    defaultValue: 4
   }
 ];
 

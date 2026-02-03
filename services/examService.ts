@@ -114,10 +114,8 @@ export async function saveExamToConsultationForms(
 
     const observations = observationsParts.join('\n\n---\n\n');
 
-    // Determine form_type
-    // If it's a predefined type, use 'FUNCTION', otherwise we could extend the type
-    // For now, we'll use 'FUNCTION' for all exams and store the actual type in the answers
-    const formType: 'FUNCTION' = 'FUNCTION';
+    // Exámenes médicos/analíticas: form_type EXAM (separado del pilar Function)
+    const formType: 'EXAM' = 'EXAM';
 
     // Insert into consultation_forms
     const { data, error } = await supabase

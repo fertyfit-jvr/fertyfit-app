@@ -1,9 +1,9 @@
 import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Smile, Meh, Frown, Angry, XCircle, Heart } from 'lucide-react';
 import { ConsultationForm, DailyLog, UserProfile, ViewState, FormAnswer } from '../../types';
 
 // Type for form answers dictionary (questionId -> answer value)
-type FormAnswersDict = Record<string, string | number | boolean | string[] | undefined>;
+type FormAnswersDict = Record<string, string | number | boolean | string[] | Record<string, unknown> | undefined>;
 
 // Type for form question (simplified, matches structure from formDefinitions)
 type FormQuestion = {
@@ -61,21 +61,10 @@ const LEGACY_FORM_MAP: Record<'F1' | 'F2' | 'F3', PillarFormType> = {
 
 const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
   const matching = forms.filter(form => {
-    // Check if form type matches
     const typeMatches = form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type;
-    if (!typeMatches) return false;
-
-    // ⭐ IMPORTANTE: Excluir exámenes médicos (tienen exam_type en las respuestas)
-    // Solo para FUNCTION, filtrar los que son exámenes
-    if (type === 'FUNCTION' && form.answers && Array.isArray(form.answers)) {
-      const hasExamType = form.answers.some((a: any) => a.questionId === 'exam_type');
-      if (hasExamType) return false; // Es un examen, no el formulario FUNCTION
-    }
-
-    return true;
+    return typeMatches;
   });
 
-  // Return the most recent one (last submitted)
   return matching.sort((a, b) => {
     const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
     const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
@@ -134,7 +123,6 @@ const MyProfileView = ({
   const [pillarExamName, setPillarExamName] = useState('');
   const originalAnswers = useRef<FormAnswersDict>({});
   const autoSaveTimeoutPillarRef = useRef<NodeJS.Timeout | null>(null);
-
 
   // Guardar valores originales para poder cancelar
   const originalEditName = useRef<string>(user.name);
@@ -372,40 +360,45 @@ const MyProfileView = ({
   const definition = FORM_DEFINITIONS[formType];
   const submittedForm = useMemo(() => findSubmission(submittedForms, formType), [submittedForms, formType]);
 
-  // Calculate progress for current form based on submitted form, not local answers
+  // FUNCTION: 'function_luteal_phase' solo visible si 'function_knows_fertile_days' === 'Sí'
+  const isQuestionVisible = (questionId: string, formAnswers: any[]) => {
+    if (questionId === 'function_luteal_phase') {
+      const dependency = formAnswers.find((a: any) => a.questionId === 'function_knows_fertile_days');
+      return dependency?.answer === 'Sí';
+    }
+    return true;
+  };
+
+  // Helper: valida si un valor cuenta como "respondido"
+  const isAnswerValid = (value: any): boolean => {
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'string' && value.trim() === '') return false;
+    if (Array.isArray(value) && value.length === 0) return false;
+    if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return false;
+    return true;
+  };
+
+  // Calculate progress: usa submittedForm si existe, si no usa answers (datos en edición o desde pillar_*)
   const progress = useMemo(() => {
     if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
 
-    // If no form has been submitted, progress is 0%
-    if (!submittedForm || !submittedForm.answers || !Array.isArray(submittedForm.answers)) {
-      return { answered: 0, total: definition.questions.length, percentage: 0 };
+    let formAnswers: any[];
+    if (submittedForm?.answers && Array.isArray(submittedForm.answers)) {
+      formAnswers = submittedForm.answers;
+    } else {
+      // Sin submission: calcular desde answers (estado actual al editar)
+      formAnswers = definition.questions.map(q => ({
+        questionId: q.id,
+        answer: answers[q.id]
+      }));
     }
 
-    const totalQuestions = definition.questions.length;
-    const answeredQuestions = definition.questions.filter(question => {
-      const answer = submittedForm.answers.find((a: any) => a.questionId === question.id);
-      if (!answer) return false;
-      const value = answer.answer;
-
-      // Consider answered if value exists and is not empty string
-      if (value === undefined || value === null) return false;
-      if (typeof value === 'string' && value.trim() === '') return false;
-
-      // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
-      if ('defaultValue' in question && question.defaultValue !== undefined) {
-        // Convert both to strings for comparison to handle number/string mismatches
-        const defaultValueStr = String(question.defaultValue);
-        const valueStr = String(value);
-        if (valueStr === defaultValueStr) return false;
-      }
-
-      // For Flora "Otra" fields, check if contains ": " (combined format)
-      if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
-        const [, otherValue] = value.split(': ', 2);
-        return Boolean(otherValue && otherValue.trim() !== '');
-      }
-
-      return true;
+    const visibleQuestions = definition.questions.filter(q => isQuestionVisible(q.id, formAnswers));
+    const totalQuestions = visibleQuestions.length;
+    const answeredQuestions = visibleQuestions.filter(question => {
+      const answer = formAnswers.find((a: any) => a.questionId === question.id);
+      const value = answer?.answer ?? answers[question.id];
+      return isAnswerValid(value);
     }).length;
 
     return {
@@ -413,7 +406,7 @@ const MyProfileView = ({
       total: totalQuestions,
       percentage: totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0
     };
-  }, [definition, submittedForm]);
+  }, [definition, submittedForm, answers]);
 
   // Calculate progress for each pillar based on submitted forms
   const getPillarProgress = (pillarId: PillarFormType): number => {
@@ -423,27 +416,20 @@ const MyProfileView = ({
     const pillarDef = FORM_DEFINITIONS[pillarId as keyof typeof FORM_DEFINITIONS];
     if (!pillarDef?.questions) return 0;
 
-    const totalQuestions = pillarDef.questions.length;
-    const answeredQuestions = pillarDef.questions.filter(question => {
+    const formAnswers = form.answers;
+    const visibleQuestions = pillarDef.questions.filter(q => isQuestionVisible(q.id, formAnswers));
+    const totalQuestions = visibleQuestions.length;
+    const answeredQuestions = visibleQuestions.filter(question => {
       const answer = form.answers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
 
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
+      if (Array.isArray(value) && value.length === 0) return false;
 
-      // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
-      if ('defaultValue' in question && question.defaultValue !== undefined) {
-        const defaultValueStr = String(question.defaultValue);
-        const valueStr = String(value);
-        if (valueStr === defaultValueStr) return false;
-      }
-
-      // For Flora "Otra" fields, check if contains ": " (combined format)
-      if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
-        const [, otherValue] = value.split(': ', 2);
-        return Boolean(otherValue && otherValue.trim() !== '');
-      }
+      // Objeto vacío (flow_ejer sin tipos) no cuenta como respondido
+      if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return false;
 
       return true;
     }).length;
@@ -471,12 +457,39 @@ const MyProfileView = ({
       const loaded: FormAnswersDict = {};
       if (Array.isArray(submittedForm.answers)) {
         submittedForm.answers.forEach((answer: FormAnswer) => {
-          // Handle Flora "Otra" fields - split if contains ": "
-          if ((answer.questionId === 'flora_pruebas' || answer.questionId === 'flora_suplementos') && typeof answer.answer === 'string' && answer.answer.includes(': ')) {
-            const [mainValue, otherValue] = answer.answer.split(': ', 2);
-            loaded[answer.questionId] = mainValue;
-            if (otherValue) {
-              loaded[`${answer.questionId}_otro`] = otherValue;
+          // Handle Flora fields with combined "main: detail" format
+          if (typeof answer.answer === 'string' && answer.answer.includes(': ')) {
+            const [mainValue, detailValue] = answer.answer.split(': ', 2);
+            if (answer.questionId === 'flora_pruebas' || answer.questionId === 'flora_suplementos') {
+              loaded[answer.questionId] = mainValue;
+              if (detailValue) loaded[`${answer.questionId}_otro`] = detailValue;
+            } else if (answer.questionId === 'flora_intol') {
+              loaded[answer.questionId] = mainValue;
+              if (detailValue) loaded[`${answer.questionId}_detalle`] = detailValue;
+            } else if (answer.questionId === 'flora_piel' || answer.questionId === 'flora_cabello') {
+              loaded[answer.questionId] = mainValue;
+              if (detailValue) loaded[`${answer.questionId}_otro`] = detailValue;
+            } else {
+              loaded[answer.questionId] = answer.answer;
+            }
+          } else if (answer.questionId === 'flora_sintomas' && typeof answer.answer === 'string') {
+            loaded[answer.questionId] = answer.answer === 'Ninguno' ? [] : answer.answer.split(', ').map(s => s.trim());
+          } else if (answer.questionId === 'flow_ejer') {
+            try {
+              loaded[answer.questionId] = typeof answer.answer === 'string' && answer.answer !== 'Ninguno'
+                ? JSON.parse(answer.answer)
+                : {};
+            } catch {
+              loaded[answer.questionId] = {};
+            }
+          } else if (answer.questionId === 'flow_entorno_social') {
+            const str = typeof answer.answer === 'string' ? answer.answer : '';
+            if (str.includes('::')) {
+              const [main, otro] = str.split('::', 2);
+              loaded[answer.questionId] = main || '';
+              if (otro) loaded[`${answer.questionId}_otro`] = otro;
+            } else {
+              loaded[answer.questionId] = str || '';
             }
           } else {
             loaded[answer.questionId] = answer.answer;
@@ -547,26 +560,85 @@ const MyProfileView = ({
       return;
     }
 
-    const formattedAnswers = definition.questions.map(question => {
-      const baseAnswer = answers[question.id] ?? '';
-      // For Flora "Otra" options, combine with the "otro" field if it exists
-      if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && (baseAnswer === 'Otra' || baseAnswer === 'Otro')) {
-        const otroValue = answers[`${question.id}_otro`] || '';
+    const formattedAnswers = definition.questions
+      .filter(question => {
+        // FUNCTION: no incluir function_luteal_phase si knows_fertile_days !== 'Sí'
+        if (question.id === 'function_luteal_phase') {
+          return answers['function_knows_fertile_days'] === 'Sí';
+        }
+        return true;
+      })
+      .map(question => {
+        const baseAnswer = answers[question.id] ?? '';
+        // For Flora "Otra" options, combine with the "otro" field if it exists
+        if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && (baseAnswer === 'Otra' || baseAnswer === 'Otro')) {
+          const otroValue = answers[`${question.id}_otro`] || '';
+          return {
+            questionId: question.id,
+            question: question.text,
+            answer: otroValue ? `${baseAnswer}: ${otroValue}` : baseAnswer
+          };
+        }
+        // flora_intol: combine with detalle when a, b, or c selected
+        if (question.id === 'flora_intol' && (String(baseAnswer).startsWith('a)') || String(baseAnswer).startsWith('b)') || String(baseAnswer).startsWith('c)'))) {
+          const detalle = answers[`${question.id}_detalle`] || '';
+          return {
+            questionId: question.id,
+            question: question.text,
+            answer: detalle ? `${baseAnswer}: ${detalle}` : baseAnswer
+          };
+        }
+        // flora_piel, flora_cabello: combine with otro when applicable
+        if ((question.id === 'flora_piel' && baseAnswer === 'Sí - otra (especificar)') || (question.id === 'flora_cabello' && baseAnswer === 'Otra (especificar)')) {
+          const otroValue = answers[`${question.id}_otro`] || '';
+          return {
+            questionId: question.id,
+            question: question.text,
+            answer: otroValue ? `${baseAnswer}: ${otroValue}` : baseAnswer
+          };
+        }
+        // flora_sintomas: array, store as comma-separated or JSON
+        if (question.id === 'flora_sintomas') {
+          const val = Array.isArray(baseAnswer) ? baseAnswer : (baseAnswer ? [baseAnswer] : []);
+          return {
+            questionId: question.id,
+            question: question.text,
+            answer: val.length > 0 ? val.join(', ') : 'Ninguno'
+          };
+        }
+        // flow_ejer: object → JSON string
+        if (question.id === 'flow_ejer') {
+          const obj = typeof baseAnswer === 'object' && baseAnswer !== null ? baseAnswer : {};
+          return {
+            questionId: question.id,
+            question: question.text,
+            answer: Object.keys(obj).length > 0 ? JSON.stringify(obj) : 'Ninguno'
+          };
+        }
+        // flow_entorno_social: string + otro (usamos :: para "Otra (especificar)" detalle)
+        if (question.id === 'flow_entorno_social') {
+          const str = typeof baseAnswer === 'string' ? baseAnswer : '';
+          const otro = answers[`${question.id}_otro`] || '';
+          return {
+            questionId: question.id,
+            question: question.text,
+            answer: otro ? `${str}::${otro}` : str
+          };
+        }
         return {
           questionId: question.id,
           question: question.text,
-          answer: otroValue ? `${baseAnswer}: ${otroValue}` : baseAnswer
+          answer: baseAnswer
         };
-      }
-      return {
-        questionId: question.id,
-        question: question.text,
-        answer: baseAnswer
-      };
-    });
+      });
+
+    // Cuando function_luteal_phase está oculta, no incluirla en answers para el guardado
+    const answersForSave = formType === 'FUNCTION' && answers['function_knows_fertile_days'] !== 'Sí'
+      ? { ...answers, function_luteal_phase: undefined }
+      : answers;
 
     // Use dual saving: pillar table (current state) + consultation_forms (history)
-    const result = await savePillarForm(user.id, formType, answers, logs, formattedAnswers);
+    const result = await savePillarForm(user.id, formType, answersForSave, logs, formattedAnswers);
 
     if (result.success) {
       // ⭐ Si es FUNCTION, refrescar user para obtener cycle_length actualizado
@@ -686,7 +758,10 @@ const MyProfileView = ({
           step={step}
           value={safeValue}
           className="w-full accent-ferty-rose"
-          onChange={event => updateAnswer(question.id, Number(event.target.value))}
+          onChange={event => {
+            const val = parseFloat(event.target.value);
+            updateAnswer(question.id, Number.isFinite(val) ? val : safeValue);
+          }}
         />
       </div>
     );
@@ -766,11 +841,261 @@ const MyProfileView = ({
     );
   };
 
+  const renderCheckboxesControl = (question: any) => {
+    const options = question.options || [];
+    const currentValue = answers[question.id];
+    const selected = Array.isArray(currentValue) ? currentValue : [];
+
+    const toggleOption = (option: string) => {
+      const newSelected = selected.includes(option)
+        ? selected.filter((o: string) => o !== option)
+        : [...selected, option];
+      updateAnswer(question.id, newSelected);
+    };
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        {options.map((option: string) => {
+          const isActive = selected.includes(option);
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => toggleOption(option)}
+              className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
+                isActive
+                  ? 'bg-ferty-flora-accent/20 text-ferty-flora-accent border-ferty-flora-accent'
+                  : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderFlowFacesControl = (question: any) => {
+    const min = question.min ?? 1;
+    const max = question.max ?? 7;
+    const variant = question.variant ?? 'stress';
+    const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+
+    // Estrés: 1=tranquila → 7=abrumada. Emoción: 1=ansiosa → 7=empoderada. Digestiva: 1=muy mal → 7=excelente
+    const stressIcons = [Smile, Meh, Meh, Frown, Frown, Angry, XCircle];
+    const emotionIcons = [Frown, Meh, Meh, Meh, Smile, Smile, Heart];
+    const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile];
+    const icons =
+      variant === 'emotion' ? emotionIcons
+      : variant === 'digestive' ? digestiveIcons
+      : stressIcons;
+
+    const isFlora = question.id === 'flora_dig';
+    const activeClass = isFlora ? 'bg-ferty-flora-accent/20 text-ferty-flora-accent' : 'bg-ferty-rose/20 text-ferty-coral';
+    const iconClass = isFlora ? 'text-ferty-flora-accent' : 'text-ferty-coral';
+
+    return (
+      <div className="flex justify-center gap-1">
+        {values.map((value, index) => {
+          const IconComponent = icons[index] || Smile;
+          const isActive = answers[question.id] === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => updateAnswer(question.id, value)}
+              className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${
+                isActive ? `${activeClass} scale-110` : 'text-ferty-beigeMuted hover:text-ferty-gray hover:bg-ferty-beige/50 opacity-70 hover:opacity-100'
+              }`}
+            >
+              <IconComponent size={26} strokeWidth={1.5} className={isActive ? iconClass : 'text-ferty-beigeMuted'} />
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderFacesControl = (question: any) => {
+    const min = question.min ?? 0;
+    const max = question.max ?? 4;
+    const values = Array.from({ length: max - min + 1 }, (_, index) => min + index);
+
+    // Iconos minimalistas con colores de marca FertyFit (rose/coral)
+    const FaceIcons = [Smile, Meh, Frown, Angry, XCircle];
+    const labels = ['Nada', 'Leve', 'Moderado', 'Fuerte', 'Insoportable'];
+
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between px-2">
+          {values.map((value, index) => {
+            const IconComponent = FaceIcons[index] || Smile;
+            const isActive = answers[question.id] === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => updateAnswer(question.id, value)}
+                className={`flex flex-col items-center gap-1.5 transition-all duration-200 p-2 rounded-xl ${
+                  isActive
+                    ? 'bg-ferty-rose/20 text-ferty-coral scale-110'
+                    : 'text-ferty-beigeMuted hover:text-ferty-gray hover:bg-ferty-beige/50 opacity-70 hover:opacity-100'
+                }`}
+              >
+                <IconComponent
+                  size={28}
+                  strokeWidth={1.5}
+                  className={isActive ? 'text-ferty-coral' : 'text-ferty-beigeMuted'}
+                />
+                <span className={`text-[9px] font-bold uppercase ${isActive ? 'text-ferty-coral' : 'text-ferty-beigeMuted'}`}>
+                  {labels[index]}
+                </span>
+                {isActive && <div className="w-1.5 h-1.5 bg-ferty-rose rounded-full" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderExerciseTypeControl = (question: any) => {
+    const options = question.options || ['Cardiovascular', 'Fuerza'];
+    const data = (answers[question.id] as Record<string, { cantidad: number; intensidad: string }>) || {};
+    const intensidades = ['Baja', 'Media', 'Alta'];
+
+    const toggleType = (type: string) => {
+      const key = type.toLowerCase();
+      const next = { ...data };
+      if (next[key]) {
+        delete next[key];
+      } else {
+        next[key] = { cantidad: 0, intensidad: 'Media' };
+      }
+      updateAnswer(question.id, next);
+    };
+
+    const setCantidad = (type: string, delta: number) => {
+      const key = type.toLowerCase();
+      const current = data[key] || { cantidad: 0, intensidad: 'Media' };
+      const nueva = Math.max(0, Math.min(7, current.cantidad + delta));
+      updateAnswer(question.id, { ...data, [key]: { ...current, cantidad: nueva } });
+    };
+
+    const setIntensidad = (type: string, intensidad: string) => {
+      const key = type.toLowerCase();
+      const current = data[key] || { cantidad: 0, intensidad: 'Media' };
+      updateAnswer(question.id, { ...data, [key]: { ...current, intensidad } });
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {options.map((opt: string) => {
+            const key = opt.toLowerCase();
+            const isActive = !!data[key];
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => toggleType(opt)}
+                className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
+                  isActive ? 'bg-ferty-flow-accent/20 text-ferty-flow-accent border-ferty-flow-accent' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                }`}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+        {options.map((opt: string) => {
+          const key = opt.toLowerCase();
+          if (!data[key]) return null;
+          const val = data[key];
+          return (
+            <div key={opt} className="bg-ferty-beige/30 rounded-xl p-3 space-y-3 border border-ferty-beige">
+              <p className="text-xs font-bold text-ferty-dark">{opt}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-ferty-coral font-semibold shrink-0">Cantidad:</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setCantidad(opt, -1)} className="w-8 h-8 rounded-lg border border-ferty-beigeBorder text-ferty-coral font-bold bg-white hover:bg-ferty-beige" type="button">−</button>
+                  <span className="min-w-[2rem] text-center font-bold text-ferty-dark">{val.cantidad}</span>
+                  <button onClick={() => setCantidad(opt, 1)} className="w-8 h-8 rounded-lg border border-ferty-beigeBorder text-ferty-coral font-bold bg-white hover:bg-ferty-beige" type="button">+</button>
+                </div>
+                <span className="text-[11px] text-ferty-beigeMuted">veces/semana</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-ferty-coral font-semibold shrink-0">Intensidad:</span>
+                <div className="flex gap-1">
+                  {intensidades.map((i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setIntensidad(opt, i)}
+                      className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                        val.intensidad === i ? 'bg-ferty-flow-accent text-white border-ferty-flow-accent' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                      }`}
+                    >
+                      {i}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderControl = (question: FormQuestion) => {
     const controlType = question.control ?? question.type;
 
     // Flow-specific variations - simplified controls
     if (formType === 'FLOW') {
+      // Ejercicio: Cardiovascular/Fuerza con Cantidad e Intensidad
+      if (question.id === 'flow_ejer') {
+        return renderExerciseTypeControl(question);
+      }
+
+      // Entorno social: solo una opción, color marrón, "Otra (especificar)" → campo texto
+      if (question.id === 'flow_entorno_social') {
+        const selected = answers[question.id] as string;
+        const showOtherField = selected === 'Otra (especificar)';
+        const opts = question.options || [];
+        return (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {opts.map((opt: string) => {
+                const isActive = selected === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => updateAnswer(question.id, opt)}
+                    className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
+                      isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+            {showOtherField && (
+              <input
+                type="text"
+                value={(answers[`${question.id}_otro`] as string) || ''}
+                placeholder="Especifica..."
+                onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
+                className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
+              />
+            )}
+          </div>
+        );
+      }
+
       // Convert some to Yes/No
       if (['flow_soporte'].includes(question.id)) {
         return renderButtons(question, ['Sí', 'No']);
@@ -782,25 +1107,85 @@ const MyProfileView = ({
       }
     }
 
-    // Flora - conditional text field for "Otra"
-    if (formType === 'FLORA' && (question.id === 'flora_pruebas' || question.id === 'flora_suplementos')) {
+    // Flora - conditional text fields
+    if (formType === 'FLORA') {
       const selectedValue = answers[question.id];
-      const showOtherField = selectedValue === 'Otra' || selectedValue === 'Otro';
 
-      return (
-        <div className="space-y-3">
-          {renderButtons(question, question.options || [])}
-          {showOtherField && (
-            <input
-              type="text"
-              value={answers[`${question.id}_otro`] || ''}
-              placeholder="Especifica..."
-              onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
-              className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
-            />
-          )}
-        </div>
-      );
+      // flora_pruebas, flora_suplementos: "Otra" → campo texto
+      if (question.id === 'flora_pruebas' || question.id === 'flora_suplementos') {
+        const showOtherField = selectedValue === 'Otra' || selectedValue === 'Otro';
+        return (
+          <div className="space-y-3">
+            {renderButtons(question, question.options || [])}
+            {showOtherField && (
+              <input
+                type="text"
+                value={answers[`${question.id}_otro`] || ''}
+                placeholder="Especifica..."
+                onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
+                className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
+              />
+            )}
+          </div>
+        );
+      }
+
+      // flora_intol: opciones a, b, c (Sí) → campo texto para indicar cuál/cuáles
+      if (question.id === 'flora_intol') {
+        const showDetailField = selectedValue?.startsWith('a)') || selectedValue?.startsWith('b)') || selectedValue?.startsWith('c)');
+        return (
+          <div className="space-y-3">
+            {renderButtons(question, question.options || [])}
+            {showDetailField && (
+              <input
+                type="text"
+                value={answers[`${question.id}_detalle`] || ''}
+                placeholder="Indica cuál o cuáles..."
+                onChange={event => updateAnswer(`${question.id}_detalle`, event.target.value)}
+                className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
+              />
+            )}
+          </div>
+        );
+      }
+
+      // flora_piel: "Sí - otra" → campo texto
+      if (question.id === 'flora_piel') {
+        const showOtherField = selectedValue === 'Sí - otra (especificar)';
+        return (
+          <div className="space-y-3">
+            {renderButtons(question, question.options || [])}
+            {showOtherField && (
+              <input
+                type="text"
+                value={answers[`${question.id}_otro`] || ''}
+                placeholder="Especifica..."
+                onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
+                className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
+              />
+            )}
+          </div>
+        );
+      }
+
+      // flora_cabello: "Otra" → campo texto
+      if (question.id === 'flora_cabello') {
+        const showOtherField = selectedValue === 'Otra (especificar)';
+        return (
+          <div className="space-y-3">
+            {renderButtons(question, question.options || [])}
+            {showOtherField && (
+              <input
+                type="text"
+                value={answers[`${question.id}_otro`] || ''}
+                placeholder="Especifica..."
+                onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
+                className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
+              />
+            )}
+          </div>
+        );
+      }
     }
 
     if (question.type === 'textarea') {
@@ -812,6 +1197,18 @@ const MyProfileView = ({
           onChange={event => updateAnswer(question.id, event.target.value)}
         />
       );
+    }
+
+    if (question.type === 'checkboxes') {
+      return renderCheckboxesControl(question);
+    }
+
+    if (question.type === 'flow_faces') {
+      return renderFlowFacesControl(question);
+    }
+
+    if (question.type === 'faces') {
+      return renderFacesControl(question);
     }
 
     if (question.type === 'yesno') {
@@ -885,15 +1282,23 @@ const MyProfileView = ({
 
     return (
       <div className="space-y-4">
-        {definition.questions.map(question => (
-          <div key={question.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-ferty-dark uppercase tracking-wider">{question.text}</label>
-              {question.unit && <span className="text-[11px] text-ferty-coral font-semibold">{question.unit}</span>}
+        {definition.questions.map(question => {
+          // FUNCTION: 'function_luteal_phase' solo si 'function_knows_fertile_days' === 'Sí'
+          if (question.id === 'function_luteal_phase') {
+            const knows = answers['function_knows_fertile_days'];
+            if (knows !== 'Sí') return null;
+          }
+
+          return (
+            <div key={question.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ferty-dark uppercase tracking-wider">{question.text}</label>
+                {question.unit && <span className="text-[11px] text-ferty-coral font-semibold">{question.unit}</span>}
+              </div>
+              {renderControl(question)}
             </div>
-            {renderControl(question)}
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1068,13 +1473,13 @@ const MyProfileView = ({
               );
             }
 
-            // Función helper para renderizar un campo
-            const renderField = (label: string, value: any, colSpan: number = 1) => {
+            // Función helper para renderizar un campo (una columna)
+            const renderField = (label: string, value: any) => {
               const displayValue = Array.isArray(value) ? value.join(', ') : (value ?? '—');
               const isEmpty = !value || (Array.isArray(value) && value.length === 0);
 
               return (
-                <div key={label} className={colSpan === 2 ? 'col-span-2' : ''}>
+                <div key={label} className="border-b border-ferty-beige/50 pb-3 last:border-0 last:pb-0">
                   <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
                   <p className={`text-sm font-semibold ${isEmpty ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
                     {isEmpty ? 'Sin respuesta' : displayValue}
@@ -1085,21 +1490,101 @@ const MyProfileView = ({
 
             // Para FUNCTION y otros pilares: mostrar en una sección general
 
-            // Para FOOD, FLORA, FLOW: mostrar en una sección general
+            // Filtrar por visibilidad (ej: function_luteal_phase solo si knows_fertile_days === 'Sí')
+            const visibleFilteredAnswers = filteredAnswers.filter((answer: any) =>
+              isQuestionVisible(answer.questionId, submittedForm.answers)
+            );
+
+            const FaceIconsView = [Smile, Meh, Frown, Angry, XCircle];
+            const faceLabels = ['Nada', 'Leve', 'Moderado', 'Fuerte', 'Insoportable'];
+
             return (
               <div className="border-b border-ferty-beige pb-3">
                 <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
                   {currentTab?.label || 'Formulario'}
                 </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredAnswers.map((answer: any) => {
+                <div className="flex flex-col gap-3">
+                  {visibleFilteredAnswers.map((answer: any) => {
                     const question = definition?.questions?.find((q: any) => q.id === answer.questionId);
                     const label = question?.text || answer.question;
                     const value = answer.answer;
-                    // Si la respuesta es muy larga, usar col-span-2
-                    const isLong = Array.isArray(value) && value.length > 1 ||
-                      (typeof value === 'string' && value.length > 80);
-                    return renderField(label, value, isLong ? 2 : 1);
+
+                    // Si es tipo 'faces', mostrar icono + etiqueta en lugar del número
+                    if (question?.type === 'faces' && typeof value === 'number') {
+                      const IconComponent = FaceIconsView[value] || Meh;
+                      const faceLabel = faceLabels[value] ?? '';
+                      return (
+                        <div key={label} className="border-b border-ferty-beige/50 pb-3 last:border-0 last:pb-0">
+                          <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
+                          <div className="flex items-center gap-2">
+                            <IconComponent size={24} strokeWidth={1.5} className="text-ferty-coral" />
+                            <p className="text-sm font-semibold text-ferty-dark">{faceLabel}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // flow_stress / flow_emocion / flora_dig: número 1-7 con icono (sin mostrar número)
+                    if ((answer.questionId === 'flow_stress' || answer.questionId === 'flow_emocion' || answer.questionId === 'flora_dig') && typeof value === 'number') {
+                      const stressIcons = [Smile, Meh, Meh, Frown, Frown, Angry, XCircle];
+                      const emotionIcons = [Frown, Meh, Meh, Meh, Smile, Smile, Heart];
+                      const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile];
+                      const icons =
+                        answer.questionId === 'flow_emocion' ? emotionIcons
+                        : answer.questionId === 'flora_dig' ? digestiveIcons
+                        : stressIcons;
+                      const idx = Math.min(Math.max(value - 1, 0), 6);
+                      const IconComponent = icons[idx] || Meh;
+                      const iconColor = answer.questionId === 'flora_dig' ? 'text-ferty-flora-accent' : 'text-ferty-coral';
+                      return (
+                        <div key={label} className="border-b border-ferty-beige/50 pb-3 last:border-0 last:pb-0">
+                          <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
+                          <div className="flex items-center gap-2">
+                            <IconComponent size={24} strokeWidth={1.5} className={iconColor} />
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // flow_ejer: JSON → texto legible
+                    if (answer.questionId === 'flow_ejer' && typeof value === 'string' && value !== 'Ninguno') {
+                      try {
+                        const obj = JSON.parse(value);
+                        const parts = Object.entries(obj).map(([k, v]: [string, any]) =>
+                          v?.cantidad != null ? `${k}: ${v.cantidad} veces/sem, ${v.intensidad || 'Media'}` : null
+                        ).filter(Boolean);
+                        return renderField(label, parts.length > 0 ? parts.join(' • ') : '—');
+                      } catch {
+                        return renderField(label, value);
+                      }
+                    }
+
+                    // flow_entorno_social: "opción::otro" → texto legible
+                    if (answer.questionId === 'flow_entorno_social' && typeof value === 'string') {
+                      const display = value.includes('::') ? value.replace('::', ' — ') : value;
+                      return renderField(label, display || '—');
+                    }
+
+                    // flow_sueno: mostrar con unidad (horas)
+                    if (answer.questionId === 'flow_sueno' && (typeof value === 'number' || typeof value === 'string')) {
+                      const num = typeof value === 'string' ? parseFloat(value) : value;
+                      return renderField(label, Number.isFinite(num) ? `${num} horas` : value);
+                    }
+
+                    // Steppers con unidad
+                    if ((answer.questionId === 'flow_relax' || answer.questionId === 'food_azucar' || answer.questionId === 'food_pescado' || answer.questionId === 'flora_ferm') && (typeof value === 'number' || typeof value === 'string')) {
+                      return renderField(label, `${value} veces/semana`);
+                    }
+                    if (answer.questionId === 'food_vege' && (typeof value === 'number' || typeof value === 'string')) {
+                      return renderField(label, `${value} raciones`);
+                    }
+
+                    // function_cycle_length, function_luteal_phase: con unidad días
+                    if ((answer.questionId === 'function_cycle_length' || answer.questionId === 'function_luteal_phase') && (typeof value === 'number' || typeof value === 'string')) {
+                      return renderField(label, `${value} días`);
+                    }
+
+                    return renderField(label, value);
                   })}
                 </div>
               </div>
@@ -1556,11 +2041,11 @@ const MyProfileView = ({
                                 }
                               };
 
-                              // Función helper para renderizar un campo
-                              const renderField = (label: string, value: string | null, colSpan: number = 1) => {
-                                const isEmpty = !value || value.trim() === '';
+                              // Función helper para renderizar un campo (una columna)
+                              const renderField = (label: string, value: string | null) => {
+                                const isEmpty = !value || (typeof value === 'string' && value.trim() === '');
                                 return (
-                                  <div key={label} className={colSpan === 2 ? 'col-span-2' : ''}>
+                                  <div key={label} className="border-b border-ferty-beige/50 pb-3 last:border-0 last:pb-0">
                                     <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
                                     <p className={`text-sm font-semibold ${isEmpty ? 'text-stone-400 italic' : 'text-ferty-dark'}`}>
                                       {isEmpty ? 'Sin respuesta' : value}
@@ -1591,7 +2076,7 @@ const MyProfileView = ({
                                     <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
                                       DATOS FÍSICOS
                                     </p>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-3">
                                       {height && renderField(getQuestion('q2_height')?.text || 'Altura', formatValue(getQuestion('q2_height'), height))}
                                       {weight && renderField(getQuestion('q2_weight')?.text || 'Peso', formatValue(getQuestion('q2_weight'), weight))}
                                     </div>
@@ -1610,7 +2095,7 @@ const MyProfileView = ({
                                     <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
                                       OBJETIVO
                                     </p>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-3">
                                       {timeTrying && renderField(getQuestion('q3_time_trying')?.text || 'Tiempo buscando embarazo', formatValue(getQuestion('q3_time_trying'), timeTrying))}
                                       {objective && renderField(getQuestion('q4_objective')?.text || 'Objetivo principal', formatValue(getQuestion('q4_objective'), objective))}
                                       {partner && renderField(getQuestion('q5_partner')?.text || '¿Buscas en pareja o solitario?', formatValue(getQuestion('q5_partner'), partner))}
@@ -1629,9 +2114,9 @@ const MyProfileView = ({
                                     <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
                                       HISTORIAL Y DIAGNÓSTICOS
                                     </p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                      {diagnoses && renderField(getQuestion('q9_diagnoses')?.text || 'Diagnósticos / Breve Historia Médica', formatValue(getQuestion('q9_diagnoses'), diagnoses), 2)}
-                                      {familyHistory && renderField(getQuestion('q21_family_history')?.text || 'Antecedentes familiares relevantes', formatValue(getQuestion('q21_family_history'), familyHistory), 2)}
+                                    <div className="flex flex-col gap-3">
+                                      {diagnoses && renderField(getQuestion('q9_diagnoses')?.text || 'Diagnósticos / Breve Historia Médica', formatValue(getQuestion('q9_diagnoses'), diagnoses))}
+                                      {familyHistory && renderField(getQuestion('q21_family_history')?.text || 'Antecedentes familiares relevantes', formatValue(getQuestion('q21_family_history'), familyHistory))}
                                     </div>
                                   </div>
                                 );
@@ -1659,9 +2144,11 @@ const MyProfileView = ({
                 {/* Pestañas de pilares */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                   {PILLAR_TABS.map(tab => {
-                    const hasData = Boolean(findSubmission(submittedForms, tab.id));
-                    const isActive = formType === tab.id;
                     const pillarProgress = getPillarProgress(tab.id);
+                    const isActive = formType === tab.id;
+                    // Pestaña activa: usar progress.percentage (incluye answers actuales); demás: pillarProgress
+                    const tabProgress = isActive ? progress.percentage : pillarProgress;
+                    const showCheck = tabProgress === 100;
                     return (
                       <button
                         key={tab.id}
@@ -1672,13 +2159,13 @@ const MyProfileView = ({
                       >
                         <div className="flex items-center justify-between mb-3">
                           <p className="text-sm font-bold text-ferty-dark">{tab.label}</p>
-                          {hasData && (
+                          {showCheck && (
                             <CheckCircle size={14} className="text-emerald-600" />
                           )}
                         </div>
-                        {pillarProgress > 0 && (
+                        {tabProgress > 0 && (
                           <ProgressBar
-                            percentage={pillarProgress}
+                            percentage={tabProgress}
                             color="rose-gradient"
                             height="sm"
                             className="bg-ferty-beige border-0"
