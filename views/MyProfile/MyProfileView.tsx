@@ -378,20 +378,22 @@ const MyProfileView = ({
     return true;
   };
 
-  // Calculate progress: usa submittedForm si existe, si no usa answers (datos en edición o desde pillar_*)
+  // Calculate progress: usa submittedForm si existe; si no hay submission = 0% (no contar defaults)
   const progress = useMemo(() => {
     if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
 
-    let formAnswers: any[];
-    if (submittedForm?.answers && Array.isArray(submittedForm.answers)) {
-      formAnswers = submittedForm.answers;
-    } else {
-      // Sin submission: calcular desde answers (estado actual al editar)
-      formAnswers = definition.questions.map(q => ({
-        questionId: q.id,
-        answer: answers[q.id]
-      }));
+    // Sin formulario enviado: progreso 0% (los defaults no cuentan como completado)
+    if (!submittedForm?.answers || !Array.isArray(submittedForm.answers)) {
+      return {
+        answered: 0,
+        total: definition.questions.length,
+        percentage: 0
+      };
     }
+
+    const formAnswers = isEditMode
+      ? definition.questions.map(q => ({ questionId: q.id, answer: answers[q.id] }))
+      : submittedForm.answers;
 
     const visibleQuestions = definition.questions.filter(q => isQuestionVisible(q.id, formAnswers));
     const totalQuestions = visibleQuestions.length;
@@ -406,7 +408,7 @@ const MyProfileView = ({
       total: totalQuestions,
       percentage: totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0
     };
-  }, [definition, submittedForm, answers]);
+  }, [definition, submittedForm, answers, isEditMode]);
 
   // Calculate progress for each pillar based on submitted forms
   const getPillarProgress = (pillarId: PillarFormType): number => {
@@ -862,11 +864,10 @@ const MyProfileView = ({
               key={option}
               type="button"
               onClick={() => toggleOption(option)}
-              className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-                isActive
-                  ? 'bg-ferty-flora-accent/20 text-ferty-flora-accent border-ferty-flora-accent'
-                  : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-              }`}
+              className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${isActive
+                ? 'bg-ferty-flora-accent/20 text-ferty-flora-accent border-ferty-flora-accent'
+                : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                }`}
             >
               {option}
             </button>
@@ -888,8 +889,8 @@ const MyProfileView = ({
     const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile];
     const icons =
       variant === 'emotion' ? emotionIcons
-      : variant === 'digestive' ? digestiveIcons
-      : stressIcons;
+        : variant === 'digestive' ? digestiveIcons
+          : stressIcons;
 
     const isFlora = question.id === 'flora_dig';
     const activeClass = isFlora ? 'bg-ferty-flora-accent/20 text-ferty-flora-accent' : 'bg-ferty-rose/20 text-ferty-coral';
@@ -905,9 +906,8 @@ const MyProfileView = ({
               key={value}
               type="button"
               onClick={() => updateAnswer(question.id, value)}
-              className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${
-                isActive ? `${activeClass} scale-110` : 'text-ferty-beigeMuted hover:text-ferty-gray hover:bg-ferty-beige/50 opacity-70 hover:opacity-100'
-              }`}
+              className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${isActive ? `${activeClass} scale-110` : 'text-ferty-beigeMuted hover:text-ferty-gray hover:bg-ferty-beige/50 opacity-70 hover:opacity-100'
+                }`}
             >
               <IconComponent size={26} strokeWidth={1.5} className={isActive ? iconClass : 'text-ferty-beigeMuted'} />
             </button>
@@ -937,11 +937,10 @@ const MyProfileView = ({
                 key={value}
                 type="button"
                 onClick={() => updateAnswer(question.id, value)}
-                className={`flex flex-col items-center gap-1.5 transition-all duration-200 p-2 rounded-xl ${
-                  isActive
-                    ? 'bg-ferty-rose/20 text-ferty-coral scale-110'
-                    : 'text-ferty-beigeMuted hover:text-ferty-gray hover:bg-ferty-beige/50 opacity-70 hover:opacity-100'
-                }`}
+                className={`flex flex-col items-center gap-1.5 transition-all duration-200 p-2 rounded-xl ${isActive
+                  ? 'bg-ferty-rose/20 text-ferty-coral scale-110'
+                  : 'text-ferty-beigeMuted hover:text-ferty-gray hover:bg-ferty-beige/50 opacity-70 hover:opacity-100'
+                  }`}
               >
                 <IconComponent
                   size={28}
@@ -1000,9 +999,8 @@ const MyProfileView = ({
                 key={opt}
                 type="button"
                 onClick={() => toggleType(opt)}
-                className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-                  isActive ? 'bg-ferty-flow-accent/20 text-ferty-flow-accent border-ferty-flow-accent' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-                }`}
+                className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${isActive ? 'bg-ferty-flow-accent/20 text-ferty-flow-accent border-ferty-flow-accent' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                  }`}
               >
                 {opt}
               </button>
@@ -1033,9 +1031,8 @@ const MyProfileView = ({
                       key={i}
                       type="button"
                       onClick={() => setIntensidad(opt, i)}
-                      className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all ${
-                        val.intensidad === i ? 'bg-ferty-flow-accent text-white border-ferty-flow-accent' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-                      }`}
+                      className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all ${val.intensidad === i ? 'bg-ferty-flow-accent text-white border-ferty-flow-accent' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                        }`}
                     >
                       {i}
                     </button>
@@ -1074,9 +1071,8 @@ const MyProfileView = ({
                     key={opt}
                     type="button"
                     onClick={() => updateAnswer(question.id, opt)}
-                    className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-                      isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-                    }`}
+                    className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                      }`}
                   >
                     {opt}
                   </button>
@@ -1531,8 +1527,8 @@ const MyProfileView = ({
                       const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile];
                       const icons =
                         answer.questionId === 'flow_emocion' ? emotionIcons
-                        : answer.questionId === 'flora_dig' ? digestiveIcons
-                        : stressIcons;
+                          : answer.questionId === 'flora_dig' ? digestiveIcons
+                            : stressIcons;
                       const idx = Math.min(Math.max(value - 1, 0), 6);
                       const IconComponent = icons[idx] || Meh;
                       const iconColor = answer.questionId === 'flora_dig' ? 'text-ferty-flora-accent' : 'text-ferty-coral';
@@ -2148,7 +2144,7 @@ const MyProfileView = ({
                     const isActive = formType === tab.id;
                     // Pestaña activa: usar progress.percentage (incluye answers actuales); demás: pillarProgress
                     const tabProgress = isActive ? progress.percentage : pillarProgress;
-                    const showCheck = tabProgress === 100;
+                    const showCheck = tabProgress >= 100;
                     return (
                       <button
                         key={tab.id}
