@@ -45,7 +45,7 @@ export function buildReportContext(
     case '360': {
       // Informe completo: todos los datos
       const f0Forms = forms.filter(f => f.form_type === 'F0');
-      const pillarForms = forms.filter(f => 
+      const pillarForms = forms.filter(f =>
         ['FUNCTION', 'FOOD', 'FLORA', 'FLOW'].includes(f.form_type || '')
       );
       const examForms = forms.filter(f => {
@@ -76,7 +76,7 @@ export function buildReportContext(
     case 'BASIC': {
       // Solo F0 y formularios de pilares
       const f0Forms = forms.filter(f => f.form_type === 'F0');
-      const pillarForms = forms.filter(f => 
+      const pillarForms = forms.filter(f =>
         ['FUNCTION', 'FOOD', 'FLORA', 'FLOW'].includes(f.form_type || '')
       );
 
@@ -134,13 +134,17 @@ export function getPromptForReportType(
   ragChunksMetadata?: Array<{ document_id?: string; document_title?: string; chunk_index?: number }>
 ): string {
   const ragSection = ragContext ? `
-IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
-NO uses conocimiento general que no esté en este contexto.
-PRIORIZA SIEMPRE el contexto metodológico FertyFit sobre cualquier conocimiento general.
-Si la información no está en este contexto, dilo explícitamente.
+MARCO METODOLÓGICO FERTYFIT:
+La metodología FertyFit se basa en 4 pilares (Function, Food, Flora, Flow) y la siguiente documentación científica.
+USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL, pero puedes complementar con conocimiento médico general cuando sea apropiado para dar una respuesta completa y útil.
 
 CONTEXTO METODOLÓGICO FERTYFIT (${ragChunksCount} fragmentos de documentación - fuente autorizada):
 ${ragContext}
+
+IMPORTANTE - CITACIÓN DE FUENTES:
+- DEBES citar información de AL MENOS 3-5 fuentes diferentes del contexto FertyFit en tu análisis.
+- Si un tema (como cannabis, alcohol, sueño, estrés, disruptores endocrinos) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..." o "La evidencia científica indica...".
+- Al final, en la sección de Bibliografía, lista TODAS las fuentes que usaste.
 
 ` : '';
 
@@ -199,16 +203,16 @@ Construye un INFORME NARRATIVO COMPLETO pero CONCISO (máximo 2000 palabras) for
    ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
    DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
    Metadatos de las fuentes consultadas:
-   ${ragChunksMetadata.map((meta, idx) => 
-     `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
-   ).join('\n')}
+   ${ragChunksMetadata.map((meta, idx) =>
+        `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
+      ).join('\n')}
    
    Formato para cada referencia:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: [cita breve del contenido relevante usado]"
    ` : '- Si no hay contexto FertyFit, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe."'}
 
 INSTRUCCIONES IMPORTANTES:
-- ${ragContext ? 'SOLO usa información del contexto FertyFit proporcionado. ' : ''}Usa un tono empático, claro y no alarmista.
+- Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario para una respuesta completa y útil. Usa un tono empático, claro y no alarmista.
 - No inventes diagnósticos médicos; describe riesgos y patrones como "sugiere", "podría indicar".
 - Escribe TODO en español y dirigido en segunda persona ("tú").
 - Sé CONCISO: evita repeticiones y ve directo al punto.
@@ -270,16 +274,16 @@ Construye un INFORME NARRATIVO CONCISO (máximo 1500 palabras) formateado en Mar
    ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
    DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
    Metadatos de las fuentes consultadas:
-   ${ragChunksMetadata.map((meta, idx) => 
-     `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
-   ).join('\n')}
+   ${ragChunksMetadata.map((meta, idx) =>
+        `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
+      ).join('\n')}
    
    Formato para cada referencia:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: [cita breve del contenido relevante usado]"
    ` : '- Si no hay contexto FertyFit, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe."'}
 
 INSTRUCCIONES IMPORTANTES:
-- ${ragContext ? 'SOLO usa información del contexto FertyFit proporcionado. ' : ''}Usa un tono empático, claro y educativo.
+- Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario. Usa un tono empático, claro y educativo.
 - Sé CONCISO: evita repeticiones y ve directo al punto.
 - Escribe TODO en español y dirigido en segunda persona ("tú").
 - El informe completo NO debe exceder 1500 palabras.
@@ -339,16 +343,16 @@ Construye un INFORME NARRATIVO CONCISO (máximo 1200 palabras) formateado en Mar
    ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
    DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
    Metadatos de las fuentes consultadas:
-   ${ragChunksMetadata.map((meta, idx) => 
-     `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
-   ).join('\n')}
+   ${ragChunksMetadata.map((meta, idx) =>
+        `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
+      ).join('\n')}
    
    Formato para cada referencia:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: [cita breve del contenido relevante usado]"
    ` : '- Si no hay contexto FertyFit, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe."'}
 
 INSTRUCCIONES IMPORTANTES:
-- ${ragContext ? 'SOLO usa información del contexto FertyFit proporcionado. ' : ''}Usa un tono empático, claro y educativo.
+- Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario. Usa un tono empático, claro y educativo.
 - Identifica patrones, tendencias y correlaciones en los datos de manera específica.
 - Sé CONCISO: evita repeticiones y ve directo al punto.
 - Escribe TODO en español y dirigido en segunda persona ("tú").

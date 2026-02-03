@@ -198,14 +198,14 @@ IMPORTANTE: Escribe la explicación en formato Markdown. Usa:
 - *texto* para cursivas
 - Formatea los párrafos de manera clara
 
-${ragContext ? `IMPORTANTE: Solo puedes usar la información del siguiente contexto, que proviene de la metodología FertyFit.
-NO uses conocimiento general que no esté en este contexto.
-Si la información no está en este contexto, dilo explícitamente.
+${ragContext ? `MARCO METODOLÓGICO FERTYFIT:
+La metodología FertyFit se basa en 4 pilares (Function, Food, Flora, Flow) y la siguiente documentación científica.
+USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL, pero puedes complementar con conocimiento médico general cuando sea apropiado para dar una respuesta completa y útil.
 
-CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de documentación):
+CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de ${new Set(ragChunks.map(c => c.metadata?.document_id)).size} fuentes diferentes):
 ${ragContext}
 
-FUENTES CONSULTADAS:
+FUENTES CONSULTADAS (DEBES CITAR AL MENOS 3 DIFERENTES):
 ${ragChunks.map((c, idx) =>
       `${idx + 1}. ${c.metadata?.document_title || 'Documento sin título'} (ID: ${c.metadata?.document_id || 'N/A'})`
     ).join('\n')}
@@ -237,17 +237,19 @@ Escribe una explicación CONCISA en formato Markdown (máximo 3 párrafos breves
    - Qué preguntas puede hacer a su médico
    - Qué aspectos debe comentar en su próxima consulta
 
-${ragContext ? `\nIMPORTANTE: Al final de la explicación, incluye una línea breve con las fuentes consultadas:
-"Fuentes: ${ragChunks.map(c => c.metadata?.document_title || 'Documento').join(', ')}"` : ''}
+${ragContext ? `
+IMPORTANTE - CITACIÓN DE FUENTES:
+- DEBES citar información de AL MENOS 3 fuentes diferentes del contexto FertyFit.
+- Al final, incluye una sección "📚 Fuentes consultadas:" listando las fuentes que usaste.
+- Si un tema (como cannabis, alcohol, sueño, estrés) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..."` : ''}
 
 INSTRUCCIONES:
 - Máximo 3 párrafos breves (cada párrafo máximo 4-5 líneas)
 - Sé CONCISO y ve directo al punto
 - No hagas recomendaciones médicas directas ni ajustes de medicación
-- ${ragContext ? 'Solo usa información del contexto FertyFit proporcionado.' : 'Sé claro y educativo.'}
+- Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico cuando sea necesario para una respuesta completa
 - Escribe TODO en español y dirigido en segunda persona ("tú")
 - Si es una ecografía o imagen médica, enfócate en los hallazgos visuales más relevantes
-- Si el tipo de examen no está en el contexto FertyFit, explica de forma general pero educativa
 - IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML.
 `;
 
