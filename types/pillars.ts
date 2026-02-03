@@ -7,16 +7,14 @@ export interface PillarFunction {
   user_id: string;
   // Ciclo (movido desde F0, sincronizado con profiles)
   cycle_length?: number;
-  cycle_regularity?: string;
   // Nuevas preguntas FUNCTION
   regularity_detail?: string;
+  knows_fertile_days?: string; // Sí/No
   luteal_phase_days?: number;
   fertile_mucus?: string;
-  pms_severity?: number; // 1-10
+  pms_severity?: number; // 0-4 (antes 1-10)
   fertility_diagnosis?: string;
-  tsh_last?: string;
   ovulation_tracking?: string;
-  menstrual_bleeding?: string;
   // Mantener si los necesitas
   diagnoses?: string[];
   fertility_treatments?: string;

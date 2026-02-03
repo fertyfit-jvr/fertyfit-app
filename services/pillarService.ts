@@ -29,12 +29,9 @@ function normalizeAnswersToPillar(
           || parseInt(answers['function_cycle_length']);
       }
 
-      if (answers['function_cycle_regularity']) {
-        normalized.cycle_regularity = answers['function_cycle_regularity'];
-      }
-
       // Nuevas preguntas FUNCTION
       normalized.regularity_detail = answers['function_regularity_detail'];
+      normalized.knows_fertile_days = answers['function_knows_fertile_days'];
 
       if (answers['function_luteal_phase']) {
         normalized.luteal_phase_days = parseInt(answers['function_luteal_phase']);
@@ -47,7 +44,6 @@ function normalizeAnswersToPillar(
       }
 
       normalized.fertility_diagnosis = answers['function_fertility_diagnosis'];
-      normalized.tsh_last = answers['function_tsh_last'];
       normalized.ovulation_tracking = answers['function_ovulation_tracking'];
       normalized.menstrual_bleeding = answers['function_menstrual_bleeding'];
 

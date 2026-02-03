@@ -295,6 +295,15 @@ interface SupabaseProfile {
   supplements?: string | null;
   alcohol_consumption?: string | null;
   user_type?: string | null;
+  // Consent fields
+  consent_personal_data?: boolean;
+  consent_food?: boolean;
+  consent_flora?: boolean;
+  consent_flow?: boolean;
+  consent_function?: boolean;
+  consent_daily_log?: boolean;
+  consent_no_diagnosis?: boolean;
+  consents_at?: string;
 }
 
 /**

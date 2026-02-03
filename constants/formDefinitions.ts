@@ -16,120 +16,12 @@ const flattenSectionQuestions = (sections) =>
     }))
   );
 
-const FUNCTION_SECTIONS = [
-  {
-    id: 'function_panel_hormonal',
-    title: 'Panel hormonal femenino (día 3)',
-    fields: [
-      { id: 'function_fsh', label: 'FSH', type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1, control: 'slider', recommendedValue: '3-10', defaultValue: 6.5 },
-      { id: 'function_lh', label: 'LH', type: 'number', unit: 'mUI/mL', min: 0, max: 40, step: 0.1, control: 'slider', recommendedValue: '2-8', defaultValue: 5 },
-      { id: 'function_estradiol', label: 'Estradiol (E2)', type: 'number', unit: 'pg/mL', min: 0, max: 1000, step: 1, control: 'slider', recommendedValue: '30-100', defaultValue: 65 },
-      { id: 'function_prolactina', label: 'Prolactina', type: 'number', unit: 'ng/mL', min: 0, max: 100, step: 0.1, control: 'slider', recommendedValue: '5-25', defaultValue: 15 },
-      { id: 'function_tsh', label: 'TSH', type: 'number', unit: 'µUI/mL', min: 0, max: 10, step: 0.01, control: 'slider', recommendedValue: '0.5-2.5', defaultValue: 1.5 },
-      { id: 'function_t4', label: 'T4 libre', type: 'number', unit: 'ng/dL', min: 0, max: 5, step: 0.01, control: 'slider', recommendedValue: '0.8-1.8', defaultValue: 1.3 },
-      { id: 'function_cycle_day', label: 'Día del ciclo', type: 'number', unit: 'día', min: 1, max: 40, step: 1, defaultValue: 3, control: 'stepper' }
-    ]
-  },
-  {
-    id: 'function_panel_metabolico',
-    title: 'Panel metabólico + analítica general',
-    fields: [
-      { id: 'function_glucosa', label: 'Glucosa', type: 'number', unit: 'mg/dL', min: 40, max: 300, step: 1, control: 'slider', recommendedValue: '70-100', defaultValue: 85 },
-      { id: 'function_insulina', label: 'Insulina', type: 'number', unit: 'µUI/mL', min: 0, max: 100, step: 0.5, control: 'slider', recommendedValue: '2-25', defaultValue: 13.5 },
-      {
-        id: 'function_hemograma',
-        label: 'Hemograma completo',
-        type: 'buttons',
-        options: ['Normal', 'Alterado', 'No lo sé'],
-        defaultValue: 'Normal',
-        optional: true
-      },
-      { id: 'function_ferritina', label: 'Ferritina', type: 'number', unit: 'ng/mL', min: 1, max: 500, step: 1, control: 'slider', recommendedValue: '40-150', defaultValue: 95 },
-      { id: 'function_hierro', label: 'Hierro', type: 'number', unit: 'µg/dL', min: 0, max: 300, step: 1, control: 'slider', recommendedValue: '50-170', defaultValue: 110 },
-      { id: 'function_transferrina', label: 'Transferrina', type: 'number', unit: 'mg/dL', min: 0, max: 600, step: 1, optional: true },
-      { id: 'function_saturacion', label: 'Sat. transferrina', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '20-50', defaultValue: 35 },
-      { id: 'function_pcr', label: 'PCR-us', type: 'number', unit: 'mg/L', min: 0, max: 20, step: 0.1, control: 'slider', recommendedValue: '<1', defaultValue: 0.5 },
-      { id: 'function_colesterol', label: 'Colesterol total', type: 'number', unit: 'mg/dL', min: 0, max: 400, step: 1, control: 'slider', recommendedValue: '<200', defaultValue: 150 },
-      { id: 'function_trigliceridos', label: 'Triglicéridos', type: 'number', unit: 'mg/dL', min: 0, max: 500, step: 1, control: 'slider', recommendedValue: '<150', defaultValue: 100 }
-    ]
-  },
-  {
-    id: 'function_vitamina_d',
-    title: 'Vitamina D (25-OH)',
-    optional: true,
-    fields: [{ id: 'function_vitamina_d_valor', label: 'Vitamina D 25-OH', type: 'number', unit: 'ng/mL', min: 1, max: 150, step: 1, control: 'slider', recommendedValue: '30-60', defaultValue: 45 }]
-  },
-  {
-    id: 'function_ecografia',
-    title: 'Ecografía transvaginal + AFC',
-    optional: true,
-    fields: [
-      { id: 'function_afc_total', label: 'AFC total', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
-      { id: 'function_afc_derecho', label: 'AFC derecho', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
-      { id: 'function_afc_izquierdo', label: 'AFC izquierdo', type: 'number', unit: 'folículos', min: 0, max: 50, step: 1, control: 'stepper', optional: true },
-      { id: 'function_endometrio', label: 'Grosor endometrial', type: 'number', unit: 'mm', min: 1, max: 20, step: 0.1, control: 'slider', optional: true },
-      {
-        id: 'function_patron',
-        label: 'Patrón endometrial (0-20 mm)',
-        type: 'number',
-        unit: 'mm',
-        min: 0,
-        max: 20,
-        step: 0.1,
-        control: 'slider',
-        optional: true
-      }
-    ]
-  },
-  {
-    id: 'function_hsg',
-    title: 'Histerosalpingografía (HSG)',
-    optional: true,
-    fields: [
-      { id: 'function_hsg_derecha', label: 'Permeabilidad derecha', type: 'buttons', options: ['Sí', 'No'], optional: true },
-      { id: 'function_hsg_izquierda', label: 'Permeabilidad izquierda', type: 'buttons', options: ['Sí', 'No'], optional: true },
-      {
-        id: 'function_hsg_contorno',
-        label: 'Contorno uterino',
-        type: 'buttons',
-        options: ['Normal', 'Arcuato', 'Septado', 'Bicorne', 'Otro', 'No lo sé'],
-        defaultValue: 'Normal',
-        optional: true
-      },
-      {
-        id: 'function_hsg_defectos',
-        label: 'Defectos',
-        type: 'buttons',
-        options: ['Ninguno', 'Pólipo', 'Mioma', 'Sinequias', 'Otro'],
-        defaultValue: 'Ninguno',
-        optional: true
-      },
-      {
-        id: 'function_hsg_observaciones',
-        label: 'Observaciones',
-        type: 'buttons',
-        options: ['Sin hallazgos relevantes', 'Hallazgos leves', 'Hallazgos significativos', 'Otro'],
-        defaultValue: 'Sin hallazgos relevantes',
-        optional: true
-      }
-    ]
-  },
-  {
-    id: 'function_espermio',
-    title: 'Espermiograma básico',
-    optional: true,
-    fields: [
-      { id: 'function_espermio_volumen', label: 'Volumen', type: 'number', unit: 'mL', min: 0, max: 10, step: 0.1, control: 'stepper', recommendedValue: '1.5-5', defaultValue: 3.25 },
-      { id: 'function_espermio_concentracion', label: 'Concentración', type: 'number', unit: 'millones/mL', min: 0, max: 300, step: 1, control: 'slider', recommendedValue: '15-200', defaultValue: 107.5 },
-      { id: 'function_espermio_mov_total', label: 'Movilidad total', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>40', defaultValue: 50 },
-      { id: 'function_espermio_mov_prog', label: 'Movilidad progresiva', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>32', defaultValue: 40 },
-      { id: 'function_espermio_morfologia', label: 'Morfología', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>4', defaultValue: 6 },
-      { id: 'function_espermio_vitalidad', label: 'Vitalidad', type: 'number', unit: '%', min: 0, max: 100, step: 1, control: 'slider', recommendedValue: '>58', defaultValue: 65 }
-    ]
-  }
-];
 
-export { FUNCTION_SECTIONS };
+// FUNCTION_SECTIONS eliminadas por solicitud del cliente
+// const FUNCTION_SECTIONS = [...];
+
+// export { FUNCTION_SECTIONS };
+
 
 const FOOD_QUESTIONS = [
   // 1. Patrón de alimentación semanal
@@ -145,7 +37,7 @@ const FOOD_QUESTIONS = [
     ],
     defaultValue: 'b) Una mezcla de comida casera y procesados.'
   },
-  
+
   // 2. Pescado azul rico en Omega-3 (conteo semanal)
   {
     id: 'food_pescado',
@@ -156,7 +48,7 @@ const FOOD_QUESTIONS = [
     unit: 'veces/semana',
     defaultValue: 1
   },
-  
+
   // 3. Raciones de vegetales y hortalizas (conteo diario)
   {
     id: 'food_vege',
@@ -167,7 +59,7 @@ const FOOD_QUESTIONS = [
     unit: 'raciones',
     defaultValue: 2
   },
-  
+
   // 4. Tipo de grasas en cocina
   {
     id: 'food_grasas',
@@ -181,7 +73,7 @@ const FOOD_QUESTIONS = [
     ],
     defaultValue: 'b) Una mezcla.'
   },
-  
+
   // 5. Suplementos clave para fertilidad
   {
     id: 'food_suppl',
@@ -195,7 +87,7 @@ const FOOD_QUESTIONS = [
     ],
     defaultValue: 'a) No tomo ningún suplemento.'
   },
-  
+
   // 6. Bebidas azucaradas/refrescos (conteo semanal)
   {
     id: 'food_azucar',
@@ -206,7 +98,7 @@ const FOOD_QUESTIONS = [
     unit: 'veces/semana',
     defaultValue: 2
   },
-  
+
   // 7. Fuentes de antioxidantes
   {
     id: 'food_antiox',
@@ -220,7 +112,7 @@ const FOOD_QUESTIONS = [
     ],
     defaultValue: 'b) Algunas veces por semana.'
   },
-  
+
   // 8. Principal fuente de carbohidratos
   {
     id: 'food_carbos',
@@ -246,7 +138,7 @@ const FLORA_QUESTIONS = [
     max: 10,
     defaultValue: 5
   },
-  
+
   // 2. Salud vaginal
   {
     id: 'flora_vag',
@@ -260,7 +152,7 @@ const FLORA_QUESTIONS = [
     ],
     defaultValue: 'c) Muy ocasionalmente molestias leves.'
   },
-  
+
   // 3. Antibióticos último año
   {
     id: 'flora_atb',
@@ -274,7 +166,7 @@ const FLORA_QUESTIONS = [
     ],
     defaultValue: 'd) No, no he tomado antibióticos en los últimos años.'
   },
-  
+
   // 4. Alimentos fermentados (conteo diario/semanal)
   {
     id: 'flora_ferm',
@@ -285,7 +177,7 @@ const FLORA_QUESTIONS = [
     unit: 'veces/mes',
     defaultValue: 4
   },
-  
+
   // 5. Intolerancias alimentarias
   {
     id: 'flora_intol',
@@ -311,7 +203,7 @@ const FLOW_QUESTIONS = [
     max: 10,
     defaultValue: 5
   },
-  
+
   // 2. Horas de sueño de calidad (slider, se mapea a puntos 1-10)
   {
     id: 'flow_sueno',
@@ -323,7 +215,7 @@ const FLOW_QUESTIONS = [
     unit: 'horas',
     defaultValue: 7
   },
-  
+
   // 3. Técnicas de relajación (conteo semanal)
   {
     id: 'flow_relax',
@@ -334,7 +226,7 @@ const FLOW_QUESTIONS = [
     unit: 'veces/semana',
     defaultValue: 2
   },
-  
+
   // 4. Tipo y frecuencia de ejercicio
   {
     id: 'flow_ejer',
@@ -348,7 +240,7 @@ const FLOW_QUESTIONS = [
     ],
     defaultValue: 'b) Hago ejercicio de forma irregular.'
   },
-  
+
   // 5. Exposición a luz solar matutina
   {
     id: 'flow_solar',
@@ -362,7 +254,7 @@ const FLOW_QUESTIONS = [
     ],
     defaultValue: 'b) A veces, durante el fin de semana.'
   },
-  
+
   // 6. Medidas para reducir disruptores endocrinos
   {
     id: 'flow_tox',
@@ -376,7 +268,7 @@ const FLOW_QUESTIONS = [
     ],
     defaultValue: 'a) No, no he hecho ningún cambio.'
   },
-  
+
   // 7. Rutina antes de dormir
   {
     id: 'flow_noche',
@@ -390,7 +282,7 @@ const FLOW_QUESTIONS = [
     ],
     defaultValue: 'b) Intento apagar las pantallas un poco antes.'
   },
-  
+
   // 8. Estado emocional respecto a búsqueda de embarazo (slider 1-10)
   {
     id: 'flow_emocion',
@@ -423,26 +315,19 @@ export const FORM_DEFINITIONS = {
     title: 'Function: Salud Reproductiva',
     description: 'Información sobre tu ciclo menstrual y salud reproductiva.',
     questions: [
-      { 
-        id: 'function_cycle_length', 
-        text: 'Duración ciclo promedio:', 
-        type: 'stepper', 
-        min: 21, 
-        max: 40, 
+      {
+        id: 'function_cycle_length',
+        text: 'Duración ciclo promedio:',
+        type: 'stepper',
+        min: 21,
+        max: 45,
         unit: 'días',
         defaultValue: 28
       },
-      { 
-        id: 'function_cycle_regularity', 
-        text: '¿Ciclos regulares?', 
-        type: 'buttons', 
-        options: ['Regulares', 'Irregulares'],
-        defaultValue: 'Regulares'
-      },
-      { 
-        id: 'function_regularity_detail', 
-        text: 'Regularidad de tus ciclos:', 
-        type: 'buttons', 
+      {
+        id: 'function_regularity_detail',
+        text: 'Regularidad de tus ciclos:',
+        type: 'buttons',
         options: [
           'Muy irregulares / Amenorrea',
           'Algo irregulares (varían >7 días)',
@@ -451,21 +336,28 @@ export const FORM_DEFINITIONS = {
         ],
         defaultValue: 'Bastante regulares (varían 3-7 días)'
       },
-      { 
-        id: 'function_luteal_phase', 
-        text: 'Duración fase lútea (días entre ovulación y regla):', 
-        type: 'slider', 
-        min: 6, 
-        max: 14, 
+      {
+        id: 'function_knows_fertile_days',
+        text: '¿Sabes identificar tus días fértiles?',
+        type: 'yesno',
+        defaultValue: 'No'
+      },
+      {
+        id: 'function_luteal_phase',
+        text: 'Duración fase lútea (días entre ovulación y regla):',
+        type: 'slider',
+        min: 6,
+        max: 16,
         step: 1,
         unit: 'días',
         defaultValue: 12,
-        optional: true
+        optional: true,
+        description: 'Depende de la pregunta anterior'
       },
-      { 
-        id: 'function_fertile_mucus', 
-        text: '¿Identificas moco cervical fértil (clara de huevo)?', 
-        type: 'buttons', 
+      {
+        id: 'function_fertile_mucus',
+        text: '¿Identificas moco cervical fértil (clara de huevo)?',
+        type: 'buttons',
         options: [
           'Nunca o casi nunca',
           'A veces, pero es escaso',
@@ -474,18 +366,18 @@ export const FORM_DEFINITIONS = {
         ],
         defaultValue: 'A veces, pero es escaso'
       },
-      { 
-        id: 'function_pms_severity', 
-        text: 'Síndrome Premenstrual (SPM):', 
-        type: 'segmented', 
-        min: 1, 
-        max: 10,
-        defaultValue: 5
+      {
+        id: 'function_pms_severity',
+        text: 'Síndrome Premenstrual (SPM):',
+        type: 'faces',
+        min: 0,
+        max: 4,
+        defaultValue: 2
       },
-      { 
-        id: 'function_fertility_diagnosis', 
-        text: '¿Diagnóstico que afecta tu fertilidad?', 
-        type: 'buttons', 
+      {
+        id: 'function_fertility_diagnosis',
+        text: '¿Diagnóstico que afecta tu fertilidad?',
+        type: 'buttons',
         options: [
           'Sí: endometriosis severa, baja reserva severa, FOP',
           'Sí: SOP o endometriosis moderada',
@@ -494,22 +386,10 @@ export const FORM_DEFINITIONS = {
         ],
         defaultValue: 'No, no tengo ningún diagnóstico'
       },
-      { 
-        id: 'function_tsh_last', 
-        text: 'TSH en última analítica:', 
-        type: 'buttons', 
-        options: [
-          'No me he hecho una analítica reciente',
-          'Por encima de 4.0 mUI/L',
-          'Entre 2.5 y 4.0 mUI/L',
-          'Por debajo de 2.5 mUI/L (óptimo)'
-        ],
-        defaultValue: 'No me he hecho una analítica reciente'
-      },
-      { 
-        id: 'function_ovulation_tracking', 
-        text: '¿Utilizas métodos para confirmar ovulación?', 
-        type: 'buttons', 
+      {
+        id: 'function_ovulation_tracking',
+        text: '¿Utilizas métodos para confirmar ovulación?',
+        type: 'buttons',
         options: [
           'No, no utilizo ningún método',
           'Lo intento a veces, pero no consistente',
@@ -518,10 +398,10 @@ export const FORM_DEFINITIONS = {
         ],
         defaultValue: 'No, no utilizo ningún método'
       },
-      { 
-        id: 'function_menstrual_bleeding', 
-        text: '¿Tu sangrado menstrual es saludable?', 
-        type: 'buttons', 
+      {
+        id: 'function_menstrual_bleeding',
+        text: '¿Tu sangrado menstrual es saludable?',
+        type: 'buttons',
         options: [
           'Muy abundante o muy escaso',
           'Coágulos o color muy oscuro/marrón',

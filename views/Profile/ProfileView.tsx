@@ -26,7 +26,7 @@ import { calcularDiaDelCiclo } from '../../services/CycleCalculations';
 import { formatDate } from '../../services/utils';
 import { useMethodProgress } from '../../hooks/useMethodProgress';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
-import { FORM_DEFINITIONS, FUNCTION_SECTIONS } from '../../constants/formDefinitions';
+import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
 import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
 import { supabase } from '../../services/supabase';
@@ -212,9 +212,25 @@ const ProfileView = ({
 
     if (hasBasicReport) return;
 
-    // 3. Trigger generation
+    // 3. Trigger generation with localStorage protection
     if (isGeneratingAutoReportRef.current) return;
+
+    // Check localStorage to prevent duplicate triggers across reloads
+    const lastTrigger = localStorage.getItem(`fertyfit_report_triggered_${user.id}_BASIC`);
+    if (lastTrigger) {
+      const lastTriggerDate = new Date(lastTrigger);
+      const now = new Date();
+      // Prevent re-triggering if triggered in the last 24 hours
+      const hoursSince = (now.getTime() - lastTriggerDate.getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 24) {
+        return;
+      }
+    }
+
     isGeneratingAutoReportRef.current = true;
+
+    // Set flag immediately to prevent race conditions during this session
+    localStorage.setItem(`fertyfit_report_triggered_${user.id}_BASIC`, new Date().toISOString());
 
     fetch('/api/analysis/report-extended', {
       method: 'POST',
@@ -226,6 +242,9 @@ const ProfileView = ({
     }).then(async res => {
       if (res.ok) {
         showNotif('¡Excelente! Has completado tu perfil. Generando tu Informe Básico...', 'success');
+      } else {
+        // If failed, maybe clear localStorage? safely keep it to avoid spam loop on error
+        console.warn('Report generation request failed');
       }
     }).catch(err => {
       console.error('Error triggering auto-report:', err);
@@ -233,7 +252,6 @@ const ProfileView = ({
       // Prevent re-triggering for a while
       setTimeout(() => { isGeneratingAutoReportRef.current = false }, 30000);
     });
-
   }, [submittedForms, visibleNotifications, user?.id]);
 
   const handleLoadFullHistory = useCallback(async () => {
@@ -481,32 +499,42 @@ const ProfileView = ({
   const definition = FORM_DEFINITIONS[formType];
   const submittedForm = useMemo(() => findSubmission(submittedForms, formType), [submittedForms, formType]);
 
+  // Helper helper to check visibility based on dependencies
+  const isQuestionVisible = (questionId: string, formAnswers: any[]) => {
+    // FUNCTION: 'function_luteal_phase' depends on 'function_knows_fertile_days' === 'Sí'
+    if (questionId === 'function_luteal_phase') {
+      const dependency = formAnswers.find((a: any) => a.questionId === 'function_knows_fertile_days');
+      return dependency?.answer === 'Sí';
+    }
+    return true;
+  };
+
   // Calculate progress for current form based on submitted form, not local answers
   const progress = useMemo(() => {
     if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
 
     // If no form has been submitted, progress is 0%
     if (!submittedForm || !submittedForm.answers || !Array.isArray(submittedForm.answers)) {
+      // For initial state, we assume total is all *visible* questions assuming default dependencies? 
+      // Actually if not submitted, we can't really know dependencies defaults easily without answers.
+      // Let's Just return 0.
       return { answered: 0, total: definition.questions.length, percentage: 0 };
     }
 
-    const totalQuestions = definition.questions.length;
-    const answeredQuestions = definition.questions.filter(question => {
-      const answer = submittedForm.answers.find((a: any) => a.questionId === question.id);
+    const formAnswers = submittedForm.answers;
+
+    // Filter questions that are currently visible based on answers
+    const visibleQuestions = definition.questions.filter(q => isQuestionVisible(q.id, formAnswers));
+
+    const totalQuestions = visibleQuestions.length;
+    const answeredQuestions = visibleQuestions.filter(question => {
+      const answer = formAnswers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
 
       // Consider answered if value exists and is not empty string
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-
-      // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
-      if ('defaultValue' in question && question.defaultValue !== undefined) {
-        // Convert both to strings for comparison to handle number/string mismatches
-        const defaultValueStr = String(question.defaultValue);
-        const valueStr = String(value);
-        if (valueStr === defaultValueStr) return false;
-      }
 
       // For Flora "Otra" fields, check if contains ": " (combined format)
       if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
@@ -532,23 +560,28 @@ const ProfileView = ({
     const pillarDef = FORM_DEFINITIONS[pillarId as keyof typeof FORM_DEFINITIONS];
     if (!pillarDef?.questions) return 0;
 
-    const totalQuestions = pillarDef.questions.length;
-    const answeredQuestions = pillarDef.questions.filter(question => {
-      const answer = form.answers.find((a: any) => a.questionId === question.id);
+    const formAnswers = form.answers;
+    // Filter visible questions
+    // We need to use the isQuestionVisible logic here too, but simple copy is fine or defining it outside
+    const isVisible = (qId: string) => {
+      if (qId === 'function_luteal_phase') {
+        const dependency = formAnswers.find((a: any) => a.questionId === 'function_knows_fertile_days');
+        return dependency?.answer === 'Sí';
+      }
+      return true;
+    };
+
+    const visibleQuestions = pillarDef.questions.filter(q => isVisible(q.id));
+    const totalQuestions = visibleQuestions.length;
+
+    const answeredQuestions = visibleQuestions.filter(question => {
+      const answer = formAnswers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
 
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
 
-      // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
-      if ('defaultValue' in question && question.defaultValue !== undefined) {
-        const defaultValueStr = String(question.defaultValue);
-        const valueStr = String(value);
-        if (valueStr === defaultValueStr) return false;
-      }
-
-      // For Flora "Otra" fields, check if contains ": " (combined format)
       if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
         const [, otherValue] = value.split(': ', 2);
         return Boolean(otherValue && otherValue.trim() !== '');
@@ -875,6 +908,40 @@ const ProfileView = ({
     );
   };
 
+  const renderFacesControl = (question: any) => {
+    const min = question.min ?? 0;
+    const max = question.max ?? 4;
+    const values = Array.from({ length: max - min + 1 }, (_, index) => min + index);
+
+    // Emojis mapping for 0-4 scale (0=Good/Happy, 4=Bad/Angry)
+    const faces = ['😀', '😐', '🙁', '😠', '🤬'];
+    const labels = ['Nada', 'Leve', 'Moderado', 'Fuerte', 'Insoportable'];
+
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between px-2">
+          {values.map((value, index) => {
+            const isActive = answers[question.id] === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => updateAnswer(question.id, value)}
+                className={`flex flex-col items-center gap-1 transition-transform hover:scale-110 ${isActive ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
+              >
+                <span className="text-3xl">{faces[index] || '•'}</span>
+                <span className={`text-[9px] font-bold uppercase ${isActive ? 'text-ferty-rose' : 'text-ferty-gray'}`}>
+                  {labels[index]}
+                </span>
+                {isActive && <div className="w-1.5 h-1.5 bg-ferty-rose rounded-full mt-1" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderControl = (question: FormQuestion) => {
     const controlType = question.control ?? question.type;
 
@@ -891,6 +958,10 @@ const ProfileView = ({
       }
     }
 
+    if (question.type === 'faces') {
+      return renderFacesControl(question);
+    }
+
     // Flora - conditional text field for "Otra"
     if (formType === 'FLORA' && (question.id === 'flora_pruebas' || question.id === 'flora_suplementos')) {
       const selectedValue = answers[question.id];
@@ -902,7 +973,7 @@ const ProfileView = ({
           {showOtherField && (
             <input
               type="text"
-              value={String(answers[`${question.id}_otro`] || '')}
+              value={answers[`${question.id}_otro`] || ''}
               placeholder="Especifica..."
               onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
               className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
@@ -915,7 +986,7 @@ const ProfileView = ({
     if (question.type === 'textarea') {
       return (
         <textarea
-          value={String(answers[question.id] || '')}
+          value={answers[question.id] || ''}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
           rows={4}
           onChange={event => updateAnswer(question.id, event.target.value)}
@@ -938,7 +1009,7 @@ const ProfileView = ({
     if (question.type === 'select') {
       return (
         <select
-          value={String(answers[question.id] || '')}
+          value={answers[question.id] || ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose"
         >
@@ -956,7 +1027,7 @@ const ProfileView = ({
       return (
         <input
           type="date"
-          value={String(answers[question.id] || '')}
+          value={answers[question.id] || ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
         />
@@ -974,7 +1045,7 @@ const ProfileView = ({
     return (
       <input
         type="text"
-        value={String(answers[question.id] || '')}
+        value={answers[question.id] || ''}
         onChange={event => updateAnswer(question.id, event.target.value)}
         className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
       />
@@ -994,15 +1065,24 @@ const ProfileView = ({
 
     return (
       <div className="space-y-4">
-        {definition.questions.map(question => (
-          <div key={question.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-ferty-dark uppercase tracking-wider">{question.text}</label>
-              {question.unit && <span className="text-[11px] text-ferty-coral font-semibold">{question.unit}</span>}
+        {definition.questions.map(question => {
+          // Lógica de dependencias
+          // FUNCTION: 'function_luteal_phase' solo si 'function_knows_fertile_days' == 'Sí'
+          if (question.id === 'function_luteal_phase') {
+            const knows = answers['function_knows_fertile_days'];
+            if (knows !== 'Sí') return null;
+          }
+
+          return (
+            <div key={question.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ferty-dark uppercase tracking-wider">{question.text}</label>
+                {question.unit && <span className="text-[11px] text-ferty-coral font-semibold">{question.unit}</span>}
+              </div>
+              {renderControl(question)}
             </div>
-            {renderControl(question)}
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1192,64 +1272,7 @@ const ProfileView = ({
               );
             };
 
-            // Para FUNCTION: agrupar por secciones
-            if (formType === 'FUNCTION') {
-              const sections = FUNCTION_SECTIONS.map((section) => {
-                // Obtener respuestas que pertenecen a esta sección
-                const sectionAnswers = filteredAnswers.filter((answer: any) => {
-                  return section.fields.some(field => field.id === answer.questionId);
-                });
-
-                if (sectionAnswers.length === 0) return null;
-
-                return (
-                  <div key={section.id} className="border-b border-ferty-beige pb-3 last:border-0">
-                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
-                      {section.title}
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {sectionAnswers.map((answer: any) => {
-                        const field = section.fields.find(f => f.id === answer.questionId);
-                        const label = field?.label || answer.question;
-                        const value = answer.answer;
-                        // Si la respuesta es muy larga o es un campo de texto largo, usar col-span-2
-                        const isLong = Array.isArray(value) && value.length > 1 ||
-                          (typeof value === 'string' && value.length > 50);
-                        return renderField(label, value, isLong ? 2 : 1);
-                      })}
-                    </div>
-                  </div>
-                );
-              }).filter(Boolean);
-
-              // También mostrar campos legacy que no están en secciones
-              const legacyAnswers = filteredAnswers.filter((answer: any) => {
-                return !FUNCTION_SECTIONS.some(section =>
-                  section.fields.some(field => field.id === answer.questionId)
-                );
-              });
-
-              if (legacyAnswers.length > 0) {
-                sections.push(
-                  <div key="legacy" className="border-b border-ferty-beige pb-3 last:border-0">
-                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
-                      Información Adicional
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {legacyAnswers.map((answer: any) => {
-                        const label = answer.question;
-                        const value = answer.answer;
-                        const isLong = Array.isArray(value) && value.length > 1 ||
-                          (typeof value === 'string' && value.length > 50);
-                        return renderField(label, value, isLong ? 2 : 1);
-                      })}
-                    </div>
-                  </div>
-                );
-              }
-
-              return sections;
-            }
+            // Para FUNCTION y otros pilares: mostrar en una sección general
 
             // Para FOOD, FLORA, FLOW: mostrar en una sección general
             return (
@@ -1260,8 +1283,24 @@ const ProfileView = ({
                 <div className="grid grid-cols-2 gap-3">
                   {filteredAnswers.map((answer: any) => {
                     const question = definition?.questions?.find((q: any) => q.id === answer.questionId);
+
+                    // Check visibility logic
+                    if (question && !isQuestionVisible(question.id, submittedForm.answers)) {
+                      return null;
+                    }
+
                     const label = question?.text || answer.question;
                     const value = answer.answer;
+
+                    // Si es tipo 'faces', renderizar bonito
+                    if (question?.type === 'faces' && typeof value === 'number') {
+                      const faces = ['😀', '😐', '🙁', '😠', '🤬'];
+                      const labels = ['Nada', 'Leve', 'Moderado', 'Fuerte', 'Insoportable'];
+                      const face = faces[value] || '';
+                      const faceLabel = labels[value] || '';
+                      return renderField(label, `${face} ${faceLabel} (${value})`);
+                    }
+
                     // Si la respuesta es muy larga, usar col-span-2
                     const isLong = Array.isArray(value) && value.length > 1 ||
                       (typeof value === 'string' && value.length > 80);

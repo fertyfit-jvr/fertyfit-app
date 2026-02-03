@@ -20,7 +20,7 @@ type FormQuestion = {
   options?: string[];
   [key: string]: unknown; // For other dynamic properties
 };
-import { FORM_DEFINITIONS, FUNCTION_SECTIONS } from '../../constants/formDefinitions';
+import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers';
 import { calcularDiaDelCiclo } from '../../services/CycleCalculations';
 import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
@@ -64,17 +64,17 @@ const findSubmission = (forms: ConsultationForm[], type: PillarFormType) => {
     // Check if form type matches
     const typeMatches = form.form_type === type || LEGACY_FORM_MAP[form.form_type as keyof typeof LEGACY_FORM_MAP] === type;
     if (!typeMatches) return false;
-    
+
     // ⭐ IMPORTANTE: Excluir exámenes médicos (tienen exam_type en las respuestas)
     // Solo para FUNCTION, filtrar los que son exámenes
     if (type === 'FUNCTION' && form.answers && Array.isArray(form.answers)) {
       const hasExamType = form.answers.some((a: any) => a.questionId === 'exam_type');
       if (hasExamType) return false; // Es un examen, no el formulario FUNCTION
     }
-    
+
     return true;
   });
-  
+
   // Return the most recent one (last submitted)
   return matching.sort((a, b) => {
     const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
@@ -118,7 +118,7 @@ const MyProfileView = ({
   const [isEditingF0, setIsEditingF0] = useState(false);
   const [f0Answers, setF0Answers] = useState<FormAnswersDict>({});
   const [isF0Expanded, setIsF0Expanded] = useState(false);
-  
+
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedAllHistory, setHasLoadedAllHistory] = useState(false);
 
@@ -134,13 +134,13 @@ const MyProfileView = ({
   const [pillarExamName, setPillarExamName] = useState('');
   const originalAnswers = useRef<FormAnswersDict>({});
   const autoSaveTimeoutPillarRef = useRef<NodeJS.Timeout | null>(null);
-  
-  
+
+
   // Guardar valores originales para poder cancelar
   const originalEditName = useRef<string>(user.name);
   const originalF0Answers = useRef<FormAnswersDict>({});
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Sincronizar editName cuando cambie el usuario
   useEffect(() => {
     setEditName(user.name);
@@ -187,7 +187,7 @@ const MyProfileView = ({
 
   const handleLoadFullHistory = useCallback(async () => {
     if (!user?.id || !fetchAllLogs || !setLogs) return;
-    
+
     setIsLoadingHistory(true);
     try {
       const allLogs = await fetchAllLogs(user.id);
@@ -263,7 +263,7 @@ const MyProfileView = ({
       const initialMonths = parseInt(String(f0Answers['q3_time_trying']).replace(/\D/g, '')) || 0;
       const submissionDate = currentF0Form.submitted_at || new Date().toISOString();
       const startDate = submissionDate.split('T')[0]; // Get YYYY-MM-DD format
-      
+
       const success = await setTimeTryingStart(user.id, initialMonths, startDate);
       if (success) {
         updates.timeTryingStartDate = startDate;
@@ -283,7 +283,7 @@ const MyProfileView = ({
       if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
       if (updates.height !== undefined) profileUpdates.height = updates.height;
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
-      
+
       const updateResult = await updateProfileForUser(user.id, profileUpdates);
       if (updateResult.success === false) {
         showNotif(updateResult.error || 'No pudimos actualizar tu perfil', 'error');
@@ -314,16 +314,16 @@ const MyProfileView = ({
   // Sincronizar f0Answers cuando user o submittedForms cambien (solo si no está editando)
   useEffect(() => {
     if (isEditingF0) return; // No sincronizar si está editando para no perder cambios del usuario
-    
+
     const f0Form = submittedForms.find(f => f.form_type === 'F0');
     if (f0Form && f0Form.answers) {
       const syncedAnswers: FormAnswersDict = {};
-      f0Form.answers.forEach((a: FormAnswer) => { 
-        syncedAnswers[a.questionId] = a.answer; 
+      f0Form.answers.forEach((a: FormAnswer) => {
+        syncedAnswers[a.questionId] = a.answer;
       });
-      
+
       // Nota: cycle_length ya no está en F0, se maneja desde FUNCTION
-      
+
       setF0Answers(syncedAnswers);
     }
   }, [user?.lastPeriodDate, user?.cycleLength, submittedForms, isEditingF0]);
@@ -375,22 +375,22 @@ const MyProfileView = ({
   // Calculate progress for current form based on submitted form, not local answers
   const progress = useMemo(() => {
     if (!definition?.questions) return { answered: 0, total: 0, percentage: 0 };
-    
+
     // If no form has been submitted, progress is 0%
     if (!submittedForm || !submittedForm.answers || !Array.isArray(submittedForm.answers)) {
       return { answered: 0, total: definition.questions.length, percentage: 0 };
     }
-    
+
     const totalQuestions = definition.questions.length;
     const answeredQuestions = definition.questions.filter(question => {
       const answer = submittedForm.answers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
-      
+
       // Consider answered if value exists and is not empty string
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-      
+
       // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
       if ('defaultValue' in question && question.defaultValue !== undefined) {
         // Convert both to strings for comparison to handle number/string mismatches
@@ -398,16 +398,16 @@ const MyProfileView = ({
         const valueStr = String(value);
         if (valueStr === defaultValueStr) return false;
       }
-      
+
       // For Flora "Otra" fields, check if contains ": " (combined format)
       if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
         const [, otherValue] = value.split(': ', 2);
         return Boolean(otherValue && otherValue.trim() !== '');
       }
-      
+
       return true;
     }).length;
-    
+
     return {
       answered: answeredQuestions,
       total: totalQuestions,
@@ -419,35 +419,35 @@ const MyProfileView = ({
   const getPillarProgress = (pillarId: PillarFormType): number => {
     const form = findSubmission(submittedForms, pillarId);
     if (!form || !form.answers || !Array.isArray(form.answers)) return 0;
-    
+
     const pillarDef = FORM_DEFINITIONS[pillarId as keyof typeof FORM_DEFINITIONS];
     if (!pillarDef?.questions) return 0;
-    
+
     const totalQuestions = pillarDef.questions.length;
     const answeredQuestions = pillarDef.questions.filter(question => {
       const answer = form.answers.find((a: any) => a.questionId === question.id);
       if (!answer) return false;
       const value = answer.answer;
-      
+
       if (value === undefined || value === null) return false;
       if (typeof value === 'string' && value.trim() === '') return false;
-      
+
       // Ignore values that are exactly equal to the default value (user hasn't actually filled it)
       if ('defaultValue' in question && question.defaultValue !== undefined) {
         const defaultValueStr = String(question.defaultValue);
         const valueStr = String(value);
         if (valueStr === defaultValueStr) return false;
       }
-      
+
       // For Flora "Otra" fields, check if contains ": " (combined format)
       if ((question.id === 'flora_pruebas' || question.id === 'flora_suplementos') && typeof value === 'string' && value.includes(': ')) {
         const [, otherValue] = value.split(': ', 2);
         return Boolean(otherValue && otherValue.trim() !== '');
       }
-      
+
       return true;
     }).length;
-    
+
     return totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
   };
 
@@ -576,20 +576,20 @@ const MyProfileView = ({
           .select('cycle_length, cycle_regularity')
           .eq('id', user.id)
           .single();
-        
+
         if (profile) {
           setUser({
             ...user,
             cycleLength: profile.cycle_length ?? user.cycleLength,
-            cycleRegularity: profile.cycle_regularity === 'regular' 
-              ? 'Regular' 
+            cycleRegularity: profile.cycle_regularity === 'regular'
+              ? 'Regular'
               : profile.cycle_regularity === 'irregular'
-              ? 'Irregular'
-              : user.cycleRegularity
+                ? 'Irregular'
+                : user.cycleRegularity
           });
         }
       }
-      
+
       showNotif('Formulario guardado correctamente.', 'success');
       fetchUserForms(user.id);
     } else {
@@ -620,8 +620,8 @@ const MyProfileView = ({
       typeof rawValue === 'number'
         ? rawValue
         : rawValue !== undefined && rawValue !== ''
-        ? Number(rawValue)
-        : undefined;
+          ? Number(rawValue)
+          : undefined;
 
     const clampValue = (value: number) => {
       let next = value;
@@ -662,8 +662,8 @@ const MyProfileView = ({
       typeof rawValue === 'number'
         ? rawValue
         : rawValue !== undefined && rawValue !== ''
-        ? Number(rawValue)
-        : question.defaultValue ?? min;
+          ? Number(rawValue)
+          : question.defaultValue ?? min;
     const safeValue = Number.isFinite(currentValue) ? currentValue : min;
 
     return (
@@ -706,9 +706,8 @@ const MyProfileView = ({
               key={option}
               type="button"
               onClick={() => updateAnswer(question.id, optionValue)}
-              className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
-                isActive ? 'bg-ferty-rose text-white border-ferty-rose' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-              }`}
+              className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${isActive ? 'bg-ferty-rose text-white border-ferty-rose' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                }`}
             >
               {option}
             </button>
@@ -727,9 +726,8 @@ const MyProfileView = ({
             key={option}
             type="button"
             onClick={() => updateAnswer(question.id, option)}
-            className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-              isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-            }`}
+            className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${isActive ? 'bg-ferty-coral text-white border-ferty-coral' : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+              }`}
           >
             {option}
           </button>
@@ -756,11 +754,10 @@ const MyProfileView = ({
                 key={value}
                 type="button"
                 onClick={() => updateAnswer(question.id, value)}
-                className={`flex-1 h-8 rounded-lg border transition-all ${
-                  isActive
-                    ? 'bg-ferty-rose border-ferty-rose'
-                    : 'bg-ferty-beige border-ferty-beigeBorder hover:bg-ferty-beigeBorder'
-                }`}
+                className={`flex-1 h-8 rounded-lg border transition-all ${isActive
+                  ? 'bg-ferty-rose border-ferty-rose'
+                  : 'bg-ferty-beige border-ferty-beigeBorder hover:bg-ferty-beigeBorder'
+                  }`}
               />
             );
           })}
@@ -789,7 +786,7 @@ const MyProfileView = ({
     if (formType === 'FLORA' && (question.id === 'flora_pruebas' || question.id === 'flora_suplementos')) {
       const selectedValue = answers[question.id];
       const showOtherField = selectedValue === 'Otra' || selectedValue === 'Otro';
-      
+
       return (
         <div className="space-y-3">
           {renderButtons(question, question.options || [])}
@@ -885,7 +882,7 @@ const MyProfileView = ({
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-4">
         {definition.questions.map(question => (
@@ -974,7 +971,7 @@ const MyProfileView = ({
 
   const renderSubmittedView = () => {
     const currentTab = PILLAR_TABS.find(tab => tab.id === formType);
-    
+
     return (
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-ferty-beige">
         <div className="flex items-center justify-between mb-4 border-b border-ferty-beige pb-4">
@@ -1022,22 +1019,22 @@ const MyProfileView = ({
             </button>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           {(() => {
             // ⭐ Filtrar respuestas: solo mostrar las que corresponden a las preguntas ACTUALES del formulario
             // Esto asegura que solo se muestren las nuevas preguntas, no las antiguas
             const definition = FORM_DEFINITIONS[formType as keyof typeof FORM_DEFINITIONS];
-            const validQuestionIds = definition?.questions 
+            const validQuestionIds = definition?.questions
               ? new Set(definition.questions.map((q: any) => q.id))
               : new Set();
-            
+
             // También incluir campos legacy que pueden estar en FUNCTION
             if (formType === 'FUNCTION') {
               validQuestionIds.add('q9_diagnoses');
               validQuestionIds.add('q20_fertility_treatments');
             }
-            
+
             const filteredAnswers = (submittedForm?.answers || []).filter((answer: any) => {
               // Excluir campos específicos de exámenes/análisis IA
               if (
@@ -1047,12 +1044,12 @@ const MyProfileView = ({
               ) {
                 return false;
               }
-              
+
               // ⭐ Para TODOS los pilares, solo mostrar respuestas que corresponden a las preguntas actuales del formulario
               // Esto asegura que solo se muestren las nuevas preguntas, no las antiguas
               return validQuestionIds.has(answer.questionId);
             });
-            
+
             // Si no hay respuestas filtradas, mostrar mensaje
             if (filteredAnswers.length === 0) {
               return (
@@ -1070,12 +1067,12 @@ const MyProfileView = ({
                 </div>
               );
             }
-            
+
             // Función helper para renderizar un campo
             const renderField = (label: string, value: any, colSpan: number = 1) => {
               const displayValue = Array.isArray(value) ? value.join(', ') : (value ?? '—');
               const isEmpty = !value || (Array.isArray(value) && value.length === 0);
-              
+
               return (
                 <div key={label} className={colSpan === 2 ? 'col-span-2' : ''}>
                   <p className="text-[10px] text-ferty-gray mb-0.5">{label}</p>
@@ -1085,66 +1082,9 @@ const MyProfileView = ({
                 </div>
               );
             };
-            
-            // Para FUNCTION: agrupar por secciones
-            if (formType === 'FUNCTION') {
-              const sections = FUNCTION_SECTIONS.map((section) => {
-                // Obtener respuestas que pertenecen a esta sección
-                const sectionAnswers = filteredAnswers.filter((answer: any) => {
-                  return section.fields.some(field => field.id === answer.questionId);
-                });
-                
-                if (sectionAnswers.length === 0) return null;
-                
-                return (
-                  <div key={section.id} className="border-b border-ferty-beige pb-3 last:border-0">
-                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
-                      {section.title}
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {sectionAnswers.map((answer: any) => {
-                        const field = section.fields.find(f => f.id === answer.questionId);
-                        const label = field?.label || answer.question;
-                        const value = answer.answer;
-                        // Si la respuesta es muy larga o es un campo de texto largo, usar col-span-2
-                        const isLong = Array.isArray(value) && value.length > 1 || 
-                                      (typeof value === 'string' && value.length > 50);
-                        return renderField(label, value, isLong ? 2 : 1);
-                      })}
-                    </div>
-                  </div>
-                );
-              }).filter(Boolean);
-              
-              // También mostrar campos legacy que no están en secciones
-              const legacyAnswers = filteredAnswers.filter((answer: any) => {
-                return !FUNCTION_SECTIONS.some(section => 
-                  section.fields.some(field => field.id === answer.questionId)
-                );
-              });
-              
-              if (legacyAnswers.length > 0) {
-                sections.push(
-                  <div key="legacy" className="border-b border-ferty-beige pb-3 last:border-0">
-                    <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-2">
-                      Información Adicional
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {legacyAnswers.map((answer: any) => {
-                        const label = answer.question;
-                        const value = answer.answer;
-                        const isLong = Array.isArray(value) && value.length > 1 || 
-                                      (typeof value === 'string' && value.length > 50);
-                        return renderField(label, value, isLong ? 2 : 1);
-                      })}
-                    </div>
-                  </div>
-                );
-              }
-              
-              return sections;
-            }
-            
+
+            // Para FUNCTION y otros pilares: mostrar en una sección general
+
             // Para FOOD, FLORA, FLOW: mostrar en una sección general
             return (
               <div className="border-b border-ferty-beige pb-3">
@@ -1157,8 +1097,8 @@ const MyProfileView = ({
                     const label = question?.text || answer.question;
                     const value = answer.answer;
                     // Si la respuesta es muy larga, usar col-span-2
-                    const isLong = Array.isArray(value) && value.length > 1 || 
-                                  (typeof value === 'string' && value.length > 80);
+                    const isLong = Array.isArray(value) && value.length > 1 ||
+                      (typeof value === 'string' && value.length > 80);
                     return renderField(label, value, isLong ? 2 : 1);
                   })}
                 </div>
@@ -1179,7 +1119,7 @@ const MyProfileView = ({
             Esta información es la base de tu Método Ferty Fit personalizado.
           </p>
         </div>
-        
+
         {/* Link discreto para volver */}
         <div className="mb-4 flex justify-end">
           <button
@@ -1195,28 +1135,28 @@ const MyProfileView = ({
             <div className="space-y-6">
               {/* Ficha personal (F0) - SIEMPRE mostrar si existe o si está editando */}
               {!f0Form && !isEditingF0 ? (
-              <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
-                <FileText size={48} className="mx-auto text-stone-300 mb-4" />
-                <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
-                <button
-                  onClick={() => {
-                    setIsEditingF0(true);
-                    // Inicializar con valores por defecto si no existe
-                    const defaults: FormAnswersDict = {};
-                    FORM_DEFINITIONS.F0.questions.forEach(question => {
-                      if ('defaultValue' in question && question.defaultValue !== undefined) {
-                        defaults[question.id] = question.defaultValue as string | number | boolean | string[];
-                      }
-                    });
-                    setF0Answers(defaults);
-                    originalF0Answers.current = JSON.parse(JSON.stringify(defaults));
-                  }}
-                  className="mt-4 bg-ferty-rose text-white px-6 py-3 rounded-xl font-bold hover:bg-ferty-coral transition-colors"
-                >
-                  Completar F0
-                </button>
-              </div>
-            ) : (f0Form || isEditingF0) ? (
+                <div className="bg-white p-8 rounded-2xl border border-dashed border-stone-200 text-center">
+                  <FileText size={48} className="mx-auto text-stone-300 mb-4" />
+                  <p className="text-stone-400 text-sm">Aún no has completado el formulario F0</p>
+                  <button
+                    onClick={() => {
+                      setIsEditingF0(true);
+                      // Inicializar con valores por defecto si no existe
+                      const defaults: FormAnswersDict = {};
+                      FORM_DEFINITIONS.F0.questions.forEach(question => {
+                        if ('defaultValue' in question && question.defaultValue !== undefined) {
+                          defaults[question.id] = question.defaultValue as string | number | boolean | string[];
+                        }
+                      });
+                      setF0Answers(defaults);
+                      originalF0Answers.current = JSON.parse(JSON.stringify(defaults));
+                    }}
+                    className="mt-4 bg-ferty-rose text-white px-6 py-3 rounded-xl font-bold hover:bg-ferty-coral transition-colors"
+                  >
+                    Completar F0
+                  </button>
+                </div>
+              ) : (f0Form || isEditingF0) ? (
                 <div className="space-y-4">
                   {isEditingF0 ? (
                     <div className="bg-white rounded-3xl shadow-sm border border-ferty-beige overflow-hidden">
@@ -1269,159 +1209,180 @@ const MyProfileView = ({
                           </button>
                         </div>
                       </div>
-                      
+
                       <div className="p-6">
-                      {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento en una sola columna */}
-                      <div className="space-y-4 mb-6">
-                        <div className="border-b border-ferty-beige pb-3">
-                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Nombre</p>
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={e => setEditName(e.target.value)}
-                            className="w-full text-sm text-ferty-dark border-b border-ferty-rose focus:outline-none py-1 bg-transparent"
-                          />
+                        {/* Bloque superior para datos básicos: Nombre, Email y Fecha de nacimiento en una sola columna */}
+                        <div className="space-y-4 mb-6">
+                          <div className="border-b border-ferty-beige pb-3">
+                            <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Nombre</p>
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={e => setEditName(e.target.value)}
+                              className="w-full text-sm text-ferty-dark border-b border-ferty-rose focus:outline-none py-1 bg-transparent"
+                            />
+                          </div>
+                          <div className="border-b border-ferty-beige pb-3">
+                            <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Email</p>
+                            <p className="text-sm text-ferty-dark opacity-70">
+                              {user.email} <span className="text-[10px] italic">(No editable)</span>
+                            </p>
+                          </div>
+                          <div className="border-b border-ferty-beige pb-3">
+                            <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">
+                              Fecha de nacimiento
+                            </p>
+                            <input
+                              type="date"
+                              value={f0Answers['q1_birthdate'] || ''}
+                              className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
+                              onChange={e => setF0Answers({ ...f0Answers, q1_birthdate: e.target.value })}
+                            />
+                          </div>
                         </div>
-                        <div className="border-b border-ferty-beige pb-3">
-                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">Email</p>
-                          <p className="text-sm text-ferty-dark opacity-70">
-                            {user.email} <span className="text-[10px] italic">(No editable)</span>
-                          </p>
-                        </div>
-                        <div className="border-b border-ferty-beige pb-3">
-                          <p className="text-xs font-bold text-ferty-coral uppercase tracking-wider mb-1">
-                            Fecha de nacimiento
-                          </p>
-                          <input
-                            type="date"
-                            value={f0Answers['q1_birthdate'] || ''}
-                            className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
-                            onChange={e => setF0Answers({ ...f0Answers, q1_birthdate: e.target.value })}
-                          />
-                        </div>
-                      </div>
 
-                      <div className="space-y-6">
-                        {FORM_DEFINITIONS.F0.questions.map(q => {
-                          // La fecha de nacimiento se gestiona en el bloque superior junto con nombre y email
-                          if (q.id === 'q1_birthdate') return null;
+                        <div className="space-y-6">
+                          {FORM_DEFINITIONS.F0.questions.map(q => {
+                            // La fecha de nacimiento se gestiona en el bloque superior junto con nombre y email
+                            if (q.id === 'q1_birthdate') return null;
 
-                          const updateAnswer = (id: string, value: any) => {
-                            setF0Answers({ ...f0Answers, [id]: value });
-                          };
-
-                          const renderNumberControl = (question: any) => {
-                            const step = question.step ?? 1;
-                            const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
-                            const rawValue = f0Answers[question.id];
-                            const numericValue =
-                              typeof rawValue === 'number'
-                                ? rawValue
-                                : rawValue !== undefined && rawValue !== ''
-                                ? Number(rawValue)
-                                : undefined;
-
-                            const clampValue = (value: number) => {
-                              let next = value;
-                              if (typeof question.min === 'number') next = Math.max(question.min, next);
-                              if (typeof question.max === 'number') next = Math.min(question.max, next);
-                              const precision = decimals > 2 ? 2 : decimals;
-                              return Number(next.toFixed(precision));
+                            const updateAnswer = (id: string, value: any) => {
+                              setF0Answers({ ...f0Answers, [id]: value });
                             };
 
-                            const handleAdjust = (direction: 1 | -1) => {
-                              const base = numericValue ?? question.defaultValue ?? question.min ?? 0;
-                              const adjusted = clampValue(base + direction * step);
-                              updateAnswer(question.id, adjusted);
+                            const renderNumberControl = (question: any) => {
+                              const step = question.step ?? 1;
+                              const decimals = String(step).includes('.') ? String(step).split('.')[1].length : 0;
+                              const rawValue = f0Answers[question.id];
+                              const numericValue =
+                                typeof rawValue === 'number'
+                                  ? rawValue
+                                  : rawValue !== undefined && rawValue !== ''
+                                    ? Number(rawValue)
+                                    : undefined;
+
+                              const clampValue = (value: number) => {
+                                let next = value;
+                                if (typeof question.min === 'number') next = Math.max(question.min, next);
+                                if (typeof question.max === 'number') next = Math.min(question.max, next);
+                                const precision = decimals > 2 ? 2 : decimals;
+                                return Number(next.toFixed(precision));
+                              };
+
+                              const handleAdjust = (direction: 1 | -1) => {
+                                const base = numericValue ?? question.defaultValue ?? question.min ?? 0;
+                                const adjusted = clampValue(base + direction * step);
+                                updateAnswer(question.id, adjusted);
+                              };
+
+                              return (
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => handleAdjust(-1)}
+                                    className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige"
+                                    type="button"
+                                  >
+                                    -
+                                  </button>
+                                  <div className="flex-1 text-center bg-ferty-beigeLight border border-ferty-beige rounded-2xl py-2">
+                                    <p className="text-lg font-bold text-ferty-dark">
+                                      {numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}
+                                    </p>
+                                    {question.unit && (
+                                      <p className="text-[11px] text-ferty-coral font-semibold">{question.unit}</p>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => handleAdjust(1)}
+                                    className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige"
+                                    type="button"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              );
                             };
 
-                            return (
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => handleAdjust(-1)}
-                                  className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige"
-                                  type="button"
-                                >
-                                  -
-                                </button>
-                                <div className="flex-1 text-center bg-ferty-beigeLight border border-ferty-beige rounded-2xl py-2">
-                                  <p className="text-lg font-bold text-ferty-dark">
-                                    {numericValue !== undefined && !Number.isNaN(numericValue) ? numericValue : '—'}
-                                  </p>
-                                  {question.unit && (
-                                    <p className="text-[11px] text-ferty-coral font-semibold">{question.unit}</p>
-                                  )}
+                            const renderSliderControl = (question: any) => {
+                              const min = question.min ?? 0;
+                              const max = question.max ?? 100;
+                              const step = question.step ?? 1;
+                              const rawValue = f0Answers[question.id];
+                              const currentValue =
+                                typeof rawValue === 'number'
+                                  ? rawValue
+                                  : rawValue !== undefined && rawValue !== ''
+                                    ? Number(rawValue)
+                                    : question.defaultValue ?? min;
+                              const safeValue = Number.isFinite(currentValue) ? currentValue : min;
+
+                              return (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-[11px] font-semibold text-ferty-coral">
+                                    <span>
+                                      {safeValue}
+                                      {question.unit ? ` ${question.unit}` : ''}
+                                    </span>
+                                    <span className="text-ferty-beigeMuted">
+                                      {min}
+                                      {question.unit ? ` ${question.unit}` : ''} – {max}
+                                      {question.unit ? ` ${question.unit}` : ''}
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min={min}
+                                    max={max}
+                                    step={step}
+                                    value={safeValue}
+                                    className="w-full accent-ferty-rose"
+                                    onChange={event => updateAnswer(question.id, Number(event.target.value))}
+                                  />
                                 </div>
-                                <button
-                                  onClick={() => handleAdjust(1)}
-                                  className="w-10 h-10 rounded-2xl border border-ferty-beigeBorder text-ferty-coral font-bold text-lg bg-white hover:bg-ferty-beige"
-                                  type="button"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            );
-                          };
+                              );
+                            };
 
-                          const renderSliderControl = (question: any) => {
-                            const min = question.min ?? 0;
-                            const max = question.max ?? 100;
-                            const step = question.step ?? 1;
-                            const rawValue = f0Answers[question.id];
-                            const currentValue =
-                              typeof rawValue === 'number'
-                                ? rawValue
-                                : rawValue !== undefined && rawValue !== ''
-                                ? Number(rawValue)
-                                : question.defaultValue ?? min;
-                            const safeValue = Number.isFinite(currentValue) ? currentValue : min;
-
-                            return (
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-[11px] font-semibold text-ferty-coral">
-                                  <span>
-                                    {safeValue}
-                                    {question.unit ? ` ${question.unit}` : ''}
-                                  </span>
-                                  <span className="text-ferty-beigeMuted">
-                                    {min}
-                                    {question.unit ? ` ${question.unit}` : ''} – {max}
-                                    {question.unit ? ` ${question.unit}` : ''}
-                                  </span>
+                            const renderSegmentedControl = (question: any) => {
+                              const min = question.min ?? 1;
+                              const max = question.max ?? 5;
+                              const values =
+                                question.options || Array.from({ length: max - min + 1 }, (_, index) => min + index);
+                              return (
+                                <div className="flex flex-wrap gap-2">
+                                  {values.map((option: any) => {
+                                    const optionValue = option;
+                                    const isActive = f0Answers[question.id] === optionValue;
+                                    return (
+                                      <button
+                                        key={option}
+                                        type="button"
+                                        onClick={() => updateAnswer(question.id, optionValue)}
+                                        className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${isActive
+                                          ? 'bg-ferty-rose text-white border-ferty-rose'
+                                          : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                                          }`}
+                                      >
+                                        {option}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
-                                <input
-                                  type="range"
-                                  min={min}
-                                  max={max}
-                                  step={step}
-                                  value={safeValue}
-                                  className="w-full accent-ferty-rose"
-                                  onChange={event => updateAnswer(question.id, Number(event.target.value))}
-                                />
-                              </div>
-                            );
-                          };
+                              );
+                            };
 
-                          const renderSegmentedControl = (question: any) => {
-                            const min = question.min ?? 1;
-                            const max = question.max ?? 5;
-                            const values =
-                              question.options || Array.from({ length: max - min + 1 }, (_, index) => min + index);
-                            return (
+                            const renderButtons = (question: any, options: string[]) => (
                               <div className="flex flex-wrap gap-2">
-                                {values.map((option: any) => {
-                                  const optionValue = option;
-                                  const isActive = f0Answers[question.id] === optionValue;
+                                {options.map(option => {
+                                  const isActive = f0Answers[question.id] === option;
                                   return (
                                     <button
                                       key={option}
                                       type="button"
-                                      onClick={() => updateAnswer(question.id, optionValue)}
-                                      className={`px-3 py-2 text-xs font-bold rounded-full border transition-all ${
-                                        isActive
-                                          ? 'bg-ferty-rose text-white border-ferty-rose'
-                                          : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-                                      }`}
+                                      onClick={() => updateAnswer(question.id, option)}
+                                      className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${isActive
+                                        ? 'bg-ferty-rose text-white border-ferty-rose'
+                                        : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
+                                        }`}
                                     >
                                       {option}
                                     </button>
@@ -1429,82 +1390,59 @@ const MyProfileView = ({
                                 })}
                               </div>
                             );
-                          };
 
-                          const renderButtons = (question: any, options: string[]) => (
-                            <div className="flex flex-wrap gap-2">
-                              {options.map(option => {
-                                const isActive = f0Answers[question.id] === option;
-                                return (
-                                  <button
-                                    key={option}
-                                    type="button"
-                                    onClick={() => updateAnswer(question.id, option)}
-                                    className={`px-4 py-2 text-xs font-bold rounded-2xl border transition-all ${
-                                      isActive
-                                        ? 'bg-ferty-rose text-white border-ferty-rose'
-                                        : 'text-ferty-gray border-ferty-beigeBorder hover:bg-ferty-beige'
-                                    }`}
-                                  >
-                                    {option}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          );
-
-                          return (
-                            <div key={q.id}>
-                              <label className="block text-xs font-bold text-ferty-dark mb-2 uppercase tracking-wide">
-                                {q.text}
-                              </label>
-                              {q.type === 'textarea' ? (
-                                <textarea
-                                  value={f0Answers[q.id] || ''}
-                                  className="w-full border border-ferty-beige rounded-xl p-3 text-sm h-28 bg-ferty-beige/30 focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose outline-none transition-all"
-                                  onChange={e => updateAnswer(q.id, e.target.value)}
-                                  maxLength={
-                                    q.id === 'q9_diagnoses' || q.id === 'q21_family_history' ? 280 : undefined
-                                  }
-                                />
-                              ) : q.type === 'yesno' ? (
-                                renderButtons(q, ['Sí', 'No'])
-                              ) : q.type === 'buttons' && Array.isArray(q.options) ? (
-                                renderButtons(q, q.options)
-                              ) : q.type === 'segmented' ? (
-                                renderSegmentedControl(q)
-                              ) : q.type === 'date' ? (
-                                <input
-                                  type="date"
-                                  value={f0Answers[q.id] || ''}
-                                  className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
-                                  onChange={e => updateAnswer(q.id, e.target.value)}
-                                />
-                              ) : q.type === 'slider' ? (
-                                renderSliderControl(q)
-                              ) : q.type === 'stepper' ? (
-                                renderNumberControl(q)
-                              ) : (
-                                <input
-                                  type={q.type === 'number' ? 'number' : 'text'}
-                                  value={f0Answers[q.id] || ''}
-                                  className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
-                                  onChange={e => updateAnswer(q.id, e.target.value)}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <button
-                        onClick={() => {
-                          const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
-                          handleF0Save(currentF0Form);
-                        }}
-                        className="w-full bg-ferty-gray text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-ferty-grayHover transition-all flex items-center justify-center gap-2"
-                      >
-                        Guardar cambios
-                      </button>
+                            return (
+                              <div key={q.id}>
+                                <label className="block text-xs font-bold text-ferty-dark mb-2 uppercase tracking-wide">
+                                  {q.text}
+                                </label>
+                                {q.type === 'textarea' ? (
+                                  <textarea
+                                    value={f0Answers[q.id] || ''}
+                                    className="w-full border border-ferty-beige rounded-xl p-3 text-sm h-28 bg-ferty-beige/30 focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose outline-none transition-all"
+                                    onChange={e => updateAnswer(q.id, e.target.value)}
+                                    maxLength={
+                                      q.id === 'q9_diagnoses' || q.id === 'q21_family_history' ? 280 : undefined
+                                    }
+                                  />
+                                ) : q.type === 'yesno' ? (
+                                  renderButtons(q, ['Sí', 'No'])
+                                ) : q.type === 'buttons' && Array.isArray(q.options) ? (
+                                  renderButtons(q, q.options)
+                                ) : q.type === 'segmented' ? (
+                                  renderSegmentedControl(q)
+                                ) : q.type === 'date' ? (
+                                  <input
+                                    type="date"
+                                    value={f0Answers[q.id] || ''}
+                                    className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
+                                    onChange={e => updateAnswer(q.id, e.target.value)}
+                                  />
+                                ) : q.type === 'slider' ? (
+                                  renderSliderControl(q)
+                                ) : q.type === 'stepper' ? (
+                                  renderNumberControl(q)
+                                ) : (
+                                  <input
+                                    type={q.type === 'number' ? 'number' : 'text'}
+                                    value={f0Answers[q.id] || ''}
+                                    className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
+                                    onChange={e => updateAnswer(q.id, e.target.value)}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={() => {
+                            const currentF0Form = submittedForms.find(f => f.form_type === 'F0');
+                            handleF0Save(currentF0Form);
+                          }}
+                          className="w-full bg-ferty-gray text-white py-4 rounded-xl font-bold shadow-lg mt-8 hover:bg-ferty-grayHover transition-all flex items-center justify-center gap-2"
+                        >
+                          Guardar cambios
+                        </button>
                       </div>
                     </div>
                   ) : f0Form ? (
@@ -1593,7 +1531,7 @@ const MyProfileView = ({
                               <p className="text-sm text-ferty-dark">
                                 {(() => {
                                   const birthdateAnswer = f0Form.answers?.find(a => a.questionId === 'q1_birthdate')?.answer;
-                                  return birthdateAnswer 
+                                  return birthdateAnswer
                                     ? formatDate(birthdateAnswer as string, 'long')
                                     : '—';
                                 })()}
@@ -1713,138 +1651,137 @@ const MyProfileView = ({
                 </div>
               ) : null}
 
-            {/* Bloques de Pilares (Function, Food, Flora, Flow) */}
-            <div>
-              <h3 className="font-bold text-ferty-dark mb-3 text-sm">Pilares FertyFit</h3>
-              <p className="text-xs text-ferty-gray mb-4">Completa los formularios de cada pilar para un análisis completo.</p>
-              
-              {/* Pestañas de pilares */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                {PILLAR_TABS.map(tab => {
-                  const hasData = Boolean(findSubmission(submittedForms, tab.id));
-                  const isActive = formType === tab.id;
-                  const pillarProgress = getPillarProgress(tab.id);
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setFormType(tab.id)}
-                      className={`rounded-3xl border px-4 py-4 text-left transition-all shadow-sm ${
-                        isActive ? 'border-ferty-rose bg-white shadow-lg' : 'border-ferty-beige bg-white hover:bg-ferty-beigeLight'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-bold text-ferty-dark">{tab.label}</p>
-                        {hasData && (
-                          <CheckCircle size={14} className="text-emerald-600" />
+              {/* Bloques de Pilares (Function, Food, Flora, Flow) */}
+              <div>
+                <h3 className="font-bold text-ferty-dark mb-3 text-sm">Pilares FertyFit</h3>
+                <p className="text-xs text-ferty-gray mb-4">Completa los formularios de cada pilar para un análisis completo.</p>
+
+                {/* Pestañas de pilares */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  {PILLAR_TABS.map(tab => {
+                    const hasData = Boolean(findSubmission(submittedForms, tab.id));
+                    const isActive = formType === tab.id;
+                    const pillarProgress = getPillarProgress(tab.id);
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setFormType(tab.id)}
+                        className={`rounded-3xl border px-4 py-4 text-left transition-all shadow-sm ${isActive ? 'border-ferty-rose bg-white shadow-lg' : 'border-ferty-beige bg-white hover:bg-ferty-beigeLight'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-bold text-ferty-dark">{tab.label}</p>
+                          {hasData && (
+                            <CheckCircle size={14} className="text-emerald-600" />
+                          )}
+                        </div>
+                        {pillarProgress > 0 && (
+                          <ProgressBar
+                            percentage={pillarProgress}
+                            color="rose-gradient"
+                            height="sm"
+                            className="bg-ferty-beige border-0"
+                          />
                         )}
-                      </div>
-                      {pillarProgress > 0 && (
-                        <ProgressBar 
-                          percentage={pillarProgress}
-                          color="rose-gradient"
-                          height="sm"
-                          className="bg-ferty-beige border-0"
-                        />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Progress Bar */}
+                <div className="bg-ferty-beigeLight px-4 py-2.5 rounded-xl border border-ferty-beige mb-4">
+                  <ProgressBar
+                    percentage={progress.percentage}
+                    color="rose-gradient"
+                    height="md"
+                    showLabel
+                    label="Progreso"
+                    showPercentage
+                    containerClassName="mb-0"
+                  />
+                  {progress.percentage === 100 && (
+                    <p className="text-[9px] text-ferty-gray mt-1.5 text-center">
+                      Puedes editarlo si surge algún cambio
+                    </p>
+                  )}
+                </div>
+
+                {/* Formulario del pilar seleccionado */}
+                {submittedForm && !isEditMode
+                  ? renderSubmittedView()
+                  : renderFormCard()}
+              </div>
+
+              {/* Exam Scanner Modal para pilares */}
+              {pillarScannerOpen && (
+                <ExamScanner
+                  examType={
+                    pillarExamType === 'other'
+                      ? undefined
+                      : (pillarExamType as 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio')
+                  }
+                  onDataExtracted={handleDataExtracted}
+                  onClose={() => {
+                    setPillarScannerOpen(false);
+                    setPillarExamName('');
+                  }}
+                  sectionTitle={pillarExamType === 'other' ? pillarExamName || 'Examen' : undefined}
+                  autoDetect={pillarExamType === 'other'}
+                  examName={pillarExamType === 'other' ? pillarExamName : undefined}
+                />
+              )}
+
+              {shouldShowLoadHistoryButton && (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-blue-800 mb-1">
+                        Historial limitado a últimos 90 días
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        Tienes más registros disponibles. Carga el historial completo para ver todos tus datos.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleLoadFullHistory}
+                      disabled={isLoadingHistory}
+                      className="ml-4 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 flex-shrink-0"
+                    >
+                      {isLoadingHistory ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Cargando...
+                        </>
+                      ) : (
+                        <>
+                          <Download size={16} />
+                          Cargar todo
+                        </>
                       )}
                     </button>
-                  );
-                })}
-              </div>
-
-              {/* Progress Bar */}
-              <div className="bg-ferty-beigeLight px-4 py-2.5 rounded-xl border border-ferty-beige mb-4">
-                <ProgressBar 
-                  percentage={progress.percentage}
-                  color="rose-gradient"
-                  height="md"
-                  showLabel
-                  label="Progreso"
-                  showPercentage
-                  containerClassName="mb-0"
-                />
-                {progress.percentage === 100 && (
-                  <p className="text-[9px] text-ferty-gray mt-1.5 text-center">
-                    Puedes editarlo si surge algún cambio
-                  </p>
-                )}
-              </div>
-
-              {/* Formulario del pilar seleccionado */}
-              {submittedForm && !isEditMode
-                ? renderSubmittedView()
-                : renderFormCard()}
-            </div>
-
-            {/* Exam Scanner Modal para pilares */}
-            {pillarScannerOpen && (
-              <ExamScanner
-                examType={
-                  pillarExamType === 'other'
-                    ? undefined
-                    : (pillarExamType as 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio')
-                }
-                onDataExtracted={handleDataExtracted}
-                onClose={() => {
-                  setPillarScannerOpen(false);
-                  setPillarExamName('');
-                }}
-                sectionTitle={pillarExamType === 'other' ? pillarExamName || 'Examen' : undefined}
-                autoDetect={pillarExamType === 'other'}
-                examName={pillarExamType === 'other' ? pillarExamName : undefined}
-              />
-            )}
-
-            {shouldShowLoadHistoryButton && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-blue-800 mb-1">
-                      Historial limitado a últimos 90 días
-                    </p>
-                    <p className="text-xs text-blue-600">
-                      Tienes más registros disponibles. Carga el historial completo para ver todos tus datos.
-                    </p>
                   </div>
-                  <button
-                    onClick={handleLoadFullHistory}
-                    disabled={isLoadingHistory}
-                    className="ml-4 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 flex-shrink-0"
-                  >
-                    {isLoadingHistory ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Cargando...
-                      </>
-                    ) : (
-                      <>
-                        <Download size={16} />
-                        Cargar todo
-                      </>
-                    )}
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
 
-            {user.methodStartDate && (
+              {user.methodStartDate && (
+                <button
+                  onClick={handleRestartClick}
+                  className="w-full py-2 text-xs text-stone-400 hover:text-ferty-rose transition-colors underline"
+                >
+                  Reiniciar Método
+                </button>
+              )}
+
               <button
-                onClick={handleRestartClick}
-                className="w-full py-2 text-xs text-stone-400 hover:text-ferty-rose transition-colors underline"
+                onClick={onLogout}
+                className="w-full bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors border border-rose-100"
               >
-                Reiniciar Método
+                <LogOut size={20} />
+                Cerrar Sesión
               </button>
-            )}
-
-            <button
-              onClick={onLogout}
-              className="w-full bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors border border-rose-100"
-            >
-              <LogOut size={20} />
-              Cerrar Sesión
-            </button>
-          </div>
+            </div>
           );
         })()}
       </div>

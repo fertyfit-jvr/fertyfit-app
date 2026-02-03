@@ -78,8 +78,8 @@ export function useAuth() {
             isOnboarded: true,
             mainObjective: profile.main_objective,
             partnerStatus: profile.partner_status,
-            role: profile.role || 'user',
-            cycleRegularity: profile.cycle_regularity,
+            role: (profile.role as 'user') || 'user',
+            cycleRegularity: (profile.cycle_regularity as 'Regular' | 'Irregular') || undefined,
             cycleLength: profile.cycle_length,
             lastPeriodDate: profile.last_period_date,
             periodHistory: profile.period_history || [],
@@ -87,7 +87,16 @@ export function useAuth() {
             diagnoses: profile.diagnoses || [],
             fertilityTreatments: profile.fertility_treatments,
             supplements: profile.supplements,
-            alcoholConsumption: profile.alcohol_consumption
+            alcoholConsumption: profile.alcohol_consumption,
+            // Consent fields
+            consent_personal_data: profile.consent_personal_data,
+            consent_food: profile.consent_food,
+            consent_flora: profile.consent_flora,
+            consent_flow: profile.consent_flow,
+            consent_function: profile.consent_function,
+            consent_daily_log: profile.consent_daily_log,
+            consent_no_diagnosis: profile.consent_no_diagnosis,
+            consents_at: profile.consents_at,
           };
 
           setUser(userProfile);
@@ -174,20 +183,16 @@ export function useAuth() {
     try {
       const profile = await fetchProfileForUser(userId);
       if (profile) {
-        setUser(prevUser => {
-          if (!prevUser) {
-            logger.warn('refreshUserProfile: prevUser is null, skipping update');
-            return currentUser;
-          }
-          
-          return {
-            ...prevUser,
-            lastPeriodDate: profile.last_period_date,
-            cycleLength: profile.cycle_length,
-            cycleRegularity: profile.cycle_regularity,
-            periodHistory: profile.period_history || [],
-          };
-        });
+        // Fix: setUser does not support functional updates. Merge manually.
+        // Also casting types
+        const updatedUser: UserProfile = {
+          ...currentUser,
+          lastPeriodDate: profile.last_period_date,
+          cycleLength: profile.cycle_length,
+          cycleRegularity: (profile.cycle_regularity as 'Regular' | 'Irregular') || undefined,
+          periodHistory: profile.period_history || [],
+        };
+        setUser(updatedUser);
       }
     } catch (error) {
       logger.error('Error in refreshUserProfile:', error);
