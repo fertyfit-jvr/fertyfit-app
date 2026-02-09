@@ -101,11 +101,8 @@ export function useAuth() {
 
           setUser(userProfile);
 
-          if (!profile.disclaimer_accepted) {
-            setView('DISCLAIMER');
-          } else {
-            setView('DASHBOARD');
-          }
+          // Always redirect to DASHBOARD, consent flow is handled automatically in App.tsx
+          setView('DASHBOARD');
         }
       } else {
         setView('ONBOARDING');

@@ -12,7 +12,6 @@ import NavButton from './components/common/NavButton';
 import ViewLoading from './components/common/ViewLoading';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import LoginView from './views/Auth/LoginView';
-import DisclaimerView from './views/Disclaimer/DisclaimerView';
 import LessonModal from './components/Education/LessonModal';
 
 // Lazy load views for better performance
@@ -55,7 +54,6 @@ function AppContent() {
     handleDateChange,
     saveDailyLog,
     startMethod,
-    acceptDisclaimer,
     markLessonComplete,
   } = useAppStore();
 
@@ -137,11 +135,6 @@ function AppContent() {
     );
   }
 
-  // Disclaimer view
-  if (view === 'DISCLAIMER') {
-    return <DisclaimerView onAccept={acceptDisclaimer} />;
-  }
-
   // Consent View check - Force consent if not all critical consents are true
   const hasConsents = user && (
     user.consent_personal_data &&
@@ -166,8 +159,8 @@ function AppContent() {
         consent_daily_log: true,
         consent_no_diagnosis: true,
       });
-      // Redirect to Profile to start onboarding as requested
-      setView('PROFILE');
+      // Redirect to MY_PROFILE (Edit Profile) after accepting consents
+      setView('MY_PROFILE');
       showNotif('¡Gracias! Ahora completa tu perfil para comenzar.', 'success');
     }
   };
