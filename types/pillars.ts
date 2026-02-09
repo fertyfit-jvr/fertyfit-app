@@ -24,28 +24,17 @@ export interface PillarFunction {
 
 export interface PillarFood {
   user_id: string;
-  // ⭐ NUEVOS CAMPOS (sistema de puntos)
-  eating_pattern?: string;        // patron: patrón de alimentación semanal
-  fish_frequency?: number;         // pescado: frecuencia pescado azul (0-7 veces/semana)
-  vegetable_servings?: number;    // vege: raciones vegetales diarias (0-10)
-  fat_type?: string;               // grasas: tipo de grasas en cocina
-  fertility_supplements?: string;  // suppl: suplementos fertilidad
-  sugary_drinks_frequency?: number; // azucar: frecuencia bebidas azucaradas (0-7 veces/semana)
-  antioxidants?: string;           // antiox: fuentes de antioxidantes
-  carb_source?: string;            // carbos: principal fuente de carbohidratos
-  // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
-  daily_protein?: number;
-  daily_fiber?: number;
-  vegetable_diversity?: number;
-  ultraprocessed?: string;
-  omega3?: string;
-  meal_schedule?: string;
-  digestive_symptoms?: string;
-  bristol_scale?: number;
-  weekly_exercise?: string;
-  waist_circumference?: number;
-  alcohol_consumption?: string;
-  supplements?: string;
+  // ⭐ CAMPOS DEL FORMULARIO FOOD ACTUAL
+  eating_pattern?: string;        // food_patron: patrón de alimentación semanal
+  fish_frequency?: number;         // food_pescado: frecuencia pescado azul (0-7 veces/semana)
+  vegetable_servings?: number;    // food_vege: raciones vegetales diarias (0-10)
+  fat_type?: string;               // food_grasas: tipo de grasas en cocina
+  fertility_supplements?: string;  // food_suppl: suplementos fertilidad
+  sugary_drinks_frequency?: number; // food_azucar: frecuencia bebidas azucaradas (0-7 veces/semana)
+  antioxidants?: string;           // food_antiox: fuentes de antioxidantes
+  carb_source?: string;            // food_carbos: principal fuente de carbohidratos
+  coffee_cups?: number;            // food_cafe: tazas de café al día (0-10)
+  alcohol_consumption?: string;    // food_alcohol: consumo de alcohol semanal
   created_at?: string;
   updated_at?: string;
 }

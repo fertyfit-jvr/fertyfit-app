@@ -78,20 +78,12 @@ function normalizeAnswersToPillar(
 
       normalized.antioxidants = answers['food_antiox'] ? String(answers['food_antiox']) : undefined;
       normalized.carb_source = answers['food_carbos'] ? String(answers['food_carbos']) : undefined;
-
-      // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
-      normalized.daily_protein = answers['food_proteina'] ? parseFloat(answers['food_proteina']) : undefined;
-      normalized.daily_fiber = answers['food_fibra'] ? parseFloat(answers['food_fibra']) : undefined;
-      normalized.vegetable_diversity = answers['food_diversidad'] ? parseInt(answers['food_diversidad']) : undefined;
-      normalized.ultraprocessed = answers['food_ultraprocesados'] ? String(answers['food_ultraprocesados']) : undefined;
-      normalized.omega3 = answers['food_omega'] ? String(answers['food_omega']) : undefined;
-      normalized.meal_schedule = answers['food_horarios'] ? String(answers['food_horarios']) : undefined;
-      normalized.digestive_symptoms = answers['food_digestivo'] ? String(answers['food_digestivo']) : undefined;
-      normalized.bristol_scale = answers['food_bristol'] ? parseInt(answers['food_bristol']) : undefined;
-      normalized.weekly_exercise = answers['food_entrenamiento'] ? String(answers['food_entrenamiento']) : undefined;
-      normalized.waist_circumference = answers['food_cintura'] ? parseFloat(answers['food_cintura']) : undefined;
+      
+      if (answers['food_cafe'] != null) {
+        normalized.coffee_cups = parseInt(String(answers['food_cafe']));
+      }
+      
       normalized.alcohol_consumption = answers['food_alcohol'] ? String(answers['food_alcohol']) : undefined;
-      normalized.supplements = answers['food_supplements'] ? String(answers['food_supplements']) : undefined;
       break;
 
     case 'FLORA':

@@ -126,6 +126,31 @@ const FOOD_QUESTIONS = [
       'd) Carbohidratos complejos de bajo índice glucémico.'
     ],
     defaultValue: 'b) Una mezcla de integrales y refinados.'
+  },
+
+  // 9. Tazas de café al día
+  {
+    id: 'food_cafe',
+    text: '¿Cuántas tazas de café tomas al día?',
+    type: 'stepper',
+    min: 0,
+    max: 10,
+    unit: 'tazas',
+    defaultValue: 1
+  },
+
+  // 10. Consumo de alcohol
+  {
+    id: 'food_alcohol',
+    text: '¿Cuál es tu consumo de alcohol semanal?',
+    type: 'buttons',
+    options: [
+      'a) No bebo alcohol.',
+      'b) 1-2 copas por semana.',
+      'c) 3-5 copas por semana.',
+      'd) Más de 5 copas por semana.'
+    ],
+    defaultValue: 'a) No bebo alcohol.'
   }
 ];
 
