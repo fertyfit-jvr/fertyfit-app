@@ -271,39 +271,48 @@ export async function fetchEducationForUser(
  */
 interface SupabaseProfile {
   id: string;
-  email?: string;
-  name: string;
+  email?: string | null;
+  name?: string | null;
   created_at: string;
   method_start_date?: string | null;
-  age: number;
-  weight: number;
-  height: number;
+  age?: number | null;
+  birth_date?: string | null; // Date of birth (YYYY-MM-DD)
+  weight?: number | null;
+  height?: number | null;
+  disclaimer_accepted?: boolean | null;
+  
+  // Time trying fields
   time_trying_start_date?: string | null; // Date when user started trying (YYYY-MM-DD)
   time_trying_initial_months?: number | null; // Initial months value
-  disclaimer_accepted: boolean;
+  
+  // Basic profile fields from F0
   main_objective?: string | null;
   partner_status?: string | null;
+  family_history?: string | null; // q21_family_history from F0
+  obstetric_history?: string | null;
+  surgical_history?: string | null;
+  fertility_treatments?: string | null; // q20_fertility_treatments from F0
+  diagnoses?: string | null; // q9_diagnoses from F0 (TEXT, not array)
+  
+  // User role and type
   role?: string | null;
+  user_type?: string | null; // 'free' | 'subscriber'
+  
+  // Cycle tracking fields
   cycle_regularity?: string | null;
   cycle_length?: number | null;
   last_period_date?: string | null;
-  period_history?: string[] | null;
-  // Legacy fields (migrated to pillar tables, kept for backward compatibility)
-  time_trying?: number | string | null;
-  diagnoses?: string[] | null;
-  fertility_treatments?: string | null;
-  supplements?: string | null;
-  alcohol_consumption?: string | null;
-  user_type?: string | null;
+  period_history?: string[] | null; // JSONB array
+  
   // Consent fields
-  consent_personal_data?: boolean;
-  consent_food?: boolean;
-  consent_flora?: boolean;
-  consent_flow?: boolean;
-  consent_function?: boolean;
-  consent_daily_log?: boolean;
-  consent_no_diagnosis?: boolean;
-  consents_at?: string;
+  consent_personal_data?: boolean | null;
+  consent_food?: boolean | null;
+  consent_flora?: boolean | null;
+  consent_flow?: boolean | null;
+  consent_function?: boolean | null;
+  consent_daily_log?: boolean | null;
+  consent_no_diagnosis?: boolean | null;
+  consents_at?: string | null;
 }
 
 /**
@@ -476,27 +485,29 @@ type ProfileInsertPayload = {
   email?: string | null;
   name: string;
   age?: number;
+  birth_date?: string;
   disclaimer_accepted?: boolean;
 };
 
 type ProfileUpdatePayload = Partial<{
   name: string;
   age: number;
+  birth_date: string | null;
   weight: number;
   height: number;
   main_objective: string | null;
   partner_status: string | null;
+  family_history: string | null;
+  obstetric_history: string | null;
+  surgical_history: string | null;
+  fertility_treatments: string | null;
+  diagnoses: string | null; // TEXT field, not array
   cycle_regularity: string | null;
   cycle_length: number | null;
   last_period_date: string | null;
   period_history: string[] | null;
   time_trying_start_date: string | null;
   time_trying_initial_months: number | null;
-  time_trying: number | string | null;
-  diagnoses: string[] | null;
-  fertility_treatments: string | null;
-  supplements: string | null;
-  alcohol_consumption: string | null;
 }>;
 
 /**
@@ -505,17 +516,28 @@ type ProfileUpdatePayload = Partial<{
  * @returns Result indicating success or error
  */
 export async function createProfileForUser(payload: ProfileInsertPayload): Promise<Result<void>> {
-  const { id, email, name, age = 30, disclaimer_accepted = false } = payload;
+  const { id, email, name, age, birth_date, disclaimer_accepted = false } = payload;
 
   try {
     const { error } = await withRetry(async () => {
-      const result = await supabase.from('profiles').insert({
+      const insertData: any = {
         id,
         email,
         name,
-        age,
         disclaimer_accepted
-      });
+      };
+      
+      // Solo incluir age si se proporciona explícitamente
+      if (age !== undefined) {
+        insertData.age = age;
+      }
+      
+      // Solo incluir birth_date si se proporciona
+      if (birth_date !== undefined) {
+        insertData.birth_date = birth_date;
+      }
+
+      const result = await supabase.from('profiles').insert(insertData);
 
       if (result.error) {
         throw result.error;

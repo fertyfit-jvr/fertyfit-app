@@ -33,4 +33,31 @@ export function formatToISO(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Calcula la edad actual desde una fecha de nacimiento
+ * @param birthDate - Fecha de nacimiento en formato YYYY-MM-DD
+ * @returns Edad en años o null si la fecha es inválida o está fuera del rango 18-55
+ */
+export function calculateAgeFromBirthdate(birthDate: string | null | undefined): number | null {
+  if (!birthDate) return null;
+  
+  const birth = parseLocalDate(birthDate);
+  if (!birth) return null;
+  
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  
+  // Ajustar si aún no ha cumplido años este año
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  
+  // Validación: edad razonable entre 18-55 años (rango fertilidad)
+  if (age < 18 || age > 55) {
+    return null;
+  }
+  
+  return age;
+}
 

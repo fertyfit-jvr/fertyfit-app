@@ -5,6 +5,7 @@ export interface UserProfile {
   joinedAt?: string; // Date of registration
   methodStartDate?: string; // Date user clicked "Start Method"
   age: number;
+  birthDate?: string; // Date of birth (YYYY-MM-DD) - used to calculate age
   weight: number;
   height: number;
   timeTrying?: number; // Calculated dynamically from timeTryingStartDate and timeTryingInitialMonths
@@ -15,23 +16,23 @@ export interface UserProfile {
   isOnboarded: boolean;
   role?: 'user'; // User role only - admin/specialist managed in separate app
 
-  // Basic profile fields
-  mainObjective?: string; // Concepción natural vs RA
-  partnerStatus?: string; // Pareja vs Solitario
+  // Basic profile fields from F0
+  mainObjective?: string; // Concepción natural vs RA (q4_objective)
+  partnerStatus?: string; // Pareja vs Solitario (q5_partner)
+  familyHistory?: string; // Antecedentes familiares (q21_family_history)
+  surgicalHistory?: string; // Historia quirúrgica
+  obstetricHistory?: string; // Historia obstétrica
+  fertilityTreatments?: string; // Tratamientos previos (q20_fertility_treatments)
+  diagnoses?: string; // Diagnósticos/Historia médica (q9_diagnoses) - TEXT field
+  
+  // Cycle tracking fields (updated from Tracker and FUNCTION pillar)
   cycleLength?: number;
   cycleRegularity?: 'Regular' | 'Irregular';
   lastPeriodDate?: string;
   periodHistory?: string[]; // Historial de fechas de períodos para auto-cálculo del ciclo promedio
-  surgicalHistory?: string;
-  obstetricHistory?: string;
+  
+  // UI fields (not in DB)
   recentBloodwork?: boolean;
-
-  // Legacy fields (migrated to pillar tables, kept for backward compatibility)
-  diagnoses?: string[];
-  fertilityTreatments?: string;
-  supplements?: string;
-  smoker?: string;
-  alcoholConsumption?: string;
 
   // Consent fields
   consent_personal_data?: boolean;

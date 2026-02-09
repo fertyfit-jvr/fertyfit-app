@@ -28,6 +28,7 @@ import { supabase } from '../../services/supabase';
 import { formatDate } from '../../services/utils';
 import { useMethodProgress } from '../../hooks/useMethodProgress';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
+import { calculateAgeFromBirthdate } from '../../services/dateUtils';
 import { PILLAR_ICONS } from '../../constants/api';
 import { savePillarForm } from '../../services/pillarService';
 import { ExamScanner } from '../../components/forms/ExamScanner';
@@ -241,9 +242,30 @@ const MyProfileView = ({
     if (editName && editName !== user.name) {
       updates.name = editName;
     }
-    if (f0Answers['q2_weight']) updates.weight = parseFloat(f0Answers['q2_weight']);
-    if (f0Answers['q2_height']) updates.height = parseFloat(f0Answers['q2_height']);
-    if (f0Answers['q4_objective']) updates.mainObjective = f0Answers['q4_objective'];
+    if (f0Answers['q2_weight']) updates.weight = parseFloat(String(f0Answers['q2_weight']));
+    if (f0Answers['q2_height']) updates.height = parseFloat(String(f0Answers['q2_height']));
+    if (f0Answers['q4_objective']) updates.mainObjective = String(f0Answers['q4_objective']);
+    
+    // Procesar campos faltantes del F0
+    if (f0Answers['q5_partner']) updates.partnerStatus = String(f0Answers['q5_partner']);
+    if (f0Answers['q20_fertility_treatments']) updates.fertilityTreatments = String(f0Answers['q20_fertility_treatments']);
+    if (f0Answers['q9_diagnoses']) updates.diagnoses = String(f0Answers['q9_diagnoses']);
+    if (f0Answers['q21_family_history']) updates.familyHistory = String(f0Answers['q21_family_history']);
+    
+    // Procesar fecha de nacimiento y calcular edad
+    if (f0Answers['q1_birthdate']) {
+      const birthDateStr = String(f0Answers['q1_birthdate']);
+      const calculatedAge = calculateAgeFromBirthdate(birthDateStr);
+      
+      if (calculatedAge !== null) {
+        updates.birthDate = birthDateStr;
+        updates.age = calculatedAge;
+      } else {
+        showNotif('La fecha de nacimiento debe corresponder a una edad entre 18-55 años', 'error');
+        return;
+      }
+    }
+    
     // Nota: cycle_length ya no se guarda en F0, se maneja desde FUNCTION
 
     // Set time_trying fields if q3_time_trying is present
@@ -266,11 +288,23 @@ const MyProfileView = ({
         weight: number;
         height: number;
         main_objective: string;
+        partner_status: string;
+        fertility_treatments: string;
+        diagnoses: string;
+        family_history: string;
+        birth_date: string;
+        age: number;
       }> = {};
       if (updates.name !== undefined) profileUpdates.name = updates.name;
       if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
       if (updates.height !== undefined) profileUpdates.height = updates.height;
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
+      if (updates.partnerStatus !== undefined) profileUpdates.partner_status = updates.partnerStatus;
+      if (updates.fertilityTreatments !== undefined) profileUpdates.fertility_treatments = updates.fertilityTreatments;
+      if (updates.diagnoses !== undefined) profileUpdates.diagnoses = updates.diagnoses;
+      if (updates.familyHistory !== undefined) profileUpdates.family_history = updates.familyHistory;
+      if (updates.birthDate !== undefined) profileUpdates.birth_date = updates.birthDate;
+      if (updates.age !== undefined) profileUpdates.age = updates.age;
 
       const updateResult = await updateProfileForUser(user.id, profileUpdates);
       if (updateResult.success === false) {
@@ -493,6 +527,15 @@ const MyProfileView = ({
             } else {
               loaded[answer.questionId] = str || '';
             }
+          } else if (answer.questionId === 'flow_drogas') {
+            const str = typeof answer.answer === 'string' ? answer.answer : '';
+            if (str.startsWith('Sí:')) {
+              loaded[answer.questionId] = 'Sí';
+              const detalle = str.substring(4).trim();
+              if (detalle) loaded[`${answer.questionId}_detalle`] = detalle;
+            } else {
+              loaded[answer.questionId] = str || 'No';
+            }
           } else {
             loaded[answer.questionId] = answer.answer;
           }
@@ -625,6 +668,16 @@ const MyProfileView = ({
             questionId: question.id,
             question: question.text,
             answer: otro ? `${str}::${otro}` : str
+          };
+        }
+        // flow_drogas: Sí/No + detalle (si Sí)
+        if (question.id === 'flow_drogas') {
+          const str = typeof baseAnswer === 'string' ? baseAnswer : '';
+          const detalle = answers[`${question.id}_detalle`] || '';
+          return {
+            questionId: question.id,
+            question: question.text,
+            answer: (str === 'Sí' && detalle) ? `Sí: ${detalle}` : str
           };
         }
         return {
@@ -1092,15 +1145,26 @@ const MyProfileView = ({
         );
       }
 
-      // Convert some to Yes/No
-      if (['flow_soporte'].includes(question.id)) {
-        return renderButtons(question, ['Sí', 'No']);
+      // Consumo de drogas: Sí/No + campo de texto condicional
+      if (question.id === 'flow_drogas') {
+        const selected = answers[question.id] as string;
+        const showDetailField = selected === 'Sí';
+        return (
+          <div className="space-y-3">
+            {renderButtons(question, ['Sí', 'No'])}
+            {showDetailField && (
+              <textarea
+                value={(answers[`${question.id}_detalle`] as string) || ''}
+                placeholder="Indica qué drogas y con qué frecuencia..."
+                onChange={event => updateAnswer(`${question.id}_detalle`, event.target.value)}
+                className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
+                rows={3}
+              />
+            )}
+          </div>
+        );
       }
 
-      // Use percentage bars for some
-      if (['flow_carga_mental', 'flow_rumiacion', 'flow_alerta', 'flow_presion_social', 'flow_soledad', 'flow_energia_manana', 'flow_energia_tarde', 'flow_sueno_calidad', 'flow_pantallas', 'flow_libido', 'flow_conexion'].includes(question.id)) {
-        return renderPercentageControl(question);
-      }
     }
 
     // Flora - conditional text fields

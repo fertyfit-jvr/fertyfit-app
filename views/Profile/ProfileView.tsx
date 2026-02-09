@@ -26,6 +26,7 @@ import { calcularDiaDelCiclo } from '../../services/CycleCalculations';
 import { formatDate } from '../../services/utils';
 import { useMethodProgress } from '../../hooks/useMethodProgress';
 import { calculateCurrentMonthsTrying, setTimeTryingStart } from '../../services/timeTryingService';
+import { calculateAgeFromBirthdate } from '../../services/dateUtils';
 import { FORM_DEFINITIONS } from '../../constants/formDefinitions';
 import { NotificationList } from '../../components/NotificationSystem';
 import { updateConsultationFormById, updateProfileForUser } from '../../services/userDataService';
@@ -382,6 +383,27 @@ const ProfileView = ({
     if (f0Answers['q2_weight']) updates.weight = parseFloat(String(f0Answers['q2_weight']));
     if (f0Answers['q2_height']) updates.height = parseFloat(String(f0Answers['q2_height']));
     if (f0Answers['q4_objective']) updates.mainObjective = String(f0Answers['q4_objective']);
+    
+    // Procesar campos faltantes del F0
+    if (f0Answers['q5_partner']) updates.partnerStatus = String(f0Answers['q5_partner']);
+    if (f0Answers['q20_fertility_treatments']) updates.fertilityTreatments = String(f0Answers['q20_fertility_treatments']);
+    if (f0Answers['q9_diagnoses']) updates.diagnoses = String(f0Answers['q9_diagnoses']);
+    if (f0Answers['q21_family_history']) updates.familyHistory = String(f0Answers['q21_family_history']);
+    
+    // Procesar fecha de nacimiento y calcular edad
+    if (f0Answers['q1_birthdate']) {
+      const birthDateStr = String(f0Answers['q1_birthdate']);
+      const calculatedAge = calculateAgeFromBirthdate(birthDateStr);
+      
+      if (calculatedAge !== null) {
+        updates.birthDate = birthDateStr;
+        updates.age = calculatedAge;
+      } else {
+        showNotif('La fecha de nacimiento debe corresponder a una edad entre 18-55 años', 'error');
+        return;
+      }
+    }
+    
     // Nota: cycle_length ya no se guarda en F0, se maneja desde FUNCTION
 
     // Set time_trying fields if q3_time_trying is present
@@ -404,11 +426,23 @@ const ProfileView = ({
         weight: number;
         height: number;
         main_objective: string;
+        partner_status: string;
+        fertility_treatments: string;
+        diagnoses: string;
+        family_history: string;
+        birth_date: string;
+        age: number;
       }> = {};
       if (updates.name !== undefined) profileUpdates.name = updates.name;
       if (updates.weight !== undefined) profileUpdates.weight = updates.weight;
       if (updates.height !== undefined) profileUpdates.height = updates.height;
       if (updates.mainObjective !== undefined) profileUpdates.main_objective = updates.mainObjective;
+      if (updates.partnerStatus !== undefined) profileUpdates.partner_status = updates.partnerStatus;
+      if (updates.fertilityTreatments !== undefined) profileUpdates.fertility_treatments = updates.fertilityTreatments;
+      if (updates.diagnoses !== undefined) profileUpdates.diagnoses = updates.diagnoses;
+      if (updates.familyHistory !== undefined) profileUpdates.family_history = updates.familyHistory;
+      if (updates.birthDate !== undefined) profileUpdates.birth_date = updates.birthDate;
+      if (updates.age !== undefined) profileUpdates.age = updates.age;
 
       const updateResult = await updateProfileForUser(user.id, profileUpdates);
       if (updateResult.success === false) {
@@ -932,15 +966,7 @@ const ProfileView = ({
 
     // Flow-specific variations - simplified controls
     if (formType === 'FLOW') {
-      // Convert some to Yes/No
-      if (['flow_soporte'].includes(question.id)) {
-        return renderButtons(question, ['Sí', 'No']);
-      }
-
-      // Use percentage bars for some
-      if (['flow_carga_mental', 'flow_rumiacion', 'flow_alerta', 'flow_presion_social', 'flow_soledad', 'flow_energia_manana', 'flow_energia_tarde', 'flow_sueno_calidad', 'flow_pantallas', 'flow_libido', 'flow_conexion'].includes(question.id)) {
-        return renderPercentageControl(question);
-      }
+      // No special cases needed - use default controls
     }
 
     if (question.type === 'faces') {

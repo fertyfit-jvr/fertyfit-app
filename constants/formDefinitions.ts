@@ -372,6 +372,50 @@ const FLOW_QUESTIONS = [
     max: 7,
     variant: 'emotion',
     defaultValue: 4
+  },
+
+  // 11. Calidad del sueño (escala 0-4)
+  {
+    id: 'flow_calidad_sueno',
+    text: '¿Cómo calificarías la calidad de tu sueño?',
+    type: 'segmented',
+    min: 0,
+    max: 4,
+    options: [0, 1, 2, 3, 4],
+    defaultValue: 2
+  },
+
+  // 12. Líbido (escala 0-4)
+  {
+    id: 'flow_libido',
+    text: '¿Cómo describirías tu nivel de líbido o deseo sexual?',
+    type: 'segmented',
+    min: 0,
+    max: 4,
+    options: [0, 1, 2, 3, 4],
+    defaultValue: 2
+  },
+
+  // 13. ¿Fumadora?
+  {
+    id: 'flow_fumadora',
+    text: '¿Eres fumadora?',
+    type: 'buttons',
+    options: [
+      'No, nunca he fumado',
+      'No, pero fumé en el pasado',
+      'Sí, ocasionalmente',
+      'Sí, fumo regularmente'
+    ],
+    defaultValue: 'No, nunca he fumado'
+  },
+
+  // 14. Consumo de drogas en el último año (Sí/No + detalle condicional)
+  {
+    id: 'flow_drogas',
+    text: '¿Has consumido drogas en el último año?',
+    type: 'yesno',
+    defaultValue: 'No'
   }
 ];
 

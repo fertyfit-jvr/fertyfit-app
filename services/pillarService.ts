@@ -126,16 +126,6 @@ function normalizeAnswersToPillar(
       const floraCabello = answers['flora_cabello'] ? String(answers['flora_cabello']) : undefined;
       const floraCabelloOtro = answers['flora_cabello_otro'] ? String(answers['flora_cabello_otro']) : undefined;
       normalized.hair_issues = floraCabello ? (floraCabelloOtro ? `${floraCabello}: ${floraCabelloOtro}` : floraCabello) : undefined;
-
-      // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
-      normalized.antibiotics_last_12_months = answers['flora_antibioticos'] ? String(answers['flora_antibioticos']) : undefined;
-      normalized.vaginal_infections = answers['flora_infecciones'] === 'Sí' || answers['flora_infecciones'] === true;
-      normalized.altered_vaginal_ph = answers['flora_ph'] === 'Sí' || answers['flora_ph'] === true;
-      normalized.previous_probiotics = answers['flora_probio'] === 'Sí' || answers['flora_probio'] === true;
-      normalized.birth_lactation = answers['flora_parto'] ? String(answers['flora_parto']) : undefined;
-      normalized.bristol_stool_scale = answers['flora_bristol'] ? parseInt(answers['flora_bristol']) : undefined;
-      normalized.microbiome_tests = answers['flora_pruebas'] ? String(answers['flora_pruebas']) : undefined;
-      normalized.recommended_supplements = answers['flora_suplementos'] ? String(answers['flora_suplementos']) : undefined;
       break;
 
     case 'FLOW':
@@ -179,30 +169,23 @@ function normalizeAnswersToPillar(
         normalized.emotional_state = v >= 1 && v <= 7 ? Math.round(v * 10 / 7) : v;
       }
 
-      // ❌ MANTENER CAMPOS ANTIGUOS (para compatibilidad con datos existentes)
-      normalized.sleep_hours_avg = answers['flow_sleep_hours_avg'] ? parseFloat(answers['flow_sleep_hours_avg']) : undefined;
-      normalized.smoker = answers['flow_smoker'] ? String(answers['flow_smoker']) : undefined;
-      normalized.mental_load = answers['flow_carga_mental'] ? parseInt(answers['flow_carga_mental']) : undefined;
-      normalized.mental_rumination = answers['flow_rumiacion'] ? parseInt(answers['flow_rumiacion']) : undefined;
-      normalized.physical_anxiety = answers['flow_ansiedad'] === 'Sí' || answers['flow_ansiedad'] === true;
-      normalized.alertness = answers['flow_alerta'] ? parseInt(answers['flow_alerta']) : undefined;
-      normalized.regulation_tools = answers['flow_regulacion'] === 'Sí' || answers['flow_regulacion'] === true;
-      normalized.social_pressure = answers['flow_presion_social'] ? parseInt(answers['flow_presion_social']) : undefined;
-      normalized.emotional_support = answers['flow_soporte'] === 'Sí' || answers['flow_soporte'] === true;
-      normalized.loneliness = answers['flow_soledad'] ? parseInt(answers['flow_soledad']) : undefined;
-      normalized.frequent_conflicts = answers['flow_conflictos'] === 'Sí' || answers['flow_conflictos'] === true;
-      normalized.sleep_quality = answers['flow_sueno_calidad'] ? parseInt(answers['flow_sueno_calidad']) : undefined;
-      normalized.nocturnal_awakenings = answers['flow_despertares'] ? String(answers['flow_despertares']) : undefined;
-      normalized.nighttime_screen_use = answers['flow_pantallas'] ? parseInt(answers['flow_pantallas']) : undefined;
-      normalized.nap = answers['flow_siesta'] ? String(answers['flow_siesta']) : undefined;
-      normalized.morning_energy = answers['flow_energia_manana'] ? parseInt(answers['flow_energia_manana']) : undefined;
-      normalized.afternoon_energy = answers['flow_energia_tarde'] ? parseInt(answers['flow_energia_tarde']) : undefined;
-      normalized.coffee_cups = answers['flow_cafe'] ? parseInt(answers['flow_cafe']) : undefined;
-      normalized.libido = answers['flow_libido'] ? parseInt(answers['flow_libido']) : undefined;
-      normalized.emotional_connection_partner = answers['flow_conexion'] ? parseInt(answers['flow_conexion']) : undefined;
-      normalized.pain_dryness_relationships = answers['flow_dolor'] === 'Sí' || answers['flow_dolor'] === true;
-      normalized.fertility_anxiety_relationships = answers['flow_ansiedad_relaciones'] === 'Sí' || answers['flow_ansiedad_relaciones'] === true;
-      normalized.off_schedule_snacks = answers['flow_snacks'] ? String(answers['flow_snacks']) : undefined;
+      // Nuevas preguntas Flow
+      if (answers['flow_calidad_sueno'] != null) {
+        normalized.sleep_quality = parseInt(String(answers['flow_calidad_sueno']));
+      }
+      if (answers['flow_libido'] != null) {
+        normalized.libido = parseInt(String(answers['flow_libido']));
+      }
+      normalized.smoker = answers['flow_fumadora'] ? String(answers['flow_fumadora']) : undefined;
+      
+      // Consumo de drogas (con detalle si responde Sí)
+      const flowDrogas = answers['flow_drogas'];
+      const flowDrogasDetalle = answers['flow_drogas_detalle'];
+      if (flowDrogas === 'Sí' && flowDrogasDetalle) {
+        normalized.drug_use_last_year = `Sí: ${flowDrogasDetalle}`;
+      } else if (flowDrogas === 'No') {
+        normalized.drug_use_last_year = 'No';
+      }
       break;
   }
 

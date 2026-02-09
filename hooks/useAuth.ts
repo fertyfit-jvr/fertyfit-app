@@ -39,7 +39,6 @@ export function useAuth() {
             id: session.user.id,
             email: session.user.email,
             name: displayName,
-            age: 30,
             disclaimer_accepted: false
           });
 
@@ -68,6 +67,7 @@ export function useAuth() {
             methodStartDate: profile.method_start_date,
             name: profile.name,
             age: profile.age,
+            birthDate: profile.birth_date || undefined,
             weight: profile.weight,
             height: profile.height,
             timeTrying: calculatedTimeTrying ?? undefined,
@@ -78,16 +78,16 @@ export function useAuth() {
             isOnboarded: true,
             mainObjective: profile.main_objective,
             partnerStatus: profile.partner_status,
+            familyHistory: profile.family_history,
+            surgicalHistory: profile.surgical_history,
+            obstetricHistory: profile.obstetric_history,
+            fertilityTreatments: profile.fertility_treatments,
+            diagnoses: profile.diagnoses, // TEXT field from F0
             role: (profile.role as 'user') || 'user',
             cycleRegularity: (profile.cycle_regularity as 'Regular' | 'Irregular') || undefined,
             cycleLength: profile.cycle_length,
             lastPeriodDate: profile.last_period_date,
             periodHistory: profile.period_history || [],
-            // Legacy fields (migrated to pillar tables)
-            diagnoses: profile.diagnoses || [],
-            fertilityTreatments: profile.fertility_treatments,
-            supplements: profile.supplements,
-            alcoholConsumption: profile.alcohol_consumption,
             // Consent fields
             consent_personal_data: profile.consent_personal_data,
             consent_food: profile.consent_food,

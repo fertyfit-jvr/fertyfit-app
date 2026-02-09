@@ -64,56 +64,27 @@ export interface PillarFlora {
   hpylori_diagnosed?: boolean;      // flora_hpylori
   skin_issues?: string;             // flora_piel (con _otro si aplica)
   hair_issues?: string;             // flora_cabello (con _otro si aplica)
-  // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
-  antibiotics_last_12_months?: string;
-  vaginal_infections?: boolean;
-  altered_vaginal_ph?: boolean;
-  previous_probiotics?: boolean;
-  birth_lactation?: string;
-  bristol_stool_scale?: number;
-  microbiome_tests?: string;
-  recommended_supplements?: string;
   created_at?: string;
   updated_at?: string;
 }
 
 export interface PillarFlow {
   user_id: string;
-  // ⭐ NUEVOS CAMPOS (sistema de puntos)
-  stress_level?: number;            // stress: nivel de estrés percibido (0-10, slider)
-  sleep_hours?: number;              // sueno: horas de sueño de calidad (se mapea a puntos 1-10)
-  relaxation_frequency?: number;     // relax: frecuencia técnicas de relajación (0-7 veces/semana, mapea a puntos 1-10)
-  exercise_type?: string;           // ejer: tipo y frecuencia de ejercicio
-  morning_sunlight?: string;         // solar: exposición a luz solar matutina
-  endocrine_disruptors?: string;     // tox: medidas para reducir disruptores endocrinos
-  bedtime_routine?: string;          // noche: rutina antes de dormir
-  social_environment?: string;       // flow_entorno_social: entorno social (checkboxes + otro)
-  healthy_relationships?: boolean;   // flow_relaciones_saludables: Sí/No
-  emotional_state?: number;          // emocion: estado emocional respecto a búsqueda de embarazo (1-10, slider)
-  // ❌ CAMPOS ANTIGUOS (mantener por compatibilidad con datos existentes)
-  mental_load?: number; // 0-4
-  mental_rumination?: number; // 0-4
-  physical_anxiety?: boolean;
-  alertness?: number; // 0-4
-  regulation_tools?: boolean;
-  social_pressure?: number; // 0-4
-  emotional_support?: boolean;
-  loneliness?: number; // 0-4
-  frequent_conflicts?: boolean;
-  sleep_quality?: number; // 0-4
-  nocturnal_awakenings?: string;
-  nighttime_screen_use?: number; // 0-4
-  sleep_hours_avg?: number;
-  nap?: string;
-  morning_energy?: number; // 0-4
-  afternoon_energy?: number; // 0-4
-  coffee_cups?: number; // 0-6
-  libido?: number; // 0-4
-  emotional_connection_partner?: number; // 0-4
-  pain_dryness_relationships?: boolean;
-  fertility_anxiety_relationships?: boolean;
-  off_schedule_snacks?: string;
-  smoker?: string; // (migrated from F0)
+  // Campos del formulario Flow actual
+  stress_level?: number;            // flow_stress: nivel de estrés percibido (1-7, mapea a 0-10)
+  sleep_hours?: number;             // flow_sueno: horas de sueño de calidad
+  relaxation_frequency?: number;    // flow_relax: frecuencia técnicas de relajación (0-7 veces/semana)
+  exercise_type?: string;           // flow_ejer: tipo y frecuencia de ejercicio (JSON)
+  morning_sunlight?: string;        // flow_solar: exposición a luz solar matutina
+  endocrine_disruptors?: string;    // flow_tox: medidas para reducir disruptores endocrinos
+  bedtime_routine?: string;         // flow_noche: rutina antes de dormir
+  social_environment?: string;      // flow_entorno_social: entorno social (con :: para "otro")
+  healthy_relationships?: boolean;  // flow_relaciones_saludables: Sí/No
+  emotional_state?: number;         // flow_emocion: estado emocional (1-7, mapea a 0-10)
+  sleep_quality?: number;           // flow_calidad_sueno: calidad del sueño (0-4)
+  libido?: number;                  // flow_libido: nivel de líbido (0-4)
+  smoker?: string;                  // flow_fumadora: fumadora (opciones)
+  drug_use_last_year?: string;      // flow_drogas: consumo de drogas ("No" o "Sí: detalles")
   created_at?: string;
   updated_at?: string;
 }

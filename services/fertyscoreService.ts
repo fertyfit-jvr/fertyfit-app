@@ -583,29 +583,7 @@ function calculateBristolScore(value?: number | null): number {
   return 50;
 }
 
-function calculateMicrobiotaRiskScore(flora: PillarFlora): number {
-  const scores = [
-    yesNoScore(flora.antibiotics_last_12_months, false),
-    yesNoScore(flora.vaginal_infections, false),
-    yesNoScore(flora.altered_vaginal_ph, false),
-    calculateBristolScore(flora.bristol_stool_scale),
-  ];
-  return clampScore(averageDefined(scores));
-}
-
-function calculateCareScore(flora: PillarFlora): number {
-  const scores = [
-    yesNoScore(flora.previous_probiotics, true),
-    yesNoScore(flora.microbiome_tests, true),
-    yesNoScore(flora.recommended_supplements, true),
-  ];
-  return clampScore(averageDefined(scores));
-}
-
-const FLORA_BASELINE_WEIGHTS = {
-  risk: 0.7,
-  care: 0.3,
-} as const;
+// Legacy functions removed - now using only new point-based system
 
 
 // ⭐ NUEVAS FUNCIONES DE SCORING PARA FLORA BASADAS EN PUNTOS (0-10 puntos → 0-100 score)
@@ -656,58 +634,20 @@ function getFoodIntolerancesPoints(intolerances?: string): number {
 function calculateNewFloraBaseline(flora?: PillarFlora | null): number {
   if (!flora) return NaN;
 
-  // Verificar si tiene datos nuevos (sistema de puntos)
-  const hasNewData = flora.digestive_health != null ||
-    flora.vaginal_health ||
-    flora.antibiotics_last_year ||
-    flora.fermented_foods_frequency != null ||
-    flora.food_intolerances;
+  // Usar sistema de puntos
+  const scores = [
+    pointsToScore(getDigestiveHealthPoints(flora.digestive_health)),
+    pointsToScore(getVaginalHealthPoints(flora.vaginal_health)),
+    pointsToScore(getAntibioticsLastYearPoints(flora.antibiotics_last_year)),
+    pointsToScore(getFermentedFoodsPoints(flora.fermented_foods_frequency)),
+    pointsToScore(getFoodIntolerancesPoints(flora.food_intolerances)),
+  ];
 
-  if (hasNewData) {
-    // Usar nuevo sistema de puntos
-    const scores = [
-      pointsToScore(getDigestiveHealthPoints(flora.digestive_health)),
-      pointsToScore(getVaginalHealthPoints(flora.vaginal_health)),
-      pointsToScore(getAntibioticsLastYearPoints(flora.antibiotics_last_year)),
-      pointsToScore(getFermentedFoodsPoints(flora.fermented_foods_frequency)),
-      pointsToScore(getFoodIntolerancesPoints(flora.food_intolerances)),
-    ];
+  const valid = scores.filter(s => !Number.isNaN(s));
+  if (valid.length === 0) return NaN;
 
-    const valid = scores.filter(s => !Number.isNaN(s));
-    if (valid.length === 0) return NaN;
-
-    // Promedio simple de todos los scores válidos
-    return clampScore(valid.reduce((a, b) => a + b, 0) / valid.length);
-  }
-
-  // Fallback: usar sistema antiguo si no hay datos nuevos
-  const risk = calculateMicrobiotaRiskScore(flora);
-  const care = calculateCareScore(flora);
-
-  const validEntries = [
-    ['risk', risk],
-    ['care', care],
-  ].filter(([, v]) => !Number.isNaN(v)) as [keyof typeof FLORA_BASELINE_WEIGHTS, number][];
-
-  // baseline debe tener al menos 2 sub-scores válidos para ser fiable
-  if (validEntries.length < 2) return NaN;
-
-  // Si el riesgo es alto (score bajo), el bloque CARE no debe inflar artificialmente el baseline
-  if (risk < 60) {
-    return clampScore(risk);
-  }
-
-  const weighted = validEntries.reduce(
-    (acc, [key, value]) => acc + value * FLORA_BASELINE_WEIGHTS[key],
-    0,
-  );
-
-  const totalWeight = validEntries.reduce(
-    (acc, [key]) => acc + FLORA_BASELINE_WEIGHTS[key],
-    0,
-  );
-
-  return clampScore(weighted / totalWeight);
+  // Promedio simple de todos los scores válidos
+  return clampScore(valid.reduce((a, b) => a + b, 0) / valid.length);
 }
 
 function calculateFloraBaseline(flora?: PillarFlora | null): number {
@@ -758,42 +698,7 @@ function calculateFloraScore(flora?: PillarFlora | null, logs: DailyLog[] = []):
 // 4. FLOW (estrés, ciclo, estabilidad hormonal/emocional)
 // ============================================================================
 
-// Helpers Likert estandarizados según especificación del equipo
-function likertNegative(v?: number | null): number {
-  if (v == null) return NaN;
-  // índice: 0,1,2,3,4,5  →  null,100,85,70,55,40
-  const table = [null, 100, 85, 70, 55, 40] as const;
-  const mapped = table[v as number];
-  return typeof mapped === 'number' ? mapped : NaN;
-}
-
-function likertPositive(v?: number | null): number {
-  if (v == null) return NaN;
-  // índice: 0,1,2,3,4,5  →  null,40,55,70,85,100
-  const table = [null, 40, 55, 70, 85, 100] as const;
-  const mapped = table[v as number];
-  return typeof mapped === 'number' ? mapped : NaN;
-}
-
-// Campos que pertenecen al baseline FLOW (según especificación)
-const NEGATIVE_FIELDS = [
-  'stress_level',
-  'mental_load',
-  'mental_rumination',
-  'nighttime_screen_use',
-  'loneliness',
-  'frequent_conflicts',
-  'fertility_anxiety_relationships',
-  'pain_dryness_relationships',
-] as const;
-
-const POSITIVE_FIELDS = [
-  'libido',
-  'emotional_connection_partner',
-  'emotional_support',
-] as const;
-
-// Baseline FLOW: media simple de todos los sub-scores válidos (mínimo 3)
+// Baseline FLOW: usa sistema de puntos (0-10)
 // ⭐ NUEVAS FUNCIONES DE SCORING PARA FLOW BASADAS EN PUNTOS (0-10 puntos → 0-100 score)
 function getStressLevelPoints(stress?: number): number {
   if (stress == null) return NaN;
@@ -879,73 +784,26 @@ function getEmotionalStatePoints(emotionalState?: number): number {
 function calculateNewFlowBaseline(flow?: PillarFlow | null): number {
   if (!flow) return NaN;
 
-  // Verificar si tiene datos nuevos (sistema de puntos)
-  const hasNewData = flow.stress_level != null ||
-    flow.sleep_hours != null ||
-    flow.relaxation_frequency != null ||
-    flow.exercise_type ||
-    flow.morning_sunlight ||
-    flow.endocrine_disruptors ||
-    flow.bedtime_routine ||
-    flow.emotional_state != null;
-
-  if (hasNewData) {
-    // Usar nuevo sistema de puntos
-    const scores = [
-      pointsToScore(getStressLevelPoints(flow.stress_level)),
-      pointsToScore(getSleepHoursPoints(flow.sleep_hours)),
-      pointsToScore(getRelaxationFrequencyPoints(flow.relaxation_frequency)),
-      pointsToScore(getExerciseTypePoints(flow.exercise_type)),
-      pointsToScore(getMorningSunlightPoints(flow.morning_sunlight)),
-      pointsToScore(getEndocrineDisruptorsPoints(flow.endocrine_disruptors)),
-      pointsToScore(getBedtimeRoutinePoints(flow.bedtime_routine)),
-      pointsToScore(getEmotionalStatePoints(flow.emotional_state)),
-    ];
-
-    const valid = scores.filter(s => !Number.isNaN(s));
-    if (valid.length === 0) return NaN;
-
-    // Promedio simple de todos los scores válidos
-    return clampScore(valid.reduce((a, b) => a + b, 0) / valid.length);
-  }
-
-  // Fallback: usar sistema antiguo si no hay datos nuevos
-  const scores: number[] = [];
-
-  // Campos "negativos" (más alto = peor)
-  NEGATIVE_FIELDS.forEach(field => {
-    const raw = (flow as any)[field];
-    // booleans se mapean a 1/5 según el doc
-    if (typeof raw === 'boolean') {
-      const likert = raw ? 5 : 1;
-      scores.push(likertNegative(likert));
-    } else {
-      scores.push(likertNegative(raw));
-    }
-  });
-
-  // Campos "positivos" (más alto = mejor)
-  POSITIVE_FIELDS.forEach(field => {
-    const raw = (flow as any)[field];
-    if (typeof raw === 'boolean') {
-      const likert = raw ? 5 : 1;
-      scores.push(likertPositive(likert));
-    } else {
-      scores.push(likertPositive(raw));
-    }
-  });
+  // Sistema de puntos (0-10)
+  const scores = [
+    pointsToScore(getStressLevelPoints(flow.stress_level)),
+    pointsToScore(getSleepHoursPoints(flow.sleep_hours)),
+    pointsToScore(getRelaxationFrequencyPoints(flow.relaxation_frequency)),
+    pointsToScore(getExerciseTypePoints(flow.exercise_type)),
+    pointsToScore(getMorningSunlightPoints(flow.morning_sunlight)),
+    pointsToScore(getEndocrineDisruptorsPoints(flow.endocrine_disruptors)),
+    pointsToScore(getBedtimeRoutinePoints(flow.bedtime_routine)),
+    pointsToScore(getEmotionalStatePoints(flow.emotional_state)),
+  ];
 
   const valid = scores.filter(s => !Number.isNaN(s));
+  if (valid.length === 0) return NaN;
 
-  // Mínimo 3 sub-scores válidos para considerar FLOW baseline fiable
-  if (valid.length < 3) return NaN;
-
-  const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
-  return clampScore(avg);
+  // Promedio simple de todos los scores válidos
+  return clampScore(valid.reduce((a, b) => a + b, 0) / valid.length);
 }
 
 function calculateFlowBaseline(flow?: PillarFlow | null): number {
-  // Usar nuevo sistema si hay datos nuevos, sino usar antiguo
   return calculateNewFlowBaseline(flow);
 }
 
