@@ -12,7 +12,8 @@ const mockUser: UserProfile = {
     cycleLength: 28,
     cycleRegularity: 'Regular',
     smoker: 'No',
-    disclaimerAccepted: true
+    isOnboarded: true,
+    treatments: []
 };
 
 const mockLogs: DailyLog[] = [

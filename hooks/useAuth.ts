@@ -38,8 +38,7 @@ export function useAuth() {
           const profileResult = await createProfileForUser({
             id: session.user.id,
             email: session.user.email,
-            name: displayName,
-            disclaimer_accepted: false
+            name: displayName
           });
 
           if (!profileResult.success) {
@@ -74,7 +73,6 @@ export function useAuth() {
             timeTryingStartDate: profile.time_trying_start_date || undefined,
             timeTryingInitialMonths: profile.time_trying_initial_months || undefined,
             treatments: [],
-            disclaimerAccepted: profile.disclaimer_accepted,
             isOnboarded: true,
             mainObjective: profile.main_objective,
             partnerStatus: profile.partner_status,

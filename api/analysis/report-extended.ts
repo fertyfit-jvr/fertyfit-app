@@ -226,7 +226,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       weight: profile.weight || 0,
       height: profile.height || 0,
       treatments: [],
-      disclaimerAccepted: profile.disclaimer_accepted ?? false,
       isOnboarded: true,
       mainObjective: profile.main_objective || undefined,
       partnerStatus: profile.partner_status || undefined,

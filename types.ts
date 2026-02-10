@@ -12,7 +12,6 @@ export interface UserProfile {
   timeTryingStartDate?: string; // Date when user first registered time trying (YYYY-MM-DD)
   timeTryingInitialMonths?: number; // Initial months value at registration
   treatments: string[];
-  disclaimerAccepted: boolean;
   isOnboarded: boolean;
   role?: 'user'; // User role only - admin/specialist managed in separate app
 

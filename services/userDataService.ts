@@ -279,7 +279,6 @@ interface SupabaseProfile {
   birth_date?: string | null; // Date of birth (YYYY-MM-DD)
   weight?: number | null;
   height?: number | null;
-  disclaimer_accepted?: boolean | null;
   
   // Time trying fields
   time_trying_start_date?: string | null; // Date when user started trying (YYYY-MM-DD)
@@ -486,7 +485,6 @@ type ProfileInsertPayload = {
   name: string;
   age?: number;
   birth_date?: string;
-  disclaimer_accepted?: boolean;
 };
 
 type ProfileUpdatePayload = Partial<{
@@ -516,15 +514,14 @@ type ProfileUpdatePayload = Partial<{
  * @returns Result indicating success or error
  */
 export async function createProfileForUser(payload: ProfileInsertPayload): Promise<Result<void>> {
-  const { id, email, name, age, birth_date, disclaimer_accepted = false } = payload;
+  const { id, email, name, age, birth_date } = payload;
 
   try {
     const { error } = await withRetry(async () => {
       const insertData: any = {
         id,
         email,
-        name,
-        disclaimer_accepted
+        name
       };
       
       // Solo incluir age si se proporciona explícitamente

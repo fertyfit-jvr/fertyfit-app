@@ -100,7 +100,6 @@ interface AppStore {
   handleDateChange: (newDate: string) => void;
   saveDailyLog: () => Promise<void>;
   startMethod: () => Promise<void>;
-  acceptDisclaimer: () => Promise<void>;
   markLessonComplete: (lessonId: number) => Promise<void>;
 }
 
@@ -611,19 +610,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       fetchEducation(user.id, startDate);
     } else {
       showNotif('Error: ' + error.message, 'error');
-    }
-  },
-
-  acceptDisclaimer: async () => {
-    const { user, setUser, setView } = get();
-    if (!user?.id) return;
-    const { error } = await supabase
-      .from('profiles')
-      .update({ disclaimer_accepted: true })
-      .eq('id', user.id);
-    if (!error) {
-      setUser({ ...user, disclaimerAccepted: true });
-      setView('DASHBOARD');
     }
   },
 
