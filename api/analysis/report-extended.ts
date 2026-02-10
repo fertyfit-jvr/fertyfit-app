@@ -13,6 +13,7 @@ import {
   getReportTitle,
   type ReportType,
 } from './report-helpers.js';
+import { canGenerateBasic } from './reportRules.js';
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
 // Usamos SERVICE ROLE KEY para bypassear RLS y poder leer todos los datos del usuario
@@ -100,10 +101,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { userId, reportType = '360', labsScope = 'LAST' } = req.body as {
+    const { userId, reportType = '360', labsScope = 'LAST', manualTrigger = false } = req.body as {
       userId?: string;
       reportType?: ReportType;
       labsScope?: 'LAST' | 'ALL';
+      manualTrigger?: boolean;
     };
 
     if (!userId) {
@@ -115,83 +117,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw createError('Tipo de informe inválido', 400, 'INVALID_REPORT_TYPE');
     }
 
-    // 0. REGLAS ESTRICTAS DE GENERACIÓN AUTOMÁTICA
-    // Solo para reportType = 'BASIC', que se dispara automáticamente
-    if (reportType === 'BASIC') {
-      // A. LÍMITE MENSUAL: Máximo 2 informes básicos automáticos por mes
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const { count: monthlyCount, error: countError } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('type', 'REPORT')
-        .contains('metadata', { report_type: 'BASIC' })
-        .gte('created_at', startOfMonth.toISOString());
-
-      if (monthlyCount !== null && monthlyCount >= 2) {
-        logger.info(`[REPORT_BLOCKED] Límite mensual alcanzado para usuario ${userId}. Count: ${monthlyCount}`);
-        res.status(200).json({
-          message: 'Monthly limit reached (max 2/month)',
-          skipped: true,
-          reason: 'MONTHLY_LIMIT'
-        });
-        return res.end();
-      }
-
-      // B. VERIFICACIÓN DE DATOS NUEVOS: Solo generar si hay datos MÁS NUEVOS que el último informe
-      // 1. Obtener fecha del último informe básico
-      const { data: lastReport } = await supabase
-        .from('notifications')
-        .select('created_at')
-        .eq('user_id', userId)
-        .eq('type', 'REPORT')
-        .contains('metadata', { report_type: 'BASIC' })
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (lastReport) {
-        const lastReportDate = new Date(lastReport.created_at).getTime();
-
-        // 2. Obtener fecha de última modificación de CUALQUIER formulario (F0, Function, etc.)
-        const { data: latestForm } = await supabase
-          .from('consultation_forms')
-          .select('submitted_at, updated_at')
-          .eq('user_id', userId)
-          .order('updated_at', { ascending: false }) // Check updated_at (updates)
-          .limit(1)
-          .single();
-
-        // Check submitted_at as well (new creations)
-        const { data: latestSubmission } = await supabase
-          .from('consultation_forms')
-          .select('submitted_at')
-          .eq('user_id', userId)
-          .order('submitted_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        const latestFormUpdate = Math.max(
-          latestForm?.updated_at ? new Date(latestForm.updated_at).getTime() : 0,
-          latestSubmission?.submitted_at ? new Date(latestSubmission.submitted_at).getTime() : 0
-        );
-
-        // Si el informe es más reciente que el último dato modificado, NO generar nuevo
-        // Añadimos un margen de 1 minuto para evitar condiciones de carrera donde se guardan casi a la vez
-        if (lastReportDate >= latestFormUpdate - 60000) {
-          logger.info(`[REPORT_BLOCKED] No hay datos nuevos para usuario ${userId}. Report: ${lastReport.created_at}, Data: ${new Date(latestFormUpdate).toISOString()}`);
+    // 0. VALIDACIÓN DE REGLAS (solo para generación automática)
+    // Si manualTrigger = true, se bypasean todas las reglas
+    if (!manualTrigger) {
+      // VALIDACIÓN PARA BASIC
+      if (reportType === 'BASIC') {
+        const { canGenerate, reason } = await canGenerateBasic(userId);
+        if (!canGenerate) {
+          logger.info(`[REPORT_BLOCKED] ${reason}`);
           res.status(200).json({
-            message: 'No new data to analyze',
+            message: reason,
             skipped: true,
-            reason: 'NO_NEW_DATA'
+            reason: 'VALIDATION_FAILED'
           });
           return res.end();
         }
       }
-      // Si no hay reportes anteriores (first time), pasa y se genera.
+
+      // Las validaciones de DAILY, LABS y 360 se hacen en los cron jobs
+      // o en los puntos de trigger, no aquí
+    } else {
+      // Es una generación manual - registrar en logs
+      logger.info(`[MANUAL_REPORT] User ${userId} manually triggered ${reportType} report`);
     }
 
     // Configurar streaming response (NDJSON)
@@ -428,6 +375,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         metadata: {
           report_type: reportType,
           format: 'markdown',
+          manual_trigger: manualTrigger, // Flag para distinguir manual vs automático
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',

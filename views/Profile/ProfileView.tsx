@@ -184,76 +184,101 @@ const ProfileView = ({
   const [pillarExamType, setPillarExamType] = useState<'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | 'other'>('other');
   const [pillarExamName, setPillarExamName] = useState('');
 
-  // Refs para auto-save
+  // Refs para auto-save y auto-report
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoSaveTimeoutPillarRef = useRef<NodeJS.Timeout | null>(null);
   const originalAnswers = useRef<FormAnswersDict>({});
   const originalF0Answers = useRef<FormAnswersDict>({});
   const isGeneratingAutoReportRef = useRef(false);
+  const basicReportDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFormUpdatesRef = useRef<Record<string, string>>({});
 
-  // Auto-trigger BASIC report when all forms are submitted
+  // Auto-trigger BASIC report when forms are updated
   useEffect(() => {
     if (!user?.id) return;
 
-    // 1. Check if Function, Food, Flora, Flow and F0 are submitted
-    const hasF0 = submittedForms.some(f => f.form_type === 'F0');
-    const hasFunction = !!findSubmission(submittedForms, 'FUNCTION');
-    const hasFood = !!findSubmission(submittedForms, 'FOOD');
-    const hasFlora = !!findSubmission(submittedForms, 'FLORA');
-    const hasFlow = !!findSubmission(submittedForms, 'FLOW');
+    // 1. Verificar que existan todos los formularios
+    const f0Form = submittedForms.find(f => f.form_type === 'F0');
+    const functionForm = findSubmission(submittedForms, 'FUNCTION');
+    const foodForm = findSubmission(submittedForms, 'FOOD');
+    const floraForm = findSubmission(submittedForms, 'FLORA');
+    const flowForm = findSubmission(submittedForms, 'FLOW');
 
-    const allFormsSubmitted = hasF0 && hasFunction && hasFood && hasFlora && hasFlow;
+    const allFormsExist = f0Form && functionForm && foodForm && floraForm && flowForm;
+    if (!allFormsExist) return;
 
-    if (!allFormsSubmitted) return;
+    // 2. Detectar si algún formulario fue actualizado
+    const currentUpdates: Record<string, string> = {
+      F0: f0Form.updated_at || f0Form.submitted_at || '',
+      FUNCTION: functionForm.updated_at || functionForm.submitted_at || '',
+      FOOD: foodForm.updated_at || foodForm.submitted_at || '',
+      FLORA: floraForm.updated_at || floraForm.submitted_at || '',
+      FLOW: flowForm.updated_at || flowForm.submitted_at || '',
+    };
 
-    // 2. Check if report already exists
-    const hasBasicReport = visibleNotifications.some(n =>
-      n.type === 'REPORT' && n.metadata?.reportType === 'BASIC'
-    );
-
-    if (hasBasicReport) return;
-
-    // 3. Trigger generation with localStorage protection
-    if (isGeneratingAutoReportRef.current) return;
-
-    // Check localStorage to prevent duplicate triggers across reloads
-    const lastTrigger = localStorage.getItem(`fertyfit_report_triggered_${user.id}_BASIC`);
-    if (lastTrigger) {
-      const lastTriggerDate = new Date(lastTrigger);
-      const now = new Date();
-      // Prevent re-triggering if triggered in the last 24 hours
-      const hoursSince = (now.getTime() - lastTriggerDate.getTime()) / (1000 * 60 * 60);
-      if (hoursSince < 24) {
-        return;
+    // Verificar si hay cambios respecto al último check
+    let hasChanges = false;
+    for (const [formType, timestamp] of Object.entries(currentUpdates)) {
+      if (lastFormUpdatesRef.current[formType] !== timestamp) {
+        hasChanges = true;
+        break;
       }
     }
 
-    isGeneratingAutoReportRef.current = true;
+    if (!hasChanges) return;
 
-    // Set flag immediately to prevent race conditions during this session
-    localStorage.setItem(`fertyfit_report_triggered_${user.id}_BASIC`, new Date().toISOString());
+    // Actualizar el ref con los nuevos timestamps
+    lastFormUpdatesRef.current = currentUpdates;
 
-    fetch('/api/analysis/report-extended', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        reportType: 'BASIC'
-      }),
-    }).then(async res => {
-      if (res.ok) {
-        showNotif('¡Excelente! Has completado tu perfil. Generando tu Informe Básico...', 'success');
-      } else {
-        // If failed, maybe clear localStorage? safely keep it to avoid spam loop on error
-        console.warn('Report generation request failed');
+    // 3. Debounce: agrupar actualizaciones que ocurran en ventana de 5 minutos
+    if (basicReportDebounceRef.current) {
+      clearTimeout(basicReportDebounceRef.current);
+    }
+
+    basicReportDebounceRef.current = setTimeout(() => {
+      // 4. Trigger automático del informe
+      if (isGeneratingAutoReportRef.current) return;
+
+      isGeneratingAutoReportRef.current = true;
+
+      fetch('/api/analysis/report-extended', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          reportType: 'BASIC',
+          manualTrigger: false // Es automático
+        }),
+      })
+        .then(async res => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.skipped) {
+              // Informe no generado por reglas (límite mensual, etc.)
+              console.log('[BASIC REPORT] Skipped:', data.reason);
+            } else {
+              showNotif('Detectamos cambios en tus formularios. Generando Informe Básico actualizado...', 'success');
+            }
+          } else {
+            console.warn('[BASIC REPORT] Generation request failed');
+          }
+        })
+        .catch(err => {
+          console.error('[BASIC REPORT] Error triggering auto-report:', err);
+        })
+        .finally(() => {
+          setTimeout(() => {
+            isGeneratingAutoReportRef.current = false;
+          }, 30000);
+        });
+    }, 5 * 60 * 1000); // 5 minutos de debounce
+
+    return () => {
+      if (basicReportDebounceRef.current) {
+        clearTimeout(basicReportDebounceRef.current);
       }
-    }).catch(err => {
-      console.error('Error triggering auto-report:', err);
-    }).finally(() => {
-      // Prevent re-triggering for a while
-      setTimeout(() => { isGeneratingAutoReportRef.current = false }, 30000);
-    });
-  }, [submittedForms, visibleNotifications, user?.id]);
+    };
+  }, [submittedForms, user?.id, showNotif]);
 
   const handleLoadFullHistory = useCallback(async () => {
     if (!user?.id || !fetchAllLogs || !setLogs) return;

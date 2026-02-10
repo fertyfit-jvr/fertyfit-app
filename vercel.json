@@ -1,4 +1,14 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron/generate-daily-reports",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/generate-360-reports",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

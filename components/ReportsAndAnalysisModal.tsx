@@ -24,6 +24,8 @@ export const ReportsAndAnalysisModal = ({ isOpen, onClose, user, showNotif, setV
     const [reportError, setReportError] = useState<string | null>(null);
     const [reportGenerationStartTime, setReportGenerationStartTime] = useState<number | null>(null);
     const [reportReady, setReportReady] = useState(false);
+    const [reportWarnings, setReportWarnings] = useState<string[]>([]);
+    const [showWarningDialog, setShowWarningDialog] = useState(false);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleDataExtracted = (data: Record<string, any>) => {
@@ -91,8 +93,42 @@ export const ReportsAndAnalysisModal = ({ isOpen, onClose, user, showNotif, setV
         };
     }, [reportGenerationStartTime, user?.id, selectedReportType, fetchNotifications, showNotif]);
 
-    const handleGenerateReport = async (reportType: ReportType) => {
+    // Verificar condiciones antes de generar (solo advertencias, no bloquea)
+    const checkReportConditions = async (reportType: ReportType): Promise<boolean> => {
+        try {
+            const response = await fetch('/api/analysis/check-report-conditions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, reportType })
+            });
+            
+            if (response.ok) {
+                const { warnings } = await response.json();
+                
+                if (warnings && warnings.length > 0) {
+                    setReportWarnings(warnings);
+                    setShowWarningDialog(true);
+                    return false; // No generar aún, esperar confirmación
+                }
+            }
+            return true; // OK para generar
+        } catch (error) {
+            console.warn('Error checking conditions:', error);
+            // Si falla la verificación, permitir generar igual
+            return true;
+        }
+    };
+
+    const handleGenerateReport = async (reportType: ReportType, skipCheck = false) => {
         if (!user?.id) return;
+
+        // Si no se solicita skip, verificar condiciones primero
+        if (!skipCheck) {
+            const canProceed = await checkReportConditions(reportType);
+            if (!canProceed) {
+                return; // Esperar confirmación del usuario
+            }
+        }
 
         setIsGeneratingReport(true);
         setReportError(null);
@@ -104,6 +140,7 @@ export const ReportsAndAnalysisModal = ({ isOpen, onClose, user, showNotif, setV
                 body: JSON.stringify({
                     userId: user.id,
                     reportType,
+                    manualTrigger: true, // Siempre true para botones manuales
                     ...(reportType === 'LABS' ? { labsScope } : {}),
                 }),
             });
@@ -313,6 +350,43 @@ export const ReportsAndAnalysisModal = ({ isOpen, onClose, user, showNotif, setV
                             </div>
                         )}
 
+
+                        {/* Diálogo de advertencias */}
+                        {showWarningDialog && reportWarnings.length > 0 && (
+                            <div className="mt-4 bg-yellow-50 border border-yellow-200 p-4 rounded-xl">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle size={20} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold text-yellow-800">Advertencias sobre este informe</p>
+                                        <ul className="text-xs text-yellow-700 mt-2 space-y-1">
+                                            {reportWarnings.map((warning, idx) => (
+                                                <li key={idx}>{warning}</li>
+                                            ))}
+                                        </ul>
+                                        <div className="mt-3 flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setShowWarningDialog(false);
+                                                    handleGenerateReport(selectedReportType, true); // skipCheck = true
+                                                }}
+                                                className="px-4 py-2 bg-yellow-600 text-white text-xs font-bold rounded-xl hover:bg-yellow-700 transition-colors"
+                                            >
+                                                Continuar de todas formas
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setShowWarningDialog(false);
+                                                    setReportWarnings([]);
+                                                }}
+                                                className="px-4 py-2 bg-white border border-yellow-300 text-yellow-800 text-xs font-bold rounded-xl hover:bg-yellow-50 transition-colors"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Área de error */}
                         {reportError && !isGeneratingReport && (

@@ -141,6 +141,36 @@ export async function saveExamToConsultationForms(
       fieldsCount: answers.length
     });
 
+    // Disparar generación automática de informe LABS
+    // Esto se hace en segundo plano, no afecta el guardado del exam
+    if (data?.id) {
+      try {
+        // Usar fetch para llamar al endpoint en segundo plano
+        fetch('/api/analysis/report-extended', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            reportType: 'LABS',
+            manualTrigger: false // Es automático
+          })
+        })
+          .then(response => {
+            if (response.ok) {
+              logger.log('✅ LABS report triggered automatically for exam:', data.id);
+            } else {
+              logger.warn('⚠️ LABS report trigger failed for exam:', data.id);
+            }
+          })
+          .catch(error => {
+            logger.warn('⚠️ Error triggering LABS report:', error);
+          });
+      } catch (triggerError) {
+        // No fallar el guardado del exam si falla el trigger del informe
+        logger.warn('⚠️ Failed to trigger LABS report (non-blocking):', triggerError);
+      }
+    }
+
     return { success: true, formId: data?.id };
   } catch (error: any) {
     logger.error('Error in saveExamToConsultationForms:', error);
