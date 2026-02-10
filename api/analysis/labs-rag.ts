@@ -120,6 +120,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // (Opcional) Cargar perfil básico para contexto (edad)
     let age = 0;
+    // Si tenemos valores de laboratorio, priorizarlos y NO usar imagen para Gemini
+    const hasLabs = !!labs && Object.keys(labs).length > 0;
+    const effectiveImage = hasLabs ? undefined : image;
+
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -145,10 +149,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Construir query para RAG
       let ragQuery: string;
       let labValues = '';
-      if (image && examType) {
+      if (effectiveImage && examType) {
         // Si hay imagen, buscar contexto sobre ese tipo de examen
         ragQuery = `contexto sobre interpretación de ${examType} y análisis de imágenes médicas de fertilidad para una mujer de ${age || 'edad no especificada'} años`;
-      } else if (labs && Object.keys(labs).length > 0) {
+      } else if (hasLabs) {
         // Si hay valores de laboratorio
         labValues = Object.entries(labs)
           .filter(([_, value]) => value !== undefined && value !== null)
@@ -254,13 +258,13 @@ INSTRUCCIONES:
 - IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML.
 `;
 
-    // Si hay imagen, incluirla en el contenido
-    const contents = image
+    // Si hay imagen (solo cuando no tenemos labs), incluirla en el contenido
+    const contents = effectiveImage
       ? [
         { text: prompt },
         {
           inlineData: {
-            data: image.split(',')[1], // Remover data URL prefix
+            data: effectiveImage.split(',')[1], // Remover data URL prefix
             mimeType: 'image/jpeg',
           },
         },

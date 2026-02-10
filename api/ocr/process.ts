@@ -386,6 +386,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (isKnownType) {
       // SOLO para tipos conocidos: mapear a keys específicas para validación
+      // PERO además guardar SIEMPRE todos los parámetros con una clave normalizada
       for (const item of resultados) {
         // Validar estructura del item antes de procesar
         if (!item || typeof item !== 'object') {
@@ -412,21 +413,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        // Mapear nombres de parámetro a keys internas usadas en MEDICAL_RANGES
+        // 1) Guardar SIEMPRE una clave normalizada para NO perder ningún parámetro
+        const normalizedKey = String(parametroRaw)
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '');
+
+        rawParsedData[normalizedKey] = valor;
+        rawParsedData[`${normalizedKey}_original`] = parametroRaw;
+
+        // 2) Mapear nombres de parámetro a keys internas usadas en MEDICAL_RANGES
+        // Añadimos variantes en español para mejorar la cobertura
         if (parametro.includes('fsh')) rawParsedData.function_fsh = valor;
         if (parametro.includes('lh')) rawParsedData.function_lh = valor;
         if (parametro.includes('estradiol')) rawParsedData.function_estradiol = valor;
         if (parametro.includes('prolact')) rawParsedData.function_prolactina = valor;
         if (parametro.includes('tsh')) rawParsedData.function_tsh = valor;
         if (parametro.includes('t4')) rawParsedData.function_t4 = valor;
-        if (parametro.includes('glucosa')) rawParsedData.function_glucosa = valor;
-        if (parametro.includes('insulin')) rawParsedData.function_insulina = valor;
-        if (parametro.includes('ferritin')) rawParsedData.function_ferritina = valor;
-        if (parametro.includes('hierro')) rawParsedData.function_hierro = valor;
-        if (parametro.includes('transferrin')) rawParsedData.function_transferrina = valor;
-        if (parametro.includes('colesterol')) rawParsedData.function_colesterol = valor;
+        if (parametro.includes('glucosa') || parametro.includes('glucose')) rawParsedData.function_glucosa = valor;
+        if (parametro.includes('insulin') || parametro.includes('insulina')) rawParsedData.function_insulina = valor;
+        if (parametro.includes('ferritin') || parametro.includes('ferritina')) rawParsedData.function_ferritina = valor;
+        if (parametro.includes('hierro') || parametro.includes('iron') || parametro.includes('fe')) rawParsedData.function_hierro = valor;
+        if (parametro.includes('transferrin') || parametro.includes('transferrina')) rawParsedData.function_transferrina = valor;
+        if (parametro.includes('colesterol') || parametro.includes('cholesterol')) rawParsedData.function_colesterol = valor;
         if (parametro.includes('triglic')) rawParsedData.function_trigliceridos = valor;
-        if (parametro.includes('vitamina d') || parametro.includes('25-oh') || parametro.includes('25oh')) {
+        if (
+          parametro.includes('vitamina d') ||
+          parametro.includes('vitamin d') ||
+          parametro.includes('25-oh') ||
+          parametro.includes('25oh')
+        ) {
           rawParsedData.function_vitamina_d_valor = valor;
         }
         if (parametro.includes('afc total')) rawParsedData.function_afc_total = valor;

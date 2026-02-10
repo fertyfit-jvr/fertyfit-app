@@ -262,16 +262,12 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
               examType: finalExamType
             });
 
-            // Send the first image as proxy context if needed
-            const primaryImage = images[0];
-
             const response = await fetch('/api/analysis/labs-rag', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 userId: user.id,
                 labs: Object.keys(labs).length > 0 ? labs : undefined,
-                image: primaryImage || undefined,
                 examType: finalExamType || undefined,
                 filters: { pillar_category: 'FUNCTION' }
               })
