@@ -23,8 +23,7 @@ BEGIN
     ) THEN
         DROP POLICY "Users can insert their own profile" ON profiles;
     END IF;
-END
-$$;
+END$$;
 
 -- Create SELECT policy: Users can view their own profile
 CREATE POLICY "Users can view their own profile"
