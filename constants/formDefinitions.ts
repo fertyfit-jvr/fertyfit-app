@@ -281,15 +281,15 @@ const FLORA_QUESTIONS = [
 ];
 
 const FLOW_QUESTIONS = [
-  // 1. Nivel de estrés percibido (1-7, iconos visuales sin número)
+  // 1. Nivel de estrés percibido (1-5, iconos visuales sin número)
   {
     id: 'flow_stress',
     text: '¿Cómo calificarías tu nivel de estrés percibido en el día a día?',
     type: 'flow_faces',
     min: 1,
-    max: 7,
+    max: 5,
     variant: 'stress',
-    defaultValue: 4
+    defaultValue: 3
   },
 
   // 2. Horas de sueño de calidad (slider con step 0.5 para 5.5, 6.5, etc.)

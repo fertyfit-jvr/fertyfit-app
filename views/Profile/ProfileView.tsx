@@ -847,7 +847,14 @@ const ProfileView = ({
           step={step}
           value={safeValue}
           className="w-full accent-ferty-rose"
-          onChange={event => updateAnswer(question.id, Number(event.target.value))}
+          onChange={event => {
+            const val = parseFloat(event.target.value);
+            const step = question.step ?? 1;
+            // Redondear al step más cercano para evitar problemas de precisión
+            const rounded = Math.round(val / step) * step;
+            const finalValue = Number(rounded.toFixed(2));
+            updateAnswer(question.id, Number.isFinite(finalValue) ? finalValue : safeValue);
+          }}
         />
       </div>
     );
@@ -927,6 +934,46 @@ const ProfileView = ({
     );
   };
 
+  const renderFlowFacesControl = (question: any) => {
+    const min = question.min ?? 1;
+    const max = question.max ?? 5;
+    const variant = question.variant ?? 'stress';
+    const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+
+    // Estrés: 1=tranquila → 5=abrumada. Emoción: 1=ansiosa → 7=empoderada. Digestiva: 1=muy mal → 7=excelente
+    const stressIcons = [Smile, Meh, Frown, Angry, XCircle]; // 5 iconos para escala 1-5
+    const emotionIcons = [Frown, Meh, Meh, Meh, Smile, Smile, Heart]; // 7 iconos para escala 1-7
+    const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile]; // 7 iconos para escala 1-7
+    const icons =
+      variant === 'emotion' ? emotionIcons
+        : variant === 'digestive' ? digestiveIcons
+          : stressIcons;
+
+    const isFlora = question.id === 'flora_dig';
+    const activeClass = isFlora ? 'bg-ferty-flora-accent/20 text-ferty-flora-accent' : 'bg-ferty-rose/20 text-ferty-coral';
+    const iconClass = isFlora ? 'text-ferty-flora-accent' : 'text-ferty-coral';
+
+    return (
+      <div className="flex justify-center gap-1">
+        {values.map((value, index) => {
+          const IconComponent = icons[index] || Smile;
+          const isActive = answers[question.id] === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => updateAnswer(question.id, value)}
+              className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${isActive ? `${activeClass} scale-110` : 'text-ferty-beigeMuted hover:text-ferty-gray hover:bg-ferty-beige/50 opacity-70 hover:opacity-100'
+                }`}
+            >
+              <IconComponent size={26} strokeWidth={1.5} className={isActive ? iconClass : 'text-ferty-beigeMuted'} />
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderFacesControl = (question: any) => {
     const min = question.min ?? 0;
     const max = question.max ?? 4;
@@ -967,6 +1014,10 @@ const ProfileView = ({
     // Flow-specific variations - simplified controls
     if (formType === 'FLOW') {
       // No special cases needed - use default controls
+    }
+
+    if (question.type === 'flow_faces') {
+      return renderFlowFacesControl(question);
     }
 
     if (question.type === 'faces') {

@@ -815,7 +815,11 @@ const MyProfileView = ({
           className="w-full accent-ferty-rose"
           onChange={event => {
             const val = parseFloat(event.target.value);
-            updateAnswer(question.id, Number.isFinite(val) ? val : safeValue);
+            const step = question.step ?? 1;
+            // Redondear al step más cercano para evitar problemas de precisión
+            const rounded = Math.round(val / step) * step;
+            const finalValue = Number(rounded.toFixed(2));
+            updateAnswer(question.id, Number.isFinite(finalValue) ? finalValue : safeValue);
           }}
         />
       </div>
@@ -932,14 +936,14 @@ const MyProfileView = ({
 
   const renderFlowFacesControl = (question: any) => {
     const min = question.min ?? 1;
-    const max = question.max ?? 7;
+    const max = question.max ?? 5;
     const variant = question.variant ?? 'stress';
     const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
 
-    // Estrés: 1=tranquila → 7=abrumada. Emoción: 1=ansiosa → 7=empoderada. Digestiva: 1=muy mal → 7=excelente
-    const stressIcons = [Smile, Meh, Meh, Frown, Frown, Angry, XCircle];
-    const emotionIcons = [Frown, Meh, Meh, Meh, Smile, Smile, Heart];
-    const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile];
+    // Estrés: 1=tranquila → 5=abrumada. Emoción: 1=ansiosa → 7=empoderada. Digestiva: 1=muy mal → 7=excelente
+    const stressIcons = [Smile, Meh, Frown, Angry, XCircle]; // 5 iconos para escala 1-5
+    const emotionIcons = [Frown, Meh, Meh, Meh, Smile, Smile, Heart]; // 7 iconos para escala 1-7
+    const digestiveIcons = [XCircle, Frown, Frown, Meh, Meh, Smile, Smile]; // 7 iconos para escala 1-7
     const icons =
       variant === 'emotion' ? emotionIcons
         : variant === 'digestive' ? digestiveIcons
