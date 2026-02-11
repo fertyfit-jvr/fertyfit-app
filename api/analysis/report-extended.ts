@@ -565,6 +565,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Aseguramos CORS también en errores
     setCORSHeaders(res, origin);
 
+    logger.error('❌ Critical Error in report generation:', error);
+
+    // Intentar guardar una notificación de error para que el cliente deje de esperar
+    try {
+      // Solo si tenemos userId (si falló antes de tenerlo, no podemos notificar)
+      const requestBody = req.body as { userId?: string, reportType?: string } || {};
+      const userId = requestBody.userId;
+      const reportType = requestBody.reportType || 'REPORT';
+
+      if (userId) {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          type: 'REPORT', // Usamos REPORT para que el polling del cliente lo detecte
+          title: `Error: Informe ${reportType}`,
+          message: `Hubo un problema al generar tu informe. Por favor intenta de nuevo. Detalles: ${error.message || 'Error desconocido'}`,
+          priority: 2,
+          is_read: false,
+          metadata: {
+            report_type: reportType,
+            error: true,
+            error_message: error.message,
+            failed_at: new Date().toISOString()
+          }
+        });
+        logger.info('✅ Error notification saved for user', userId);
+      }
+    } catch (notifyError) {
+      logger.error('Failed to save error notification:', notifyError);
+    }
+
     // Intentar enviar error como progreso antes de cerrar
     try {
       sendProgress(res, 'ERROR', 'Error al generar el informe', {
