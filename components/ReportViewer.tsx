@@ -12,6 +12,8 @@ interface ReportViewerProps {
 export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) => {
   const isMarkdown = report.metadata?.format === 'markdown';
   const content = report.message;
+  const hasStructuredMetadata =
+    !!report.metadata?.user_profile_summary || !!report.metadata?.medical_summary;
 
   // Conversión legacy de Markdown a HTML (fallback cuando no hay metadata enriquecida)
   const convertMarkdownToHTMLLegacy = (markdown: string): string => {
@@ -155,9 +157,6 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
    * usamos el motor estructurado. Si no, usamos el conversor legacy.
    */
   const buildExportHtml = (): string => {
-    const hasStructuredMetadata =
-      !!report.metadata?.user_profile_summary || !!report.metadata?.medical_summary;
-
     if (hasStructuredMetadata) {
       return generateStructuredReportHtml({ report });
     }
@@ -249,36 +248,10 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
     const subject = encodeURIComponent(report.title);
     
     if (isMarkdown) {
-      // Generar HTML estructurado (o fallback legacy) para correo
-      const htmlContent = buildExportHtml();
-      
-      // Crear un elemento temporal para copiar el HTML al portapapeles
-      const textarea = document.createElement('textarea');
-      textarea.value = htmlContent;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      
-      try {
-        document.execCommand('copy');
-        // Usar texto plano para mailto (más compatible)
-        const plainText = convertMarkdownToPlainText(content);
-        const body = encodeURIComponent(plainText);
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
-        
-        // Mostrar mensaje informativo
-        setTimeout(() => {
-          alert('El HTML del informe ha sido copiado al portapapeles. Puedes pegarlo en tu cliente de correo para mantener el formato. El mailto se abrirá con texto plano como respaldo.');
-        }, 100);
-      } catch (err) {
-        // Fallback a texto plano
-        const plainText = convertMarkdownToPlainText(content);
-        const body = encodeURIComponent(plainText);
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
-      } finally {
-        document.body.removeChild(textarea);
-      }
+      // Usar solo texto plano para que sea sencillo para la usuaria
+      const plainText = convertMarkdownToPlainText(content);
+      const body = encodeURIComponent(plainText);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
     } else {
       const body = encodeURIComponent(content);
       window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -346,7 +319,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="prose prose-sm max-w-none">
-              {isMarkdown ? (
+              {hasStructuredMetadata ? (
+                <div
+                  className="ff-report-html"
+                  // Mostrar en pantalla el mismo HTML estructurado que se usa para PDF
+                  dangerouslySetInnerHTML={{ __html: buildExportHtml() }}
+                />
+              ) : isMarkdown ? (
                 <ReactMarkdown
                   components={{
                     h1: ({ children }) => (
