@@ -476,27 +476,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 8. Generar informe con Gemini
     sendProgress(res, 'GENERATING', 'Generando tu informe personalizado con IA...');
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: [{ text: prompt }, { text: JSON.stringify(context) }],
-    } as any);
+    console.log('[REPORT] Step 8: Calling Gemini API for', reportType, 'userId:', userId);
 
-    // Validar respuesta de Gemini
     let reportText: string;
-    if (response && typeof response === 'object') {
-      const responseText = (response as { text?: string }).text;
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt + '\n\n---DATOS DE LA USUARIA---\n\n' + JSON.stringify(context),
+      });
+
+      console.log('[REPORT] Gemini response received, type:', typeof response);
+
+      // @google/genai v1.x: response.text is a string getter
+      let responseText: string | undefined;
+      if (response && typeof response === 'object') {
+        // Try .text (getter in v1.x SDK)
+        if (typeof (response as any).text === 'string') {
+          responseText = (response as any).text;
+        }
+        // Fallback: try candidates[0].content.parts[0].text
+        if (!responseText) {
+          const candidates = (response as any).candidates;
+          if (candidates && candidates[0]?.content?.parts?.[0]?.text) {
+            responseText = candidates[0].content.parts[0].text;
+          }
+        }
+      }
+
       if (typeof responseText === 'string' && responseText.length > 0) {
         reportText = responseText;
+        console.log('[REPORT] Report text generated, length:', reportText.length);
       } else {
-        logger.error('Respuesta de Gemini sin texto válido para informe');
-        reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
+        console.error('[REPORT] Gemini returned no text. Response keys:', response ? Object.keys(response) : 'null');
+        reportText = 'No se pudo generar el informe. La IA no devolvió texto. Por favor, intenta de nuevo.';
       }
-    } else {
-      logger.error('Respuesta de Gemini inválida para informe');
-      reportText = 'No se pudo generar el informe. Por favor, intenta de nuevo.';
+    } catch (aiError: any) {
+      console.error('[REPORT] Gemini API FAILED:', aiError?.message || aiError);
+      reportText = `Error al generar el informe con IA: ${aiError?.message || 'Error desconocido'}. Por favor, intenta de nuevo.`;
     }
 
     // 9. Guardar el informe en notifications
+    console.log('[REPORT] Step 9: Saving report to notifications table for userId:', userId);
     try {
       const baseTitle =
         reportType === 'LABS' ? 'Informe de Analíticas' : getReportTitle(reportType);
@@ -506,7 +526,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         year: 'numeric',
       })}`;
 
-      await supabase.from('notifications').insert({
+      const { data: insertData, error: insertError } = await supabase.from('notifications').insert({
         user_id: userId,
         type: 'REPORT',
         title: reportTitle,
@@ -516,8 +536,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         metadata: {
           report_type: reportType,
           format: 'markdown',
-          manual_trigger: manualTrigger, // Flag para distinguir manual vs automático
-          // Resúmenes para generación de HTML estructurado en frontend
+          manual_trigger: manualTrigger,
           user_profile_summary:
             reportType === 'BASIC' || reportType === '360' ? userProfileSummary : undefined,
           cycle_info:
@@ -537,10 +556,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           rag_context_length: ragContext.length,
           generated_at: new Date().toISOString(),
         },
-      });
-    } catch (saveError) {
-      logger.warn('Error al guardar informe en notifications:', saveError);
-      // No fallamos la request si falla el guardado
+      }).select();
+
+      if (insertError) {
+        console.error('[REPORT] ❌ FAILED to save notification:', insertError.message, insertError.code, insertError.details);
+      } else {
+        console.log('[REPORT] ✅ Notification saved successfully. ID:', insertData?.[0]?.id);
+      }
+    } catch (saveError: any) {
+      console.error('[REPORT] ❌ EXCEPTION saving notification:', saveError?.message || saveError);
     }
 
     // 10. Enviar resultado final
