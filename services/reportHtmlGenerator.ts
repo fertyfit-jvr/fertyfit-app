@@ -415,7 +415,9 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
 
   const patientSection = renderPatientSection(userProfileSummary, report);
   const medicalSection =
-    reportType === 'BASIC' || reportType === '360' ? renderMedicalSummarySection(medicalSummary) : '';
+    reportType === 'BASIC' || reportType === '360'
+      ? renderMedicalSummarySection(medicalSummary)
+      : '';
 
   const footerSection = renderFooterSection();
 

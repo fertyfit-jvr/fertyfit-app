@@ -14,7 +14,6 @@ import {
   type ReportType,
 } from './report-helpers.js';
 import { canGenerateBasic } from './reportRules.js';
-import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers.js';
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
 // Usamos SERVICE ROLE KEY para bypassear RLS y poder leer todos los datos del usuario
@@ -332,16 +331,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       previousReports.length > 0 ? previousReports : undefined
     );
 
-    // Resumen médico calculado para HTML estructurado (solo BASIC y 360 por ahora)
-    let medicalSummary: any = null;
-    if (reportType === 'BASIC' || reportType === '360') {
-      try {
-        medicalSummary = generarDatosInformeMedico(userProfile, logs);
-      } catch (summaryError) {
-        logger.warn('No se pudo generar resumen médico para informe:', summaryError);
-      }
-    }
-
     // 7. Generar prompt especializado
     const ragChunksMetadata = ragChunks.map((c) => ({
       document_id: c.metadata?.document_id || '',
@@ -403,8 +392,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Resúmenes para generación de HTML estructurado en frontend
           user_profile_summary:
             reportType === 'BASIC' || reportType === '360' ? userProfileSummary : undefined,
-          medical_summary:
-            reportType === 'BASIC' || reportType === '360' ? medicalSummary : undefined,
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',
