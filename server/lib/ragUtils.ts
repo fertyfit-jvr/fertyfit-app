@@ -33,8 +33,10 @@ async function embedQuery(query: string): Promise<number[]> {
     logger.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
 
     // El SDK nuevo usa ai.models.embedContent directamente
+    // IMPORTANTE: en API v1beta el modelo soportado para embeddings es "embedding-001"
+    // (text-embedding-004 solo está disponible en la API v1 y da error 404 en v1beta).
     const resp = await (ai as any).models.embedContent({
-      model: 'text-embedding-004',
+      model: 'embedding-001',
       contents: [query], // Array de strings
     });
 
