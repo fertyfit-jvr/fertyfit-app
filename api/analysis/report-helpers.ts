@@ -213,7 +213,7 @@ Construye un INFORME 360º COMPLETO pero CONCISO (máximo 1800 palabras) formate
      )
      .join('\n')}
    
-   Al final del informe, incluye una lista numerada con las fuentes que REALMENTE hayas usado, con este formato:
+   Al final del informe, incluye una lista numerada SOLO con las fuentes de la base de conocimiento FertyFit que REALMENTE hayas usado (no incluyas \"conocimientos generales\" ni \"formularios\" como fuentes), con este formato:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
    `
        : ''
@@ -287,7 +287,7 @@ Construye un INFORME NARRATIVO MUY CONCRETO (máximo 1000 palabras) formateado e
      )
      .join('\n')}
    
-   Al final del informe, incluye una lista numerada con las fuentes que REALMENTE hayas usado, con este formato:
+   Al final del informe, incluye una lista numerada SOLO con las fuentes de la base de conocimiento FertyFit que REALMENTE hayas usado (no incluyas \"conocimientos generales\" ni \"formularios\" como fuentes), con este formato:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
    `
        : ''
