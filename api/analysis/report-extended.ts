@@ -359,16 +359,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         reportType === 'LABS' ? 'BASIC' : reportType,
         userProfile.age
       );
+      console.log('[REPORT] Step 5: RAG query:', ragQuery.substring(0, 100));
       ragChunks = await searchRagDirect(ragQuery, undefined, 15);
 
       if (ragChunks.length > 0) {
         ragChunksCount = ragChunks.length;
         ragContext = ragChunks.map((c) => c.content).join('\n\n');
         ragUsed = ragContext.length > 0;
+        console.log(`[REPORT] ✅ RAG OK: ${ragChunksCount} chunks, context length: ${ragContext.length}`);
+      } else {
+        console.warn('[REPORT] ⚠️ RAG returned 0 chunks - report will have NO academic sources');
       }
     } catch (ragError: any) {
-      logger.error('RAG EXCEPTION en informe:', ragError?.message || ragError);
-      // Continuamos sin RAG
+      console.error('[REPORT] ❌ RAG FAILED:', ragError?.message || ragError);
+      // Continuamos sin RAG - el informe se generará pero sin fuentes
     }
 
     // 6. Construir contexto según tipo de informe
