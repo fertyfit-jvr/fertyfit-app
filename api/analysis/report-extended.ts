@@ -200,6 +200,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       methodStartDate: userProfile.methodStartDate ?? null,
     };
 
+    // Información básica de ciclo para el informe (última y próxima regla)
+    let cycleInfo: {
+      last_period_date?: string;
+      next_period_date?: string;
+      days_until_next_period?: number | null;
+    } | null = null;
+
+    if (profile.last_period_date && profile.cycle_length && profile.cycle_length > 0) {
+      try {
+        const last = new Date(profile.last_period_date);
+        const today = new Date();
+        last.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const diffDays = Math.floor((today.getTime() - last.getTime()) / msPerDay);
+        const cyclesCompleted = Math.floor(diffDays / profile.cycle_length);
+
+        const next = new Date(last);
+        next.setDate(next.getDate() + (cyclesCompleted + 1) * profile.cycle_length);
+        next.setHours(0, 0, 0, 0);
+
+        const daysUntil = Math.ceil((next.getTime() - today.getTime()) / msPerDay);
+
+        cycleInfo = {
+          last_period_date: profile.last_period_date,
+          next_period_date: next.toISOString().split('T')[0],
+          days_until_next_period: daysUntil,
+        };
+      } catch (cycleError) {
+        logger.warn('No se pudo calcular información de ciclo para informe:', cycleError);
+      }
+    }
+
     // 2. Registros diarios (usados en 360, DAILY y también para resumen médico en BASIC)
     let logs: DailyLog[] = [];
     if (reportType === '360' || reportType === 'DAILY' || reportType === 'BASIC') {
@@ -392,6 +426,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // Resúmenes para generación de HTML estructurado en frontend
           user_profile_summary:
             reportType === 'BASIC' || reportType === '360' ? userProfileSummary : undefined,
+          cycle_info:
+            reportType === 'BASIC' || reportType === '360' ? cycleInfo : undefined,
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',

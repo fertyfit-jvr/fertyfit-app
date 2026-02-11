@@ -170,53 +170,61 @@ Recibirás un JSON con:
 ${hasPreviousReports ? '- Informes previos generados anteriormente (para contexto histórico).' : ''}
 
 TAREA:
-Construye un INFORME NARRATIVO COMPLETO pero CONCISO (máximo 2000 palabras) formateado en Markdown. El informe DEBE incluir exactamente estas secciones en este orden:
+Construye un INFORME 360º COMPLETO pero CONCISO (máximo 1800 palabras) formateado en Markdown, con el siguiente esquema obligatorio:
 
-## 1. RESUMEN EJECUTIVO (máximo 200 palabras)
-   - Síntesis de los hallazgos más relevantes
-   - Estado general de salud reproductiva
-   - Principales áreas de atención
+## 1. Resumen ejecutivo (máximo 200 palabras)
+   - Síntesis clara de la situación reproductiva actual de la paciente.
+   - Menciona 3-5 ideas clave: principales riesgos, fortalezas y prioridades.
 
-## 2. ANÁLISIS INTEGRAL
-   - Perfil general y contexto (breve)
-   - Análisis de exámenes y datos médicos relevantes (solo lo más importante)
-   - Análisis de pilares (Function, Food, Flora, Flow) - resumen por pilar
-   - Patrones y tendencias en registros diarios (solo patrones significativos)
-   ${hasPreviousReports ? '- Evolución desde informes anteriores (solo cambios significativos)' : ''}
+## 2. Análisis integral
+   - Perfil general y contexto (edad, tiempo intentando, objetivo, antecedentes relevantes) en 1-2 párrafos.
+   - Ciclo y biomarcadores: comenta solo los patrones más relevantes (regularidad, posibles ovulaciones, etc.). Si NO hay suficientes datos de ciclo en el JSON, indícalo de forma suave.
+   - Exámenes y analíticas: resume solo los hallazgos relevantes para fertilidad, sin listar todos los valores.
+   - Pilares FertyFit (Function, Food, Flora, Flow): describe de forma breve el estado de cada pilar y cómo impacta la fertilidad de esta paciente.
+   ${hasPreviousReports ? '- Evolución respecto a informes anteriores: comenta solo cambios significativos.' : ''}
 
-## 3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 300 palabras)
-   - Lista numerada de los 5-7 aspectos más relevantes encontrados
-   - Cada aspecto debe ser claro, específico y accionable
-   - Incluir tanto fortalezas como áreas de mejora
+## 3. Aspectos destacados (máximo 300 palabras)
+   - Lista numerada de 5-7 aspectos clave que mezclen:
+     - Factores de riesgo o alerta.
+     - Fortalezas importantes a mantener.
+   - Cada punto debe ser específico y accionable, evitando frases genéricas.
 
-## 4. PREGUNTAS PARA EL MÉDICO (máximo 200 palabras)
-   - Lista de 3-5 preguntas específicas que la usuaria debería plantear a su médico
-   - Basadas en los hallazgos del análisis
-   - Formuladas de manera clara y profesional
+## 4. Preguntas para el médico (máximo 200 palabras)
+   - Lista de 4-6 preguntas muy concretas para llevar a la consulta médica.
+   - Las preguntas deben salir directamente de los hallazgos (posibles diagnósticos, pruebas, tratamientos, tiempos recomendados para consultar, etc.).
 
-## 5. RECOMENDACIONES PRÁCTICAS (máximo 300 palabras)
-   - Lista numerada de 5-7 recomendaciones concretas y accionables
-   - Priorizadas por impacto en la salud reproductiva
-   - Específicas y medibles cuando sea posible
+## 5. Recomendaciones prácticas de alto impacto (máximo 300 palabras)
+   - Lista numerada de 5-7 recomendaciones priorizadas por impacto en la fertilidad.
+   - Incluye acciones relacionadas con los pilares Function, Food, Flora y Flow solo cuando estén respaldadas por los datos del JSON.
+   - Deben ser concretas, realistas y medibles cuando sea posible.
 
-## 6. BIBLIOGRAFÍA CONSULTADA
-   ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
-   DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
-   Metadatos de las fuentes consultadas:
-   ${ragChunksMetadata.map((meta, idx) =>
-        `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
-      ).join('\n')}
+## 6. Bibliografía consultada
+   ${
+     ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
+       ? `
+   DEBES utilizar información de los ${ragChunksCount} fragmentos del contexto FertyFit proporcionado.
+   Metadatos de las fuentes disponibles:
+   ${ragChunksMetadata
+     .map(
+       (meta, idx) =>
+         `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${
+           meta.document_title || 'Sin título'
+         }" | Índice del fragmento: ${meta.chunk_index}`
+     )
+     .join('\n')}
    
-   Formato para cada referencia:
-   "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: [cita breve del contenido relevante usado]"
-   ` : '- Si no hay contexto FertyFit, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe."'}
+   Al final del informe, incluye una lista numerada con las fuentes que REALMENTE hayas usado, con este formato:
+   "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
+   `
+       : '- Si no hay contexto FertyFit disponible en el JSON, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe. Se ha utilizado conocimiento médico general."'
+   }
 
 INSTRUCCIONES IMPORTANTES:
-- Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario para una respuesta completa y útil. Usa un tono empático, claro y no alarmista.
-- No inventes diagnósticos médicos; describe riesgos y patrones como "sugiere", "podría indicar".
+- Prioriza SIEMPRE la información del contexto FertyFit cuando esté disponible. Solo usa conocimiento médico general para complementar, indicando expresiones como "Según evidencia médica general...".
+- No inventes diagnósticos; utiliza expresiones como "podría sugerir", "es compatible con", "recomendaría valorar...".
 - Escribe TODO en español y dirigido en segunda persona ("tú").
 - Sé CONCISO: evita repeticiones y ve directo al punto.
-- El informe completo NO debe exceder 2000 palabras.
+- El informe completo NO debe exceder 1800 palabras.
 - IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML. Formatea cada sección con los encabezados Markdown correspondientes (# y ##).
 
 A continuación tienes el JSON de contexto de la paciente:
@@ -241,52 +249,55 @@ Recibirás un JSON con:
 - Formularios de pilares (Function, Food, Flora, Flow).
 
 TAREA:
-Construye un INFORME NARRATIVO CONCISO (máximo 1500 palabras) formateado en Markdown enfocado en los pilares FertyFit. El informe DEBE incluir exactamente estas secciones:
+Construye un INFORME NARRATIVO MUY CONCRETO (máximo 1000 palabras) formateado en Markdown, con el siguiente esquema obligatorio:
 
-## 1. RESUMEN EJECUTIVO (máximo 150 palabras)
-   - Síntesis del estado de los 4 pilares
-   - Fortalezas principales identificadas
-   - Áreas de mejora prioritarias
+## 1. Descripción de la paciente (máximo 150 palabras)
+   - Explica brevemente quién es la usuaria: edad, contexto reproductivo (tiempo intentando, si está en pareja o en solitario), objetivo principal (concepción natural, RA, etc.).
+   - Menciona solo los diagnósticos o antecedentes realmente relevantes para la fertilidad (ej: SOP, endometriosis, antecedentes familiares).
+   - Si NO hay datos de ciclo suficientes (no hay última regla o duración de ciclo en el JSON), indícalo suavemente y recomienda que registre esos datos en la app para mejorar la precisión.
 
-## 2. ANÁLISIS POR PILAR
-   - Pilar Function (funcionalidad reproductiva) - análisis breve
-   - Pilar Food (nutrición pro-fértil) - análisis breve
-   - Pilar Flora (microbiota y salud digestiva) - análisis breve
-   - Pilar Flow (estilo de vida y bienestar) - análisis breve
-   - Explica cómo cada pilar impacta la fertilidad de manera específica
+## 2. Aspectos prioritarios que atender (máximo 250 palabras)
+   - Lista numerada con 3-5 puntos clave, ordenados de más a menos prioritario.
+   - Cada punto debe describir:
+     - Qué se ha detectado (ej: sueño insuficiente, consumo alto de ultraprocesados, sospecha de SOP, edad avanzada para concepción, etc.).
+     - Por qué es relevante para la fertilidad.
+   - Evita repetir información y sé muy específico.
 
-## 3. PUNTUALIZACIÓN DE ASPECTOS DESTACADOS (máximo 250 palabras)
-   - Lista numerada de los 4-5 aspectos más relevantes por pilar
-   - Enfócate en los hallazgos más significativos
-   - Incluir tanto fortalezas como áreas de mejora
+## 3. Preguntas para el médico (máximo 150 palabras)
+   - Lista numerada de 2-4 preguntas muy concretas que la usuaria debería plantear a su ginecólogo/a o especialista en fertilidad.
+   - Las preguntas deben salir directamente de los problemas detectados (ej: posibles diagnósticos, necesidad de pruebas adicionales, ajustes de medicación, etc.).
 
-## 4. PREGUNTAS PARA EL MÉDICO (máximo 150 palabras)
-   - Lista de 2-3 preguntas específicas relacionadas con los pilares
-   - Basadas en los hallazgos del análisis
-   - Formuladas de manera clara y profesional
+## 4. Cómo puede ayudarte la metodología FertyFit en tu caso (máximo 250 palabras)
+   - Explica de forma personalizada (NO genérica) cómo la metodología FertyFit puede ayudar a mejorar los puntos de dolor concretos de esta paciente.
+   - Relaciona los pilares Function, Food, Flora y Flow SOLO con los problemas que realmente aparecen en el JSON.
+   - Evita frases comerciales vacías; enfócate en qué cambios concretos podría trabajar con la app (ej: mejorar sueño, reducir café, trabajar el estrés, mejorar alimentación, etc.).
 
-## 5. RECOMENDACIONES PRÁCTICAS (máximo 250 palabras)
-   - Lista numerada de 4-5 recomendaciones específicas por pilar
-   - Priorizadas por impacto en la fertilidad
-   - Concretas y accionables
-
-## 6. BIBLIOGRAFÍA CONSULTADA
-   ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
-   DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
-   Metadatos de las fuentes consultadas:
-   ${ragChunksMetadata.map((meta, idx) =>
-        `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
-      ).join('\n')}
+## 5. Bibliografía consultada
+   ${
+     ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
+       ? `
+   DEBES utilizar información de los ${ragChunksCount} fragmentos del contexto FertyFit proporcionado.
+   Metadatos de las fuentes disponibles:
+   ${ragChunksMetadata
+     .map(
+       (meta, idx) =>
+         `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${
+           meta.document_title || 'Sin título'
+         }" | Índice del fragmento: ${meta.chunk_index}`
+     )
+     .join('\n')}
    
-   Formato para cada referencia:
-   "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: [cita breve del contenido relevante usado]"
-   ` : '- Si no hay contexto FertyFit, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe."'}
+   Al final del informe, incluye una lista numerada con las fuentes que REALMENTE hayas usado, con este formato:
+   "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
+   `
+       : '- Si no hay contexto FertyFit disponible en el JSON, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe. Se ha utilizado conocimiento médico general."'
+   }
 
 INSTRUCCIONES IMPORTANTES:
 - Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario. Usa un tono empático, claro y educativo.
-- Sé CONCISO: evita repeticiones y ve directo al punto.
+- Sé MUY CONCISO: evita repeticiones y ve directo al punto.
 - Escribe TODO en español y dirigido en segunda persona ("tú").
-- El informe completo NO debe exceder 1500 palabras.
+- El informe completo NO debe exceder 1000 palabras.
 - IMPORTANTE: Usa solo sintaxis Markdown estándar. No uses HTML. Formatea cada sección con los encabezados Markdown correspondientes (# y ##).
 
 A continuación tienes el JSON de contexto de la paciente:

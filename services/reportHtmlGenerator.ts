@@ -1,4 +1,5 @@
 import type { AppNotification } from '../types';
+import { BRAND_ASSETS } from '../constants';
 
 type UserProfileSummary = {
   id?: string;
@@ -54,6 +55,11 @@ type MedicalSummary = {
 
 type ReportHtmlOptions = {
   report: AppNotification;
+};
+type CycleInfo = {
+  last_period_date?: string;
+  next_period_date?: string;
+  days_until_next_period?: number | null;
 };
 
 function maskEmail(email?: string | null): string | undefined {
@@ -368,6 +374,71 @@ function renderMedicalSummarySection(summary: MedicalSummary | undefined): strin
   `;
 }
 
+function renderCycleSection(
+  reportType: string | undefined,
+  cycleInfo: CycleInfo | undefined
+): string {
+  if (reportType !== 'BASIC' && reportType !== '360') return '';
+
+  // Sin datos de ciclo: mostrar mensaje orientativo
+  if (!cycleInfo || !cycleInfo.last_period_date || !cycleInfo.next_period_date) {
+    return `
+    <section style="margin-top:20px;">
+      <h2 style="font-size:16px;font-weight:700;color:#121926;margin:0 0 8px;">Datos de ciclo</h2>
+      <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0;">
+        Aún no tenemos registrada tu última regla ni la duración de tu ciclo de forma completa.
+        Para poder estimar tus fechas clave (ventana fértil y próxima menstruación), te recomendamos:
+      </p>
+      <ul style="margin:8px 0 0 18px;padding:0;font-size:13px;color:#4b5563;">
+        <li>Registrar tu próxima menstruación en tus <strong>registros diarios</strong>.</li>
+        <li>Completar los datos de ciclo en tu perfil (formulario F0 o sección de ciclo).</li>
+      </ul>
+    </section>
+    `;
+  }
+
+  const lastDate = new Date(cycleInfo.last_period_date);
+  const nextDate = new Date(cycleInfo.next_period_date);
+
+  const lastFormatted = lastDate.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+  });
+  const nextFormatted = nextDate.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+  });
+
+  const daysUntil =
+    typeof cycleInfo.days_until_next_period === 'number'
+      ? `${cycleInfo.days_until_next_period} día${
+          cycleInfo.days_until_next_period === 1 ? '' : 's'
+        }`
+      : '—';
+
+  return `
+  <section style="margin-top:20px;">
+    <h2 style="font-size:16px;font-weight:700;color:#121926;margin:0 0 8px;">Datos de ciclo</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151;">
+      <tbody>
+        <tr>
+          <td style="padding:6px 8px;border:1px solid #e5e7eb;background:#f9fafb;width:40%;">Fecha última regla</td>
+          <td style="padding:6px 8px;border:1px solid #e5e7eb;">${lastFormatted}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;border:1px solid #e5e7eb;background:#f9fafb;">Fecha próxima regla (aprox.)</td>
+          <td style="padding:6px 8px;border:1px solid #e5e7eb;">${nextFormatted}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;border:1px solid #e5e7eb;background:#f9fafb;">Días hasta próxima regla</td>
+          <td style="padding:6px 8px;border:1px solid #e5e7eb;">${daysUntil}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+  `;
+}
+
 function renderFooterSection(): string {
   return `
   <section style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px;">
@@ -404,6 +475,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
   const reportType: string | undefined = metadata.report_type;
   const userProfileSummary: UserProfileSummary | undefined = metadata.user_profile_summary;
   const medicalSummary: MedicalSummary | undefined = metadata.medical_summary;
+  const cycleInfo: CycleInfo | undefined = metadata.cycle_info;
 
   const createdDate = new Date(report.created_at).toLocaleDateString('es-ES', {
     day: 'numeric',
@@ -418,6 +490,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
     reportType === 'BASIC' || reportType === '360'
       ? renderMedicalSummarySection(medicalSummary)
       : '';
+  const cycleSection = renderCycleSection(reportType, cycleInfo);
 
   const footerSection = renderFooterSection();
 
@@ -458,11 +531,12 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
     </header>
 
     ${patientSection}
-    ${medicalSection}
+    ${reportType === '360' ? medicalSection : ''}
+    ${cycleSection}
 
     <section style="margin-top:28px;">
       <h2 style="font-size:16px;font-weight:700;color:#121926;margin:0 0 10px;">${
-        reportType === 'BASIC' ? '3. Análisis según metodología FertyFit' : '3. Informe narrativo completo'
+        reportType === 'BASIC' ? 'Análisis según metodología FertyFit' : 'Informe narrativo completo'
       }</h2>
       <div style="font-size:13px;color:#374151;line-height:1.7;">
         ${bodyContent}
