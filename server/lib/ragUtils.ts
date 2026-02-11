@@ -32,9 +32,9 @@ async function embedQuery(query: string): Promise<number[]> {
   try {
     console.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
 
-    // @google/genai v1.x: usar text-embedding-004 con contents como string
-    const resp = await ai.models.embedContent({
-      model: 'text-embedding-004',
+    // @google/genai v1.x: usar models/gemini-embedding-001
+    const resp = await (ai as any).models.embedContent({
+      model: 'models/gemini-embedding-001',
       contents: query,
     });
 
