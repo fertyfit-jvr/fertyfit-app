@@ -46,15 +46,16 @@ async function embedQuery(query: string): Promise<number[]> {
   try {
     logger.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
 
-    // El SDK nuevo usa ai.models.embedContent directamente
+    // @google/genai v1.x: usar models/gemini-embedding-001 para 3072 dimensiones
     const resp = await (ai as any).models.embedContent({
-      model: 'text-embedding-004',
-      contents: [query], // Array de strings
+      model: 'models/gemini-embedding-001',
+      contents: query,
     });
 
-    // La respuesta tiene embeddings array, cada uno con values
+    // La respuesta puede tener .embedding.values o .embeddings[0].values
     const embedding =
-      resp?.embeddings?.[0]?.values;
+      (resp as any)?.embedding?.values ??
+      (resp as any)?.embeddings?.[0]?.values;
 
     if (!embedding || embedding.length === 0) {
       logger.error(`[RAG] ERROR: Embedding vacío o inválido`);
