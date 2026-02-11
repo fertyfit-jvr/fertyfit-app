@@ -216,7 +216,7 @@ Construye un INFORME 360º COMPLETO pero CONCISO (máximo 1800 palabras) formate
    Al final del informe, incluye una lista numerada con las fuentes que REALMENTE hayas usado, con este formato:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
    `
-       : '- Si no hay contexto FertyFit disponible en el JSON, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe. Se ha utilizado conocimiento médico general."'
+       : ''
    }
 
 INSTRUCCIONES IMPORTANTES:
@@ -290,7 +290,7 @@ Construye un INFORME NARRATIVO MUY CONCRETO (máximo 1000 palabras) formateado e
    Al final del informe, incluye una lista numerada con las fuentes que REALMENTE hayas usado, con este formato:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
    `
-       : '- Si no hay contexto FertyFit disponible en el JSON, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe. Se ha utilizado conocimiento médico general."'
+       : ''
    }
 
 INSTRUCCIONES IMPORTANTES:
