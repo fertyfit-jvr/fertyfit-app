@@ -17,9 +17,9 @@ const mockUser: UserProfile = {
 };
 
 const mockLogs: DailyLog[] = [
-    { date: '2023-01-01', cycleDay: 1, sleepHours: 8, stressLevel: 2, symptoms: ['hinchazon'], alcohol: false, bbt: 36.5, mucus: '', lhTest: '', sleepQuality: 5, waterGlasses: 8, veggieServings: 5, activityMinutes: 30, sunMinutes: 10 },
-    { date: '2023-01-02', cycleDay: 2, sleepHours: 6, stressLevel: 4, symptoms: [], alcohol: true, bbt: 36.6, mucus: '', lhTest: '', sleepQuality: 3, waterGlasses: 6, veggieServings: 3, activityMinutes: 0, sunMinutes: 0 },
-    { date: '2023-01-03', cycleDay: 3, sleepHours: 7.5, stressLevel: 1, symptoms: ['gases'], alcohol: false, bbt: 36.4, mucus: '', lhTest: '', sleepQuality: 4, waterGlasses: 10, veggieServings: 4, activityMinutes: 45, sunMinutes: 20 },
+    { date: '2023-01-01', cycleDay: 1, sleepHours: 8, stressLevel: 2, symptoms: ['hinchazon'], alcohol: false, bbt: 36.5, mucus: '', lhTest: 'No realizado', sleepQuality: 5, waterGlasses: 8, veggieServings: 5, activityMinutes: 30, sunMinutes: 10, sex: false },
+    { date: '2023-01-02', cycleDay: 2, sleepHours: 6, stressLevel: 4, symptoms: [], alcohol: true, bbt: 36.6, mucus: '', lhTest: 'No realizado', sleepQuality: 3, waterGlasses: 6, veggieServings: 3, activityMinutes: 0, sunMinutes: 0, sex: false },
+    { date: '2023-01-03', cycleDay: 3, sleepHours: 7.5, stressLevel: 1, symptoms: ['gases'], alcohol: false, bbt: 36.4, mucus: '', lhTest: 'No realizado', sleepQuality: 4, waterGlasses: 10, veggieServings: 4, activityMinutes: 45, sunMinutes: 20, sex: false },
 ];
 
 const mockPillars: FertyPillars = {

@@ -245,18 +245,18 @@ const MyProfileView = ({
     if (f0Answers['q2_weight']) updates.weight = parseFloat(String(f0Answers['q2_weight']));
     if (f0Answers['q2_height']) updates.height = parseFloat(String(f0Answers['q2_height']));
     if (f0Answers['q4_objective']) updates.mainObjective = String(f0Answers['q4_objective']);
-    
+
     // Procesar campos faltantes del F0
     if (f0Answers['q5_partner']) updates.partnerStatus = String(f0Answers['q5_partner']);
     if (f0Answers['q20_fertility_treatments']) updates.fertilityTreatments = String(f0Answers['q20_fertility_treatments']);
     if (f0Answers['q9_diagnoses']) updates.diagnoses = String(f0Answers['q9_diagnoses']);
     if (f0Answers['q21_family_history']) updates.familyHistory = String(f0Answers['q21_family_history']);
-    
+
     // Procesar fecha de nacimiento y calcular edad
     if (f0Answers['q1_birthdate']) {
       const birthDateStr = String(f0Answers['q1_birthdate']);
       const calculatedAge = calculateAgeFromBirthdate(birthDateStr);
-      
+
       if (calculatedAge !== null) {
         updates.birthDate = birthDateStr;
         updates.age = calculatedAge;
@@ -265,7 +265,7 @@ const MyProfileView = ({
         return;
       }
     }
-    
+
     // Nota: cycle_length ya no se guarda en F0, se maneja desde FUNCTION
 
     // Set time_trying fields if q3_time_trying is present
@@ -724,7 +724,7 @@ const MyProfileView = ({
     }
   };
 
-  const updateAnswer = useCallback((id: string, value: string | number | boolean | string[] | undefined) => {
+  const updateAnswer = useCallback((id: string, value: string | number | boolean | string[] | Record<string, any> | undefined) => {
     setAnswers(prev => ({ ...prev, [id]: value }));
   }, []);
 
@@ -1184,7 +1184,7 @@ const MyProfileView = ({
             {showOtherField && (
               <input
                 type="text"
-                value={answers[`${question.id}_otro`] || ''}
+                value={answers[`${question.id}_otro`] ? String(answers[`${question.id}_otro`]) : ''}
                 placeholder="Especifica..."
                 onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
                 className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
@@ -1196,14 +1196,15 @@ const MyProfileView = ({
 
       // flora_intol: opciones a, b, c (Sí) → campo texto para indicar cuál/cuáles
       if (question.id === 'flora_intol') {
-        const showDetailField = selectedValue?.startsWith('a)') || selectedValue?.startsWith('b)') || selectedValue?.startsWith('c)');
+        const strValue = typeof selectedValue === 'string' ? selectedValue : '';
+        const showDetailField = strValue.startsWith('a)') || strValue.startsWith('b)') || strValue.startsWith('c)');
         return (
           <div className="space-y-3">
             {renderButtons(question, question.options || [])}
             {showDetailField && (
               <input
                 type="text"
-                value={answers[`${question.id}_detalle`] || ''}
+                value={answers[`${question.id}_detalle`] ? String(answers[`${question.id}_detalle`]) : ''}
                 placeholder="Indica cuál o cuáles..."
                 onChange={event => updateAnswer(`${question.id}_detalle`, event.target.value)}
                 className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
@@ -1222,7 +1223,7 @@ const MyProfileView = ({
             {showOtherField && (
               <input
                 type="text"
-                value={answers[`${question.id}_otro`] || ''}
+                value={answers[`${question.id}_otro`] ? String(answers[`${question.id}_otro`]) : ''}
                 placeholder="Especifica..."
                 onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
                 className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
@@ -1241,7 +1242,7 @@ const MyProfileView = ({
             {showOtherField && (
               <input
                 type="text"
-                value={answers[`${question.id}_otro`] || ''}
+                value={answers[`${question.id}_otro`] ? String(answers[`${question.id}_otro`]) : ''}
                 placeholder="Especifica..."
                 onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
                 className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
@@ -1255,7 +1256,7 @@ const MyProfileView = ({
     if (question.type === 'textarea') {
       return (
         <textarea
-          value={answers[question.id] || ''}
+          value={answers[question.id] ? String(answers[question.id]) : ''}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
           rows={4}
           onChange={event => updateAnswer(question.id, event.target.value)}
@@ -1290,7 +1291,7 @@ const MyProfileView = ({
     if (question.type === 'select') {
       return (
         <select
-          value={answers[question.id] || ''}
+          value={answers[question.id] ? String(answers[question.id]) : ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose"
         >
@@ -1308,7 +1309,7 @@ const MyProfileView = ({
       return (
         <input
           type="date"
-          value={answers[question.id] || ''}
+          value={answers[question.id] ? String(answers[question.id]) : ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
         />
@@ -1326,7 +1327,7 @@ const MyProfileView = ({
     return (
       <input
         type="text"
-        value={answers[question.id] || ''}
+        value={answers[question.id] ? String(answers[question.id]) : ''}
         onChange={event => updateAnswer(question.id, event.target.value)}
         className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
       />
@@ -1783,7 +1784,7 @@ const MyProfileView = ({
                             </p>
                             <input
                               type="date"
-                              value={f0Answers['q1_birthdate'] || ''}
+                              value={f0Answers['q1_birthdate'] ? String(f0Answers['q1_birthdate']) : ''}
                               className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                               onChange={e => setF0Answers({ ...f0Answers, q1_birthdate: e.target.value })}
                             />
@@ -1947,7 +1948,7 @@ const MyProfileView = ({
                                 </label>
                                 {q.type === 'textarea' ? (
                                   <textarea
-                                    value={f0Answers[q.id] || ''}
+                                    value={f0Answers[q.id] ? String(f0Answers[q.id]) : ''}
                                     className="w-full border border-ferty-beige rounded-xl p-3 text-sm h-28 bg-ferty-beige/30 focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose outline-none transition-all"
                                     onChange={e => updateAnswer(q.id, e.target.value)}
                                     maxLength={
@@ -1963,7 +1964,7 @@ const MyProfileView = ({
                                 ) : q.type === 'date' ? (
                                   <input
                                     type="date"
-                                    value={f0Answers[q.id] || ''}
+                                    value={f0Answers[q.id] ? String(f0Answers[q.id]) : ''}
                                     className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                                     onChange={e => updateAnswer(q.id, e.target.value)}
                                   />
@@ -1974,7 +1975,7 @@ const MyProfileView = ({
                                 ) : (
                                   <input
                                     type={q.type === 'number' ? 'number' : 'text'}
-                                    value={f0Answers[q.id] || ''}
+                                    value={f0Answers[q.id] ? String(f0Answers[q.id]) : ''}
                                     className="w-full border border-ferty-beige rounded-xl p-3 text-sm bg-ferty-beige/30 focus:border-ferty-rose outline-none transition-all"
                                     onChange={e => updateAnswer(q.id, e.target.value)}
                                   />

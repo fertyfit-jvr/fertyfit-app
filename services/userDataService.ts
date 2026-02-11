@@ -279,11 +279,11 @@ interface SupabaseProfile {
   birth_date?: string | null; // Date of birth (YYYY-MM-DD)
   weight?: number | null;
   height?: number | null;
-  
+
   // Time trying fields
   time_trying_start_date?: string | null; // Date when user started trying (YYYY-MM-DD)
   time_trying_initial_months?: number | null; // Initial months value
-  
+
   // Basic profile fields from F0
   main_objective?: string | null;
   partner_status?: string | null;
@@ -292,17 +292,17 @@ interface SupabaseProfile {
   surgical_history?: string | null;
   fertility_treatments?: string | null; // q20_fertility_treatments from F0
   diagnoses?: string | null; // q9_diagnoses from F0 (TEXT, not array)
-  
+
   // User role and type
   role?: string | null;
   user_type?: string | null; // 'free' | 'subscriber'
-  
+
   // Cycle tracking fields
   cycle_regularity?: string | null;
   cycle_length?: number | null;
   last_period_date?: string | null;
   period_history?: string[] | null; // JSONB array
-  
+
   // Consent fields
   consent_personal_data?: boolean | null;
   consent_food?: boolean | null;
@@ -433,7 +433,7 @@ export async function createNotificationsForUser(
       if (result.success) {
         successCount++;
       } else {
-        logger.warn('Failed to create notification:', result.error);
+        logger.warn('Failed to create notification:', (result as any).error);
       }
     }
 
@@ -523,12 +523,12 @@ export async function createProfileForUser(payload: ProfileInsertPayload): Promi
         email,
         name
       };
-      
+
       // Solo incluir age si se proporciona explícitamente
       if (age !== undefined) {
         insertData.age = age;
       }
-      
+
       // Solo incluir birth_date si se proporciona
       if (birth_date !== undefined) {
         insertData.birth_date = birth_date;

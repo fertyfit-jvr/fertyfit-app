@@ -3,7 +3,7 @@ import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, NotificationAction, ViewState, FormAnswer } from '../../types';
 
 // Type for form answers dictionary (questionId -> answer value)
-type FormAnswersDict = Record<string, string | number | boolean | string[] | undefined>;
+type FormAnswersDict = Record<string, string | number | boolean | string[] | Record<string, any> | undefined>;
 
 // Type for form question (simplified, matches structure from formDefinitions)
 type FormQuestion = {
@@ -408,18 +408,18 @@ const ProfileView = ({
     if (f0Answers['q2_weight']) updates.weight = parseFloat(String(f0Answers['q2_weight']));
     if (f0Answers['q2_height']) updates.height = parseFloat(String(f0Answers['q2_height']));
     if (f0Answers['q4_objective']) updates.mainObjective = String(f0Answers['q4_objective']);
-    
+
     // Procesar campos faltantes del F0
     if (f0Answers['q5_partner']) updates.partnerStatus = String(f0Answers['q5_partner']);
     if (f0Answers['q20_fertility_treatments']) updates.fertilityTreatments = String(f0Answers['q20_fertility_treatments']);
     if (f0Answers['q9_diagnoses']) updates.diagnoses = String(f0Answers['q9_diagnoses']);
     if (f0Answers['q21_family_history']) updates.familyHistory = String(f0Answers['q21_family_history']);
-    
+
     // Procesar fecha de nacimiento y calcular edad
     if (f0Answers['q1_birthdate']) {
       const birthDateStr = String(f0Answers['q1_birthdate']);
       const calculatedAge = calculateAgeFromBirthdate(birthDateStr);
-      
+
       if (calculatedAge !== null) {
         updates.birthDate = birthDateStr;
         updates.age = calculatedAge;
@@ -428,7 +428,7 @@ const ProfileView = ({
         return;
       }
     }
-    
+
     // Nota: cycle_length ya no se guarda en F0, se maneja desde FUNCTION
 
     // Set time_trying fields if q3_time_trying is present
@@ -1060,7 +1060,7 @@ const ProfileView = ({
           {showOtherField && (
             <input
               type="text"
-              value={answers[`${question.id}_otro`] || ''}
+              value={answers[`${question.id}_otro`] ? String(answers[`${question.id}_otro`]) : ''}
               placeholder="Especifica..."
               onChange={event => updateAnswer(`${question.id}_otro`, event.target.value)}
               className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
@@ -1073,7 +1073,7 @@ const ProfileView = ({
     if (question.type === 'textarea') {
       return (
         <textarea
-          value={answers[question.id] || ''}
+          value={answers[question.id] ? String(answers[question.id]) : ''}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose focus:ring-1 focus:ring-ferty-rose"
           rows={4}
           onChange={event => updateAnswer(question.id, event.target.value)}
@@ -1096,7 +1096,7 @@ const ProfileView = ({
     if (question.type === 'select') {
       return (
         <select
-          value={answers[question.id] || ''}
+          value={answers[question.id] ? String(answers[question.id]) : ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-white focus:border-ferty-rose"
         >
@@ -1114,7 +1114,7 @@ const ProfileView = ({
       return (
         <input
           type="date"
-          value={answers[question.id] || ''}
+          value={answers[question.id] ? String(answers[question.id]) : ''}
           onChange={event => updateAnswer(question.id, event.target.value)}
           className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
         />
@@ -1132,7 +1132,7 @@ const ProfileView = ({
     return (
       <input
         type="text"
-        value={answers[question.id] || ''}
+        value={answers[question.id] ? String(answers[question.id]) : ''}
         onChange={event => updateAnswer(question.id, event.target.value)}
         className="w-full border border-ferty-beige rounded-2xl p-3 text-sm bg-ferty-beigeLight focus:border-ferty-rose"
       />

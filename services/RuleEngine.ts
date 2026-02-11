@@ -20,7 +20,7 @@ import {
 // --- Types ---
 
 // MVP: Simplificado a solo DAILY_CHECK
-export type Trigger = 'DAILY_CHECK';
+export type Trigger = 'DAILY_CHECK' | 'DAILY_LOG_SAVED' | 'LESSON_COMPLETED';
 export type Priority = 1 | 2 | 3;
 
 export interface RuleContext {
@@ -63,6 +63,8 @@ export interface Rule {
 // MVP: Límites por trigger - Solo DAILY_CHECK con máximo 3 notificaciones diarias
 export const TRIGGER_MAX: Record<Trigger, number> = {
     DAILY_CHECK: 3,
+    DAILY_LOG_SAVED: 1,
+    LESSON_COMPLETED: 1,
 };
 
 /**
@@ -327,7 +329,7 @@ export const saveNotifications = async (userId: string, notifications: AppNotifi
     const result = await createNotificationsForUser(userId, notificationsToCreate);
 
     if (!result.success) {
-        logger.error('Failed to save notifications:', result.error);
+        logger.error('Failed to save notifications:', (result as any).error);
     } else {
         logger.log(`Successfully created ${result.data} notifications`);
     }
@@ -369,7 +371,7 @@ export const handlePeriodConfirmed = async (userId: string, newPeriodDate: strin
     });
 
     if (!updateResult.success) {
-        throw new Error(`handlePeriodConfirmed update failed: ${updateResult.error}`);
+        throw new Error(`handlePeriodConfirmed update failed: ${(updateResult as any).error}`);
     }
 
     logger.log(`✅ Período confirmado: ${newPeriodDate}. Ciclo promedio actualizado: ${newCycleLength} días`);

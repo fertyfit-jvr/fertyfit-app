@@ -26,7 +26,7 @@ export type SerializedForms = {
 /**
  * Formatea una respuesta a string legible
  */
-function formatAnswer(answer: string | number | boolean | string[] | undefined): string {
+function formatAnswer(answer: string | number | boolean | string[] | Record<string, any> | undefined): string {
   if (answer === undefined || answer === null) return '—';
   if (typeof answer === 'boolean') return answer ? 'Sí' : 'No';
   if (Array.isArray(answer)) {
@@ -38,6 +38,9 @@ function formatAnswer(answer: string | number | boolean | string[] | undefined):
     if (!answer.trim()) return '—';
     return answer;
   }
+  if (typeof answer === 'object' && answer !== null && !Array.isArray(answer)) {
+    return JSON.stringify(answer);
+  }
   return String(answer);
 }
 
@@ -47,7 +50,7 @@ function formatAnswer(answer: string | number | boolean | string[] | undefined):
 function getQuestionText(formType: string, questionId: string): string {
   // Intentar buscar en FORM_DEFINITIONS[formType]
   const formDef = (FORM_DEFINITIONS as any)[formType];
-  
+
   if (!formDef) return questionId; // Fallback al ID si no hay definición
 
   // Para F0: es un array plano de preguntas

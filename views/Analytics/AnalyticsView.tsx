@@ -46,15 +46,15 @@ const AnalyticsView = ({
 
   const handleDeleteExam = async (examFormId: number) => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta analítica?')) return;
-    
+
     try {
       const { error } = await supabase
         .from('consultation_forms')
         .delete()
         .eq('id', examFormId);
-      
+
       if (error) throw error;
-      
+
       showNotif('Analítica eliminada correctamente', 'success');
       await fetchUserForms(user.id!);
     } catch (error) {
@@ -125,7 +125,7 @@ const AnalyticsView = ({
             Tus analíticas médicas guardadas. Puedes editarlas o eliminarlas cuando lo necesites.
           </p>
         </div>
-        
+
         {/* Links discretos para navegar */}
         <div className="mb-4 flex justify-between items-center">
           <div className="flex gap-4">
@@ -170,10 +170,10 @@ const AnalyticsView = ({
                     examTypeStr.includes('eco') ||
                     examTypeStr.includes('hsg');
                   const isEditing = editingExamId === examForm.id;
-                  const currentAnswers = isEditing && editingExamAnswers[examForm.id!] 
-                    ? editingExamAnswers[examForm.id!] 
+                  const currentAnswers = isEditing && editingExamAnswers[examForm.id!]
+                    ? editingExamAnswers[examForm.id!]
                     : examForm.answers || [];
-                  
+
                   // Separar el análisis IA / comentario
                   const aiAnalysisAnswer =
                     currentAnswers.find((a: FormAnswer) => a.questionId === 'rag_analysis') ||
@@ -182,22 +182,22 @@ const AnalyticsView = ({
                     aiAnalysisAnswer && typeof aiAnalysisAnswer.answer === 'string'
                       ? aiAnalysisAnswer.answer
                       : aiAnalysisAnswer
-                      ? String(aiAnalysisAnswer.answer || '')
-                      : null;
+                        ? String(aiAnalysisAnswer.answer || '')
+                        : null;
                   const aiAnalysisPreview = aiAnalysisText
                     ? (() => {
-                        const firstLine = aiAnalysisText.split('\n')[0];
-                        const trimmed = firstLine.trim();
-                        if (trimmed.length <= 120) return trimmed;
-                        return `${trimmed.slice(0, 117)}...`;
-                      })()
+                      const firstLine = aiAnalysisText.split('\n')[0];
+                      const trimmed = firstLine.trim();
+                      if (trimmed.length <= 120) return trimmed;
+                      return `${trimmed.slice(0, 117)}...`;
+                    })()
                     : null;
-                  const examAnswers = currentAnswers.filter((a: FormAnswer) => 
+                  const examAnswers = currentAnswers.filter((a: FormAnswer) =>
                     a.questionId !== 'exam_type' &&
                     a.questionId !== 'gemini_comment' &&
                     a.questionId !== 'rag_analysis'
                   );
-                  
+
                   const isExpanded = expandedExamAnswers[examForm.id!] || false;
                   const initialShowCount = 6;
                   const showAll = isExpanded || examAnswers.length <= initialShowCount;
@@ -206,7 +206,9 @@ const AnalyticsView = ({
                     <div key={examForm.id} className="bg-ferty-beigeLight border border-ferty-beige rounded-2xl p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-ferty-dark">{examType}</p>
+                          <p className="text-sm font-bold text-ferty-dark">
+                            {typeof examType === 'object' ? 'Examen' : String(examType)}
+                          </p>
                           <p className="text-[10px] text-ferty-gray">
                             {examForm.submitted_at ? formatDate(examForm.submitted_at) : ''}
                           </p>
@@ -259,13 +261,12 @@ const AnalyticsView = ({
                         {(showAll ? examAnswers : examAnswers.slice(0, initialShowCount)).map((answer: FormAnswer) => (
                           <div
                             key={answer.questionId}
-                            className={`bg-white p-2 rounded-xl ${
-                              isVisualExam &&
-                              (answer.questionId === 'hallazgos_visuales' ||
-                                answer.questionId === 'tipo_examen_detectado')
+                            className={`bg-white p-2 rounded-xl ${isVisualExam &&
+                                (answer.questionId === 'hallazgos_visuales' ||
+                                  answer.questionId === 'tipo_examen_detectado')
                                 ? 'col-span-2'
                                 : ''
-                            }`}
+                              }`}
                           >
                             <p className="text-[10px] text-ferty-gray mb-0.5">{answer.question}</p>
                             {isEditing ? (

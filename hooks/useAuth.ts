@@ -42,7 +42,7 @@ export function useAuth() {
           });
 
           if (!profileResult.success) {
-            logger.error('Profile creation failed:', profileResult.error);
+            logger.error('Profile creation failed:', (profileResult as any).error);
             setLoading(false);
             setAuthLoading(false);
             return;

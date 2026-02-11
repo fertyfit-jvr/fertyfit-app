@@ -13,7 +13,7 @@ import {
 import { ConsultationForm, DailyLog, LHResult, MucusType, UserProfile } from '../../types';
 import { supabase } from '../../services/supabase';
 import { handlePeriodConfirmed } from '../../services/RuleEngine';
-import { calcularDuracionPromedioCiclo, calcularDiaDelCiclo } from '../../services/CycleCalculations';
+import { calcularCicloPromedio, calcularDiaDelCiclo } from '../../services/CycleCalculations';
 import { parseLocalDateOrToday } from '../../services/dateUtils';
 import { calcularVentanaFertil, calcularFechaInicioCicloActual } from '../../services/CycleCalculations';
 import { formatDate, formatCurrentDate } from '../../services/utils';
@@ -52,18 +52,18 @@ const TrackerView = ({
   const [lastPeriodDate, setLastPeriodDate] = useState(user?.lastPeriodDate || '');
   const [selectedPeriodSymptoms, setSelectedPeriodSymptoms] = useState<string[]>([]);
   const [isSavingPeriod, setIsSavingPeriod] = useState(false);
-  
+
   // Calcular ventana fértil
-  const ventanaFertil = user?.cycleLength 
+  const ventanaFertil = user?.cycleLength
     ? calcularVentanaFertil(user.cycleLength)
     : null;
 
   // Determinar fase del ciclo
   const getFaseCiclo = (cycleDay: number, cycleLength: number): string => {
     if (!cycleDay || !cycleLength) return '';
-    
+
     const diaOvulacion = cycleLength - 14; // Fórmula estándar: ciclo - 14 días
-    
+
     if (cycleDay < diaOvulacion) {
       return 'Fase Folicular';
     } else if (cycleDay >= diaOvulacion && cycleDay <= diaOvulacion + 1) {
@@ -79,9 +79,9 @@ const TrackerView = ({
 
   useEffect(() => {
     if (!user) return;
-    
+
     setLastPeriodDate(user.lastPeriodDate || '');
-    
+
     // Actualizar el día del ciclo cuando cambia el usuario o sus datos del ciclo
     // Solo actualizar si realmente cambió lastPeriodDate o cycleLength
     if (user.lastPeriodDate && user.cycleLength) {
@@ -112,7 +112,7 @@ const TrackerView = ({
     if (isCycleModalOpen && user) {
       // Sincronizar fecha de última regla
       setLastPeriodDate(user.lastPeriodDate || '');
-      
+
       // Buscar log del día de la última regla para cargar síntomas existentes
       if (user.lastPeriodDate) {
         const lastPeriodLog = logs.find(log => log.date === user.lastPeriodDate);
@@ -139,7 +139,7 @@ const TrackerView = ({
     try {
       // 1. Usar handlePeriodConfirmed para actualizar fecha y auto-calcular ciclo promedio
       const result = await handlePeriodConfirmed(user.id, lastPeriodDate);
-      
+
       // 2. Crear/actualizar log del día con los síntomas seleccionados
       const { error: logError } = await supabase
         .from('daily_logs')
@@ -178,17 +178,17 @@ const TrackerView = ({
         const logDateObj = parseLocalDateOrToday(logDate);
         lastPeriod.setHours(0, 0, 0, 0);
         logDateObj.setHours(0, 0, 0, 0);
-        
+
         const diffDays = Math.floor((logDateObj.getTime() - lastPeriod.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         if (diffDays >= 0 && refreshedProfile.cycle_length) {
           let cycleDayForLogDate = diffDays + 1;
-          
+
           if (cycleDayForLogDate > refreshedProfile.cycle_length) {
             const cyclesPassed = Math.floor((cycleDayForLogDate - 1) / refreshedProfile.cycle_length);
             cycleDayForLogDate = cycleDayForLogDate - (cyclesPassed * refreshedProfile.cycle_length);
           }
-          
+
           setTodayLog(prev => ({
             ...prev,
             cycleDay: cycleDayForLogDate > 0 ? cycleDayForLogDate : 1
@@ -246,15 +246,15 @@ const TrackerView = ({
       <div className="bg-white p-6 rounded-3xl shadow-[0_2px_20px_rgba(0,0,0,0.03)] border border-ferty-beige space-y-8">
         <div className="space-y-6">
           <div>
-          <h3 className="text-xs font-bold text-ferty-coral uppercase tracking-widest border-b border-ferty-beige pb-2">Fisiología</h3>
+            <h3 className="text-xs font-bold text-ferty-coral uppercase tracking-widest border-b border-ferty-beige pb-2">Fisiología</h3>
             {(() => {
               // Calcular fecha de inicio del ciclo actual (igual que Dashboard)
               const fechaInicioCicloActual = user?.lastPeriodDate && user?.cycleLength
                 ? calcularFechaInicioCicloActual(user.lastPeriodDate, user.cycleLength)
                 : null;
-              
+
               const fechaAMostrar = fechaInicioCicloActual || user?.lastPeriodDate || lastPeriodDate;
-              
+
               return fechaAMostrar ? (
                 <p className="text-[10px] text-ferty-gray mt-2">
                   Última Regla: {formatDate(fechaAMostrar)}
@@ -436,9 +436,8 @@ const TrackerView = ({
                 <button
                   key={value}
                   onClick={() => setTodayLog({ ...todayLog, stressLevel: value })}
-                  className={`flex-1 h-10 rounded-xl font-bold transition-all ${
-                    todayLog.stressLevel === value ? 'bg-ferty-rose text-white shadow-lg scale-105' : 'bg-ferty-beige text-ferty-gray hover:bg-stone-200'
-                  }`}
+                  className={`flex-1 h-10 rounded-xl font-bold transition-all ${todayLog.stressLevel === value ? 'bg-ferty-rose text-white shadow-lg scale-105' : 'bg-ferty-beige text-ferty-gray hover:bg-stone-200'
+                    }`}
                 >
                   {value}
                 </button>
@@ -582,11 +581,10 @@ const TrackerView = ({
                         key={symptom}
                         type="button"
                         onClick={() => togglePeriodSymptom(symptom)}
-                        className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                          isSelected
+                        className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${isSelected
                             ? 'bg-ferty-rose text-white shadow-md'
                             : 'bg-ferty-beige text-ferty-gray hover:bg-ferty-beigeDisabled'
-                        }`}
+                          }`}
                       >
                         {symptom}
                       </button>
@@ -606,11 +604,10 @@ const TrackerView = ({
               <button
                 onClick={handleSaveCycleData}
                 disabled={!lastPeriodDate || isSavingPeriod}
-                className={`flex-1 px-4 py-3 rounded-xl font-bold transition-colors ${
-                  !lastPeriodDate || isSavingPeriod
+                className={`flex-1 px-4 py-3 rounded-xl font-bold transition-colors ${!lastPeriodDate || isSavingPeriod
                     ? 'bg-ferty-beigeDisabled text-ferty-grayDisabled cursor-not-allowed'
                     : 'bg-ferty-rose text-white hover:bg-ferty-roseHoverAlt shadow-md'
-                }`}
+                  }`}
               >
                 {isSavingPeriod ? 'Guardando...' : 'Guardar'}
               </button>

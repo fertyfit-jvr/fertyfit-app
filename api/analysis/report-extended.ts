@@ -183,9 +183,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       periodHistory: profile.period_history || [],
       diagnoses: profile.diagnoses || [],
       fertilityTreatments: profile.fertility_treatments || undefined,
-      supplements: profile.supplements || undefined,
-      smoker: profile.smoker || undefined,
-      alcoholConsumption: profile.alcohol_consumption || undefined,
+      // supplements: profile.supplements || undefined,
+      // smoker: profile.smoker || undefined,
+      // alcoholConsumption: profile.alcohol_consumption || undefined,
     };
 
     const userProfileSummary = {
@@ -238,13 +238,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Resumen FertyScore (no se recalcula, se lee de la tabla ferty_scores)
     let fertyScoreSummary:
       | {
-          total: number | null;
-          function: number | null;
-          food: number | null;
-          flora: number | null;
-          flow: number | null;
-          calculated_at: string;
-        }
+        total: number | null;
+        function: number | null;
+        food: number | null;
+        flora: number | null;
+        flow: number | null;
+        calculated_at: string;
+      }
       | null = null;
 
     if (reportType === 'BASIC' || reportType === '360') {
@@ -428,22 +428,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (logsLast30d.length > 0) {
           const totalSleep = logsLast30d.reduce(
-            (acc, log) => acc + (log.sleep_hours ?? 0),
+            (acc, log) => acc + (log.sleepHours ?? 0),
             0
           );
           const totalStress = logsLast30d.reduce(
-            (acc, log) => acc + (log.stress_level ?? 0),
+            (acc, log) => acc + (log.stressLevel ?? 0),
             0
           );
           const totalWater = logsLast30d.reduce(
-            (acc, log) => acc + (log.water_intake ?? 0),
+            (acc, log) => acc + (log.waterGlasses ?? 0),
             0
           );
           const totalVegetables = logsLast30d.reduce(
-            (acc, log) => acc + (log.vegetable_servings ?? 0),
+            (acc, log) => acc + (log.veggieServings ?? 0),
             0
           );
-          const daysWithAlcohol = logsLast30d.filter((log) => log.alcohol_consumed).length;
+          const daysWithAlcohol = logsLast30d.filter((log) => log.alcohol).length;
 
           dailyLogsSummary30d = {
             period_days: logsLast30d.length,
@@ -477,7 +477,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 8. Generar informe con Gemini
     sendProgress(res, 'GENERATING', 'Generando tu informe personalizado con IA...');
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: [{ text: prompt }, { text: JSON.stringify(context) }],
     } as any);
 

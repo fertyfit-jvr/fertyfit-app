@@ -165,7 +165,7 @@ function AppContent() {
     }
   };
 
-  if (view !== 'DISCLAIMER' && view !== 'ONBOARDING' && user && !hasConsents) {
+  if ((view as string) !== 'DISCLAIMER' && (view as string) !== 'ONBOARDING' && user && !hasConsents) {
     return (
       <Suspense fallback={<ViewLoading />}>
         <ConsentView

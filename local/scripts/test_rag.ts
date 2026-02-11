@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
+import { GoogleGenAI } from '@google/genai';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true });
 
@@ -9,20 +10,41 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI_API_KEY = process.env.VITE_GEMINI_API || process.env.GEMINI_API_KEY;
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+if (!GEMINI_API_KEY) {
+    console.error('Missing GEMINI_API_KEY');
+    process.exit(1);
+}
+
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+async function listAvailableModels() {
+    try {
+        console.log('Listing available models...');
+        // SDK might not have listModels exposed easily on instance depending on version
+        // Trying direct fetch for list models as fallback or if SDK supports it
+        // The sdk usually has ai.models.list()
+        const resp = await (ai as any).models.list();
+        console.log('Available models:', resp?.models?.map((m: any) => m.name));
+    } catch (e: any) {
+        console.error('Error listing models:', e.message);
+    }
+}
 
 async function embedQuery(query: string): Promise<number[]> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    await listAvailableModels();
+    try {
+        console.log('Generating embedding using GoogleGenAI SDK (text-embedding-004)...');
+        const resp = await (ai as any).models.embedContent({
             model: 'models/text-embedding-004',
-            content: { parts: [{ text: query }] }
-        })
-    });
-    const data = await response.json();
-    return data.embedding?.values || [];
+            contents: [query],
+        });
+        const values = resp?.embeddings?.[0]?.values;
+        if (!values) throw new Error('No embedding values returned');
+        return values;
+    } catch (error: any) {
+        console.error('Embedding Error:', error?.message || error);
+        return [];
+    }
 }
 
 async function testRag() {
@@ -34,9 +56,14 @@ async function testRag() {
     const embedding = await embedQuery(testQuery);
     console.log(`Embedding generated: ${embedding.length} dimensions`);
 
+    if (embedding.length === 0) {
+        console.error('Failed to generate embedding, aborting search');
+        return;
+    }
+
     const { data, error } = await supabase.rpc('match_fertyfit_knowledge', {
         query_embedding: embedding,
-        match_count: 120,  // Fetch many to see diversity
+        match_count: 15,
         filter_pillar_category: null,
         filter_doc_type: null,
         filter_document_id: null,
@@ -47,32 +74,15 @@ async function testRag() {
         return;
     }
 
-    console.log(`\nRaw results count: ${data?.length || 0}`);
+    console.log(`\nResults count: ${data?.length || 0}`);
 
-    // DEBUG: Log first row structure
     if (data && data.length > 0) {
-        console.log('First row keys:', Object.keys(data[0]));
-        console.log('First row sample:', JSON.stringify(data[0], null, 2).slice(0, 500));
+        console.log('Top result snippet:', data[0].content_chunk.substring(0, 100));
+        console.log('Top result source:', data[0].metadata_json?.filename || 'unknown');
+        console.log('Top result similarity:', data[0].similarity);
+    } else {
+        console.warn('No matches found. Database might be empty or embeddings mismatch.');
     }
-
-    // Group by document
-    const docCounts: Record<string, number> = {};
-    data?.forEach((row: any) => {
-        const docId = row.document_id || row.metadata_json?.semantic_filename || 'unknown';
-        docCounts[docId] = (docCounts[docId] || 0) + 1;
-    });
-
-    const uniqueDocs = Object.keys(docCounts);
-    console.log(`\nUnique documents found: ${uniqueDocs.length}`);
-    console.log('\nTop 15 documents by chunk count:');
-
-    Object.entries(docCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 15)
-        .forEach(([doc, count], i) => {
-            const similarity = data.find((r: any) => r.document_id === doc)?.similarity || 0;
-            console.log(`  ${i + 1}. ${doc} (${count} chunks, sim: ${similarity.toFixed(3)})`);
-        });
 }
 
 testRag().catch(console.error);

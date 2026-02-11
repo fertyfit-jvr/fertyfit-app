@@ -23,13 +23,13 @@ export interface UserProfile {
   obstetricHistory?: string; // Historia obstétrica
   fertilityTreatments?: string; // Tratamientos previos (q20_fertility_treatments)
   diagnoses?: string; // Diagnósticos/Historia médica (q9_diagnoses) - TEXT field
-  
+
   // Cycle tracking fields (updated from Tracker and FUNCTION pillar)
   cycleLength?: number;
   cycleRegularity?: 'Regular' | 'Irregular';
   lastPeriodDate?: string;
   periodHistory?: string[]; // Historial de fechas de períodos para auto-cálculo del ciclo promedio
-  
+
   // UI fields (not in DB)
   recentBloodwork?: boolean;
 
@@ -42,6 +42,11 @@ export interface UserProfile {
   consent_daily_log?: boolean;
   consent_no_diagnosis?: boolean;
   consents_at?: string;
+
+  // Health & Lifestyle
+  smoker?: string;
+  alcoholConsumption?: string;
+  supplements?: string;
 }
 
 export type MucusType = 'Seco' | 'Pegajoso' | 'Cremoso' | 'Clara de huevo' | 'Acuoso';
@@ -104,7 +109,7 @@ export interface CourseModule {
 export interface FormAnswer {
   questionId: string;
   question: string;
-  answer: string | number | boolean | string[];
+  answer: string | number | boolean | string[] | Record<string, any>;
 }
 
 export interface ConsultationForm {
@@ -112,6 +117,7 @@ export interface ConsultationForm {
   user_id?: string;
   form_type: 'F0' | 'FUNCTION' | 'FOOD' | 'FLORA' | 'FLOW' | 'EXAM';
   submitted_at?: string;
+  updated_at?: string;
 
   answers: FormAnswer[]; // Structured answers
   observations: string;

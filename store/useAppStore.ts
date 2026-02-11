@@ -174,7 +174,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const result = await fetchLogsForUser(userId, daysLimit);
       if (!result.success) {
-        showNotif(result.error, 'error');
+        showNotif((result as any).error, 'error');
         return [];
       }
       const mappedLogs = result.data;
@@ -239,7 +239,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const result = await fetchAllLogsForUser(userId);
       if (!result.success) {
-        showNotif(result.error, 'error');
+        showNotif((result as any).error, 'error');
         return [];
       }
       const mappedLogs = result.data;
@@ -265,7 +265,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const result = await fetchNotificationsForUser(userId);
       if (!result.success) {
-        showNotif(result.error, 'error');
+        showNotif((result as any).error, 'error');
         setNotifications([]);
         return;
       }
@@ -281,7 +281,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const result = await fetchUserFormsForUser(userId);
       if (!result.success) {
-        showNotif(result.error, 'error');
+        showNotif((result as any).error, 'error');
         return;
       }
       setSubmittedForms(result.data);
@@ -296,7 +296,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const result = await fetchEducationForUser(userId, methodStart);
       if (!result.success) {
-        showNotif(result.error, 'error');
+        showNotif((result as any).error, 'error');
         setCourseModules([]);
         return;
       }
@@ -631,46 +631,37 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return;
       }
 
-      setCourseModules((prev) => {
+      const safePrev = Array.isArray(courseModules) ? courseModules : [];
+      if (safePrev.length === 0) {
+        logger.warn('courseModules is empty, cannot update lesson completion');
+        return;
+      }
+
+      const updated = safePrev.map((m) => {
         try {
-          const safePrev = Array.isArray(prev) ? prev : [];
-          if (safePrev.length === 0) {
-            logger.warn('courseModules is empty, cannot update lesson completion');
-            return safePrev;
+          if (!m || typeof m.id === 'undefined') {
+            logger.warn('Invalid module found:', m);
+            return m;
           }
 
-          const updated = safePrev.map((m) => {
-            try {
-              if (!m || typeof m.id === 'undefined') {
-                logger.warn('Invalid module found:', m);
-                return m;
-              }
+          const safeLessons = Array.isArray(m.lessons) ? m.lessons : [];
+          const safeCompletedLessons = Array.isArray(m.completedLessons) ? m.completedLessons : [];
 
-              const safeLessons = Array.isArray(m.lessons) ? m.lessons : [];
-              const safeCompletedLessons = Array.isArray(m.completedLessons) ? m.completedLessons : [];
-              const hasLesson = safeLessons.some((l) => l && l.id === lessonId);
-
-              return {
-                ...m,
-                lessons: safeLessons,
-                completedLessons:
-                  hasLesson && !safeCompletedLessons.includes(lessonId)
-                    ? [...safeCompletedLessons, lessonId]
-                    : safeCompletedLessons
-              };
-            } catch (err) {
-              logger.error('Error updating module:', err, m);
+          if (safeLessons.some((l) => l.id === lessonId)) {
+            // Check if already completed to avoid duplicates
+            if (safeCompletedLessons.includes(lessonId)) {
               return m;
             }
-          });
-
-          logger.log('Updated courseModules after marking lesson complete:', updated.length, 'modules');
-          return updated;
+            return { ...m, completedLessons: [...safeCompletedLessons, lessonId] };
+          }
+          return m;
         } catch (err) {
-          logger.error('Error in setCourseModules:', err);
-          return prev;
+          logger.error('Error updating module:', err);
+          return m;
         }
       });
+
+      setCourseModules(updated);
 
       // Trigger LESSON_COMPLETED después de marcar como completada
       try {

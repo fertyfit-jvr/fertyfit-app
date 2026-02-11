@@ -7,6 +7,7 @@ export interface PillarFunction {
   user_id: string;
   // Ciclo (movido desde F0, sincronizado con profiles)
   cycle_length?: number;
+  cycle_regularity?: string;
   // Nuevas preguntas FUNCTION
   regularity_detail?: string;
   knows_fertile_days?: string; // Sí/No
@@ -35,6 +36,15 @@ export interface PillarFood {
   carb_source?: string;            // food_carbos: principal fuente de carbohidratos
   coffee_cups?: number;            // food_cafe: tazas de café al día (0-10)
   alcohol_consumption?: string;    // food_alcohol: consumo de alcohol semanal
+
+  // Properties inferred from fertyscoreService usage
+  daily_fiber?: number;
+  vegetable_diversity?: number;
+  ultraprocessed?: string;
+  daily_protein?: number;
+  waist_circumference?: number;
+  weekly_exercise?: string;
+
   created_at?: string;
   updated_at?: string;
 }
