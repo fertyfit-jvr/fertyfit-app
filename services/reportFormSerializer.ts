@@ -5,8 +5,8 @@
  * a una estructura normalizada para usar en informes HTML.
  */
 
-import type { ConsultationForm, FormAnswer } from '../types';
-import { FORM_DEFINITIONS } from '../constants/formDefinitions';
+import type { ConsultationForm, FormAnswer } from '../types.js';
+import { FORM_DEFINITIONS } from '../constants/formDefinitions.js';
 
 export type NormalizedQuestion = {
   questionId: string;
