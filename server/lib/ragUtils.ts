@@ -89,11 +89,30 @@ export async function searchRagDirect(
     throw error;
   }
 
-  const rawResults = data || [];
+  let rawResults = data || [];
   logger.log(`[RAG] RPC devolvió ${rawResults.length} resultados crudos`);
 
-  // 3) Algoritmo de Priorización y Diversidad
+  // Si no hay resultados, hacer fallback al documento core de metodología
   const PINNED_DOC_ID = 'FERTYFIT_METODOLOGIA_CORE.md';
+  if (rawResults.length === 0) {
+    logger.warn(`[RAG] No se encontraron resultados, haciendo fallback a ${PINNED_DOC_ID}`);
+    const { data: fallbackData, error: fallbackError } = await supabase.rpc('match_fertyfit_knowledge', {
+      query_embedding: queryEmbedding,
+      match_count: desiredCount,
+      filter_pillar_category: null,
+      filter_doc_type: null,
+      filter_document_id: PINNED_DOC_ID,
+    });
+
+    if (!fallbackError && fallbackData && fallbackData.length > 0) {
+      rawResults = fallbackData;
+      logger.log(`[RAG] Fallback exitoso: ${rawResults.length} chunks del documento core`);
+    } else {
+      logger.error(`[RAG] Fallback falló, no hay contexto disponible`);
+    }
+  }
+
+  // 3) Algoritmo de Priorización y Diversidad
   const pinnedChunks: any[] = [];
   const otherChunks: any[] = [];
 

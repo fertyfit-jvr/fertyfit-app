@@ -14,6 +14,7 @@ import {
   type ReportType,
 } from './report-helpers.js';
 import { canGenerateBasic } from './reportRules.js';
+import { serializeFormsForBasicReport } from '../../services/reportFormSerializer.js';
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
 // Usamos SERVICE ROLE KEY para bypassear RLS y poder leer todos los datos del usuario
@@ -404,6 +405,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       previousReports.length > 0 ? previousReports : undefined
     );
 
+    // Serializar formularios para el informe BASIC (portada de preconsulta)
+    let serializedForms: any = null;
+    if (reportType === 'BASIC') {
+      try {
+        serializedForms = serializeFormsForBasicReport(forms);
+      } catch (serializeError) {
+        logger.warn('No se pudo serializar formularios para informe BASIC:', serializeError);
+      }
+    }
+
     // 7. Generar prompt especializado
     const ragChunksMetadata = ragChunks.map((c) => ({
       document_id: c.metadata?.document_id || '',
@@ -469,6 +480,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reportType === 'BASIC' || reportType === '360' ? cycleInfo : undefined,
           fertyscore:
             reportType === 'BASIC' || reportType === '360' ? fertyScoreSummary : undefined,
+          basic_forms: reportType === 'BASIC' ? serializedForms : undefined,
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',

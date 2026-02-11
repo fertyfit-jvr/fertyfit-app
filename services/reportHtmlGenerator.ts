@@ -71,6 +71,21 @@ type FertyScoreSummary = {
   calculated_at: string;
 };
 
+type NormalizedQuestion = {
+  questionId: string;
+  questionText: string;
+  answer: string;
+  category?: string;
+};
+
+type SerializedForms = {
+  F0?: NormalizedQuestion[];
+  FUNCTION?: NormalizedQuestion[];
+  FOOD?: NormalizedQuestion[];
+  FLORA?: NormalizedQuestion[];
+  FLOW?: NormalizedQuestion[];
+};
+
 function maskEmail(email?: string | null): string | undefined {
   if (!email) return undefined;
   const [local, domain] = email.split('@');
@@ -524,6 +539,105 @@ function renderFertyScoreSection(
   `;
 }
 
+function renderFormsSection(
+  reportType: string | undefined,
+  forms: SerializedForms | undefined
+): string {
+  if (reportType !== 'BASIC' || !forms) return '';
+
+  const sections: Array<{
+    key: keyof SerializedForms;
+    title: string;
+    description: string;
+  }> = [
+    {
+      key: 'F0',
+      title: 'Formulario inicial (F0)',
+      description: 'Datos básicos de contexto reproductivo y antecedentes.',
+    },
+    {
+      key: 'FUNCTION',
+      title: 'Pilar Function',
+      description:
+        'Función reproductiva: todo lo relacionado con tu ciclo menstrual, ovulación y salud hormonal.',
+    },
+    {
+      key: 'FOOD',
+      title: 'Pilar Food',
+      description:
+        'Alimentación pro-fértil: calidad de tu dieta, micronutrientes esenciales y suplementación.',
+    },
+    {
+      key: 'FLORA',
+      title: 'Pilar Flora',
+      description:
+        'Microbiota y salud digestiva: base de la inflamación, absorción de nutrientes y equilibrio inmunológico.',
+    },
+    {
+      key: 'FLOW',
+      title: 'Pilar Flow',
+      description:
+        'Estilo de vida: sueño, estrés, movimiento, equilibrio emocional y exposición a tóxicos.',
+    },
+  ];
+
+  let html = `
+  <section style="margin-top:24px;">
+    <h2 style="font-size:16px;font-weight:700;color:#121926;margin:0 0 12px;">Formularios completados</h2>
+  `;
+
+  for (const section of sections) {
+    const questionsData = forms[section.key];
+    html += `
+    <div style="margin-bottom:20px;">
+      <h3 style="font-size:14px;font-weight:700;color:#c53030;margin:0 0 4px;">${escapeHtml(
+        section.title
+      )}</h3>
+      <p style="font-size:12px;color:#6b7280;margin:0 0 8px;line-height:1.4;">
+        ${escapeHtml(section.description)}
+      </p>
+    `;
+
+    if (!questionsData || questionsData.length === 0) {
+      html += `
+      <p style="font-size:12px;color:#9ca3af;font-style:italic;margin:0;">
+        Este formulario aún no está completado.
+      </p>
+      `;
+    } else {
+      html += `
+      <table style="width:100%;border-collapse:collapse;font-size:12px;color:#374151;">
+        <thead>
+          <tr>
+            <th style="padding:6px 8px;border:1px solid #e5e7eb;background:#f9fafb;text-align:left;width:50%;font-weight:600;">Pregunta</th>
+            <th style="padding:6px 8px;border:1px solid #e5e7eb;background:#f9fafb;text-align:left;font-weight:600;">Respuesta</th>
+          </tr>
+        </thead>
+        <tbody>
+      `;
+
+      for (const q of questionsData) {
+        html += `
+          <tr>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb;">${escapeHtml(q.questionText)}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e7eb;">${escapeHtml(q.answer)}</td>
+          </tr>
+        `;
+      }
+
+      html += `
+        </tbody>
+      </table>
+      `;
+    }
+
+    html += `</div>`;
+  }
+
+  html += `</section>`;
+  return html;
+}
+
 function renderFooterSection(): string {
   return `
   <section style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px;">
@@ -562,6 +676,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
   const medicalSummary: MedicalSummary | undefined = metadata.medical_summary;
   const cycleInfo: CycleInfo | undefined = metadata.cycle_info;
   const fertyScore: FertyScoreSummary | undefined = metadata.fertyscore;
+  const basicForms: SerializedForms | undefined = metadata.basic_forms;
 
   const createdDate = new Date(report.created_at).toLocaleDateString('es-ES', {
     day: 'numeric',
@@ -577,7 +692,8 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
       ? renderMedicalSummarySection(medicalSummary)
       : '';
   const cycleSection = renderCycleSection(reportType, cycleInfo);
-   const fertyScoreSection = renderFertyScoreSection(reportType, fertyScore);
+  const fertyScoreSection = renderFertyScoreSection(reportType, fertyScore);
+  const formsSection = renderFormsSection(reportType, basicForms);
 
   const footerSection = renderFooterSection();
 
@@ -619,6 +735,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
 
     ${patientSection}
     ${fertyScoreSection}
+    ${formsSection}
     ${reportType === '360' ? medicalSection : ''}
     ${cycleSection}
 
