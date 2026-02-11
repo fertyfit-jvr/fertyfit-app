@@ -62,6 +62,15 @@ type CycleInfo = {
   days_until_next_period?: number | null;
 };
 
+type FertyScoreSummary = {
+  total: number | null;
+  function: number | null;
+  food: number | null;
+  flora: number | null;
+  flow: number | null;
+  calculated_at: string;
+};
+
 function maskEmail(email?: string | null): string | undefined {
   if (!email) return undefined;
   const [local, domain] = email.split('@');
@@ -439,6 +448,82 @@ function renderCycleSection(
   `;
 }
 
+function renderFertyScoreSection(
+  reportType: string | undefined,
+  fertyScore: FertyScoreSummary | undefined
+): string {
+  // Por ahora mostramos el resumen FertyScore solo en BASIC (portada de preconsulta)
+  if (reportType !== 'BASIC') return '';
+  if (!fertyScore || fertyScore.total == null) {
+    return '';
+  }
+
+  const dateText = fertyScore.calculated_at
+    ? new Date(fertyScore.calculated_at).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '';
+
+  const formatScore = (v: number | null) => (typeof v === 'number' ? `${v}` : '—');
+
+  return `
+  <section style="margin-top:20px;">
+    <h2 style="font-size:16px;font-weight:700;color:#121926;margin:0 0 10px;">Resumen FertyScore</h2>
+    <p style="font-size:12px;color:#4b5563;margin:0 0 10px;">
+      El FertyScore resume de forma global cómo se encuentran tus cuatro pilares de fertilidad
+      (Function, Food, Flora y Flow) en el momento del cálculo${dateText ? ` (${dateText})` : ''}.
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;">
+      <div style="flex:1 1 180px;background:#fff7f7;border:1px solid #fecaca;border-radius:12px;padding:12px 14px;">
+        <div style="font-size:11px;text-transform:uppercase;color:#b91c1c;margin-bottom:4px;">FertyScore global</div>
+        <div style="font-size:22px;font-weight:800;color:#b91c1c;">${formatScore(fertyScore.total)}</div>
+        <div style="font-size:11px;color:#7f1d1d;margin-top:4px;">
+          Cuanto más alto, más alineados están tus hábitos y tu salud general con la fertilidad.
+        </div>
+      </div>
+      <div style="flex:1 1 140px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;">
+        <div style="font-size:11px;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Function</div>
+        <div style="font-size:18px;font-weight:700;color:#111827;">${formatScore(
+          fertyScore.function
+        )}</div>
+        <div style="font-size:11px;color:#4b5563;margin-top:2px;">
+          Función reproductiva: ciclo, ovulación y salud hormonal.
+        </div>
+      </div>
+      <div style="flex:1 1 140px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;">
+        <div style="font-size:11px;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Food</div>
+        <div style="font-size:18px;font-weight:700;color:#111827;">${formatScore(
+          fertyScore.food
+        )}</div>
+        <div style="font-size:11px;color:#4b5563;margin-top:2px;">
+          Alimentación pro-fértil: calidad de la dieta y micronutrientes.
+        </div>
+      </div>
+      <div style="flex:1 1 140px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;">
+        <div style="font-size:11px;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Flora</div>
+        <div style="font-size:18px;font-weight:700;color:#111827;">${formatScore(
+          fertyScore.flora
+        )}</div>
+        <div style="font-size:11px;color:#4b5563;margin-top:2px;">
+          Microbiota y salud digestiva, base de la inflamación y absorción de nutrientes.
+        </div>
+      </div>
+      <div style="flex:1 1 140px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;">
+        <div style="font-size:11px;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Flow</div>
+        <div style="font-size:18px;font-weight:700;color:#111827;">${formatScore(
+          fertyScore.flow
+        )}</div>
+        <div style="font-size:11px;color:#4b5563;margin-top:2px;">
+          Estilo de vida: sueño, estrés, movimiento y equilibrio mente-cuerpo.
+        </div>
+      </div>
+    </div>
+  </section>
+  `;
+}
+
 function renderFooterSection(): string {
   return `
   <section style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px;">
@@ -476,6 +561,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
   const userProfileSummary: UserProfileSummary | undefined = metadata.user_profile_summary;
   const medicalSummary: MedicalSummary | undefined = metadata.medical_summary;
   const cycleInfo: CycleInfo | undefined = metadata.cycle_info;
+  const fertyScore: FertyScoreSummary | undefined = metadata.fertyscore;
 
   const createdDate = new Date(report.created_at).toLocaleDateString('es-ES', {
     day: 'numeric',
@@ -491,6 +577,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
       ? renderMedicalSummarySection(medicalSummary)
       : '';
   const cycleSection = renderCycleSection(reportType, cycleInfo);
+   const fertyScoreSection = renderFertyScoreSection(reportType, fertyScore);
 
   const footerSection = renderFooterSection();
 
@@ -531,6 +618,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
     </header>
 
     ${patientSection}
+    ${fertyScoreSection}
     ${reportType === '360' ? medicalSection : ''}
     ${cycleSection}
 

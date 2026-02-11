@@ -234,6 +234,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Resumen FertyScore (no se recalcula, se lee de la tabla ferty_scores)
+    let fertyScoreSummary:
+      | {
+          total: number | null;
+          function: number | null;
+          food: number | null;
+          flora: number | null;
+          flow: number | null;
+          calculated_at: string;
+        }
+      | null = null;
+
+    if (reportType === 'BASIC' || reportType === '360') {
+      try {
+        const { data: scoresData, error: scoresError } = await supabase
+          .from('ferty_scores')
+          .select('global_score,function_score,food_score,flora_score,flow_score,created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (scoresError) {
+          logger.warn('No se pudo cargar ferty_scores para informe:', scoresError);
+        } else if (scoresData && scoresData.length > 0) {
+          const s = scoresData[0] as any;
+          fertyScoreSummary = {
+            total: s.global_score ?? null,
+            function: s.function_score ?? null,
+            food: s.food_score ?? null,
+            flora: s.flora_score ?? null,
+            flow: s.flow_score ?? null,
+            calculated_at: s.created_at,
+          };
+        }
+      } catch (scoreError) {
+        logger.warn('Excepción al cargar ferty_scores para informe:', scoreError);
+      }
+    }
+
     // 2. Registros diarios (usados en 360, DAILY y también para resumen médico en BASIC)
     let logs: DailyLog[] = [];
     if (reportType === '360' || reportType === 'DAILY' || reportType === 'BASIC') {
@@ -428,6 +467,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reportType === 'BASIC' || reportType === '360' ? userProfileSummary : undefined,
           cycle_info:
             reportType === 'BASIC' || reportType === '360' ? cycleInfo : undefined,
+          fertyscore:
+            reportType === 'BASIC' || reportType === '360' ? fertyScoreSummary : undefined,
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',
