@@ -30,19 +30,20 @@ function getSupabaseClient() {
 
 async function embedQuery(query: string): Promise<number[]> {
   try {
-    logger.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
+    console.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
 
-    // El SDK nuevo usa ai.models.embedContent directamente
-    // IMPORTANTE: en API v1beta el modelo soportado para embeddings es "embedding-001"
-    // (text-embedding-004 solo está disponible en la API v1 y da error 404 en v1beta).
-    const resp = await (ai as any).models.embedContent({
-      model: 'embedding-001',
-      contents: [query], // Array de strings
+    // @google/genai v1.x: usar text-embedding-004 con contents como string
+    const resp = await ai.models.embedContent({
+      model: 'text-embedding-004',
+      contents: query,
     });
 
-    // La respuesta tiene embeddings array, cada uno con values
+    console.log('[RAG] Embedding response keys:', resp ? Object.keys(resp) : 'null');
+
+    // La respuesta puede tener .embedding.values o .embeddings[0].values
     const embedding =
-      resp?.embeddings?.[0]?.values;
+      (resp as any)?.embedding?.values ??
+      (resp as any)?.embeddings?.[0]?.values;
 
     if (!embedding || embedding.length === 0) {
       logger.error(`[RAG] ERROR: Embedding vacío o inválido`);
