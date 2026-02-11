@@ -474,46 +474,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ragChunksMetadata
     );
 
-    // 8. Generar informe con Gemini
+    // 8. Generar informe con Gemini (con reintentos para 429)
     sendProgress(res, 'GENERATING', 'Generando tu informe personalizado con IA...');
     console.log('[REPORT] Step 8: Calling Gemini API for', reportType, 'userId:', userId);
 
     let reportText: string;
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt + '\n\n---DATOS DE LA USUARIA---\n\n' + JSON.stringify(context),
-      });
+    const MAX_RETRIES = 3;
+    let lastError: any = null;
 
-      console.log('[REPORT] Gemini response received, type:', typeof response);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[REPORT] Gemini attempt ${attempt}/${MAX_RETRIES}`);
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: prompt + '\n\n---DATOS DE LA USUARIA---\n\n' + JSON.stringify(context),
+        });
 
-      // @google/genai v1.x: response.text is a string getter
-      let responseText: string | undefined;
-      if (response && typeof response === 'object') {
-        // Try .text (getter in v1.x SDK)
-        if (typeof (response as any).text === 'string') {
-          responseText = (response as any).text;
-        }
-        // Fallback: try candidates[0].content.parts[0].text
-        if (!responseText) {
-          const candidates = (response as any).candidates;
-          if (candidates && candidates[0]?.content?.parts?.[0]?.text) {
-            responseText = candidates[0].content.parts[0].text;
+        // @google/genai v1.x: response.text is a string getter
+        let responseText: string | undefined;
+        if (response && typeof response === 'object') {
+          if (typeof (response as any).text === 'string') {
+            responseText = (response as any).text;
+          }
+          if (!responseText) {
+            const candidates = (response as any).candidates;
+            if (candidates && candidates[0]?.content?.parts?.[0]?.text) {
+              responseText = candidates[0].content.parts[0].text;
+            }
           }
         }
-      }
 
-      if (typeof responseText === 'string' && responseText.length > 0) {
-        reportText = responseText;
-        console.log('[REPORT] Report text generated, length:', reportText.length);
-      } else {
-        console.error('[REPORT] Gemini returned no text. Response keys:', response ? Object.keys(response) : 'null');
-        reportText = 'No se pudo generar el informe. La IA no devolvió texto. Por favor, intenta de nuevo.';
+        if (typeof responseText === 'string' && responseText.length > 0) {
+          reportText = responseText;
+          console.log('[REPORT] Report text generated, length:', reportText.length);
+          lastError = null;
+          break; // Éxito, salir del loop
+        } else {
+          console.error('[REPORT] Gemini returned no text. Response keys:', response ? Object.keys(response) : 'null');
+          reportText = 'No se pudo generar el informe. La IA no devolvió texto. Por favor, intenta de nuevo.';
+          lastError = null;
+          break; // No es un error retriable
+        }
+      } catch (aiError: any) {
+        lastError = aiError;
+        const errorMsg = typeof aiError?.message === 'string' ? aiError.message : JSON.stringify(aiError);
+        const is429 = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED') || errorMsg.includes('exhausted');
+
+        console.error(`[REPORT] Gemini attempt ${attempt} FAILED (retriable=${is429}):`, errorMsg);
+
+        if (is429 && attempt < MAX_RETRIES) {
+          const waitMs = 3000 * Math.pow(2, attempt - 1); // 3s, 6s, 12s
+          sendProgress(res, 'RETRYING', `Esperando ${waitMs / 1000}s por límite de velocidad de la IA (intento ${attempt}/${MAX_RETRIES})...`);
+          await new Promise(resolve => setTimeout(resolve, waitMs));
+          continue;
+        }
+        // No retriable o max retries reached
+        break;
       }
-    } catch (aiError: any) {
-      console.error('[REPORT] Gemini API FAILED:', aiError?.message || aiError);
-      reportText = `Error al generar el informe con IA: ${aiError?.message || 'Error desconocido'}. Por favor, intenta de nuevo.`;
     }
+
+    // Si después de todos los intentos seguimos con error
+    if (lastError) {
+      const errorMsg = typeof lastError?.message === 'string' ? lastError.message : JSON.stringify(lastError);
+      reportText = `Error al generar el informe con IA después de ${MAX_RETRIES} intentos: ${errorMsg}. Por favor, intenta de nuevo en unos minutos.`;
+    }
+    reportText = reportText!;
 
     // 9. Guardar el informe en notifications
     console.log('[REPORT] Step 9: Saving report to notifications table for userId:', userId);
