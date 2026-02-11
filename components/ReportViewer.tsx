@@ -1,7 +1,8 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import { X, Printer, Mail } from 'lucide-react';
+import { X, Printer, Mail, Download } from 'lucide-react';
 import { AppNotification } from '../types';
+import { generateStructuredReportHtml } from '../services/reportHtmlGenerator';
 
 interface ReportViewerProps {
   report: AppNotification;
@@ -12,8 +13,8 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
   const isMarkdown = report.metadata?.format === 'markdown';
   const content = report.message;
 
-  // Convertir Markdown a HTML bien formateado para correo
-  const convertMarkdownToHTML = (markdown: string): string => {
+  // Conversión legacy de Markdown a HTML (fallback cuando no hay metadata enriquecida)
+  const convertMarkdownToHTMLLegacy = (markdown: string): string => {
     const lines = markdown.split('\n');
     const htmlLines: string[] = [];
     let inList = false;
@@ -121,7 +122,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
     
     const htmlContent = htmlLines.join('\n');
     
-    // Estructura HTML completa con estilos inline
+    // Estructura HTML completa básica (se usará solo como respaldo)
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -146,6 +147,22 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
   </div>
 </body>
 </html>`;
+  };
+
+  /**
+   * Genera el HTML listo para correo / PDF.
+   * Si el informe tiene metadata enriquecida (perfil + resumen médico),
+   * usamos el motor estructurado. Si no, usamos el conversor legacy.
+   */
+  const buildExportHtml = (): string => {
+    const hasStructuredMetadata =
+      !!report.metadata?.user_profile_summary || !!report.metadata?.medical_summary;
+
+    if (hasStructuredMetadata) {
+      return generateStructuredReportHtml({ report });
+    }
+
+    return convertMarkdownToHTMLLegacy(content);
   };
 
   // Convertir Markdown a texto plano (fallback)
@@ -199,12 +216,41 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
     }, 100);
   };
 
+  const handleDownloadPdf = async () => {
+    try {
+      const response = await fetch('/api/reports/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: report.id }),
+      });
+
+      if (!response.ok) {
+        console.error('Error al generar PDF:', await response.text());
+        alert('No se pudo generar el PDF. Intenta de nuevo más tarde.');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${report.title.replace(/[^a-zA-Z0-9-_]/g, '_') || 'informe-fertyfit'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error inesperado al descargar PDF:', err);
+      alert('Ocurrió un error al descargar el PDF.');
+    }
+  };
+
   const handleEmail = () => {
     const subject = encodeURIComponent(report.title);
     
     if (isMarkdown) {
-      // Generar HTML bien formateado
-      const htmlContent = convertMarkdownToHTML(content);
+      // Generar HTML estructurado (o fallback legacy) para correo
+      const htmlContent = buildExportHtml();
       
       // Crear un elemento temporal para copiar el HTML al portapapeles
       const textarea = document.createElement('textarea');
@@ -280,6 +326,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
             >
               <Printer size={16} />
               Imprimir
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-sm font-bold text-ferty-dark"
+            >
+              <Download size={16} />
+              Descargar PDF
             </button>
             <button
               onClick={handleEmail}

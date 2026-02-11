@@ -14,6 +14,7 @@ import {
   type ReportType,
 } from './report-helpers.js';
 import { canGenerateBasic } from './reportRules.js';
+import { generarDatosInformeMedico } from '../../services/MedicalReportHelpers.js';
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)
 // Usamos SERVICE ROLE KEY para bypassear RLS y poder leer todos los datos del usuario
@@ -165,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const userProfile: UserProfile = {
       id: userId,
-      email: undefined,
+      email: profile.email || undefined,
       name: profile.name || 'Paciente',
       joinedAt: profile.created_at,
       methodStartDate: profile.method_start_date || undefined,
@@ -187,9 +188,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       alcoholConsumption: profile.alcohol_consumption || undefined,
     };
 
-    // 2. Registros diarios (solo si es necesario)
+    const userProfileSummary = {
+      id: userProfile.id,
+      nombre: userProfile.name,
+      email: userProfile.email ?? null,
+      birthDate: profile.birth_date ?? null,
+      age: userProfile.age,
+      weight: userProfile.weight,
+      height: userProfile.height,
+      mainObjective: userProfile.mainObjective ?? null,
+      partnerStatus: userProfile.partnerStatus ?? null,
+      methodStartDate: userProfile.methodStartDate ?? null,
+    };
+
+    // 2. Registros diarios (usados en 360, DAILY y también para resumen médico en BASIC)
     let logs: DailyLog[] = [];
-    if (reportType === '360' || reportType === 'DAILY') {
+    if (reportType === '360' || reportType === 'DAILY' || reportType === 'BASIC') {
       sendProgress(res, 'COLLECTING_LOGS', 'Recopilando tus registros diarios...');
       const { data: logsData, error: logsError } = await supabase
         .from('daily_logs')
@@ -318,6 +332,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       previousReports.length > 0 ? previousReports : undefined
     );
 
+    // Resumen médico calculado para HTML estructurado (solo BASIC y 360 por ahora)
+    let medicalSummary: any = null;
+    if (reportType === 'BASIC' || reportType === '360') {
+      try {
+        medicalSummary = generarDatosInformeMedico(userProfile, logs);
+      } catch (summaryError) {
+        logger.warn('No se pudo generar resumen médico para informe:', summaryError);
+      }
+    }
+
     // 7. Generar prompt especializado
     const ragChunksMetadata = ragChunks.map((c) => ({
       document_id: c.metadata?.document_id || '',
@@ -376,6 +400,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           report_type: reportType,
           format: 'markdown',
           manual_trigger: manualTrigger, // Flag para distinguir manual vs automático
+          // Resúmenes para generación de HTML estructurado en frontend
+          user_profile_summary:
+            reportType === 'BASIC' || reportType === '360' ? userProfileSummary : undefined,
+          medical_summary:
+            reportType === 'BASIC' || reportType === '360' ? medicalSummary : undefined,
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',
