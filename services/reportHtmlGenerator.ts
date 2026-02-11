@@ -86,6 +86,15 @@ type SerializedForms = {
   FLOW?: NormalizedQuestion[];
 };
 
+type DailyLogsSummary30d = {
+  period_days: number;
+  avg_sleep: string;
+  avg_stress: string;
+  avg_water: string;
+  avg_vegetables: string;
+  days_with_alcohol: number;
+};
+
 function maskEmail(email?: string | null): string | undefined {
   if (!email) return undefined;
   const [local, domain] = email.split('@');
@@ -638,6 +647,66 @@ function renderFormsSection(
   return html;
 }
 
+function renderDailyLogsSummarySection(
+  reportType: string | undefined,
+  summary: DailyLogsSummary30d | undefined
+): string {
+  if (reportType !== '360' || !summary) return '';
+
+  return `
+  <section style="margin-top:20px;">
+    <h2 style="font-size:16px;font-weight:700;color:#121926;margin:0 0 10px;">Hábitos diarios (últimos 30 días)</h2>
+    <p style="font-size:12px;color:#6b7280;margin:0 0 10px;">
+      Promedios basados en ${summary.period_days} días de registro.
+    </p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151;">
+      <tbody>
+        <tr>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;width:50%;">
+            Sueño promedio
+          </td>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;">
+            ${escapeHtml(summary.avg_sleep)} horas/día
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">
+            Estrés promedio
+          </td>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;">
+            ${escapeHtml(summary.avg_stress)} / 5
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">
+            Agua promedio
+          </td>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;">
+            ${escapeHtml(summary.avg_water)} vasos/día
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">
+            Vegetales promedio
+          </td>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;">
+            ${escapeHtml(summary.avg_vegetables)} porciones/día
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;background:#f9fafb;font-weight:600;">
+            Días con consumo de alcohol
+          </td>
+          <td style="padding:8px 10px;border:1px solid #e5e7eb;">
+            ${summary.days_with_alcohol} día(s)
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+  `;
+}
+
 function renderFooterSection(): string {
   return `
   <section style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px;">
@@ -677,6 +746,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
   const cycleInfo: CycleInfo | undefined = metadata.cycle_info;
   const fertyScore: FertyScoreSummary | undefined = metadata.fertyscore;
   const basicForms: SerializedForms | undefined = metadata.basic_forms;
+  const dailyLogsSummary30d: DailyLogsSummary30d | undefined = metadata.daily_logs_summary_30d;
 
   const createdDate = new Date(report.created_at).toLocaleDateString('es-ES', {
     day: 'numeric',
@@ -694,6 +764,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
   const cycleSection = renderCycleSection(reportType, cycleInfo);
   const fertyScoreSection = renderFertyScoreSection(reportType, fertyScore);
   const formsSection = renderFormsSection(reportType, basicForms);
+  const dailyLogsSummarySection = renderDailyLogsSummarySection(reportType, dailyLogsSummary30d);
 
   const footerSection = renderFooterSection();
 
@@ -708,9 +779,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
   <div style="max-width:780px;margin:0 auto;background:#ffffff;border-radius:16px;padding:24px 28px;border:1px solid #f2e7e3;box-shadow:0 14px 35px rgba(148,27,74,0.08);">
     <header style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #fde2dd;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:34px;height:34px;border-radius:999px;background:linear-gradient(135deg,#fb7185,#f97373);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;letter-spacing:0.03em;">
-          F
-        </div>
+        <img src="${BRAND_ASSETS.logo}" alt="FertyFit Logo" style="height:40px;" />
         <div>
           <div style="font-size:14px;font-weight:800;color:#111827;letter-spacing:0.06em;text-transform:uppercase;">FERTYFIT</div>
           <div style="font-size:11px;color:#9ca3af;margin-top:2px;">Método integral de fertilidad</div>
@@ -738,6 +807,7 @@ export function generateStructuredReportHtml({ report }: ReportHtmlOptions): str
     ${formsSection}
     ${reportType === '360' ? medicalSection : ''}
     ${cycleSection}
+    ${dailyLogsSummarySection}
 
     <section style="margin-top:28px;">
       <h2 style="font-size:16px;font-weight:700;color:#121926;margin:0 0 10px;">${

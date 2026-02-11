@@ -415,6 +415,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Calcular promedios de daily logs para el 360 (últimos 30 días)
+    let dailyLogsSummary30d: any = null;
+    if (reportType === '360') {
+      try {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 30);
+        const logsLast30d = logs.filter((log) => {
+          const logDate = new Date(log.date);
+          return logDate >= cutoffDate;
+        });
+
+        if (logsLast30d.length > 0) {
+          const totalSleep = logsLast30d.reduce(
+            (acc, log) => acc + (log.sleep_hours ?? 0),
+            0
+          );
+          const totalStress = logsLast30d.reduce(
+            (acc, log) => acc + (log.stress_level ?? 0),
+            0
+          );
+          const totalWater = logsLast30d.reduce(
+            (acc, log) => acc + (log.water_intake ?? 0),
+            0
+          );
+          const totalVegetables = logsLast30d.reduce(
+            (acc, log) => acc + (log.vegetable_servings ?? 0),
+            0
+          );
+          const daysWithAlcohol = logsLast30d.filter((log) => log.alcohol_consumed).length;
+
+          dailyLogsSummary30d = {
+            period_days: logsLast30d.length,
+            avg_sleep: (totalSleep / logsLast30d.length).toFixed(1),
+            avg_stress: (totalStress / logsLast30d.length).toFixed(1),
+            avg_water: (totalWater / logsLast30d.length).toFixed(1),
+            avg_vegetables: (totalVegetables / logsLast30d.length).toFixed(1),
+            days_with_alcohol: daysWithAlcohol,
+          };
+        }
+      } catch (summaryError) {
+        logger.warn('No se pudo calcular resumen de daily_logs para 360:', summaryError);
+      }
+    }
+
     // 7. Generar prompt especializado
     const ragChunksMetadata = ragChunks.map((c) => ({
       document_id: c.metadata?.document_id || '',
@@ -481,6 +525,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           fertyscore:
             reportType === 'BASIC' || reportType === '360' ? fertyScoreSummary : undefined,
           basic_forms: reportType === 'BASIC' ? serializedForms : undefined,
+          daily_logs_summary_30d: reportType === '360' ? dailyLogsSummary30d : undefined,
           input: { userId, reportType, ...(reportType === 'LABS' ? { labsScope } : {}) },
           sources: ragChunks.map((c) => ({
             document_id: c.metadata?.document_id || '',
