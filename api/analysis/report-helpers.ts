@@ -136,15 +136,15 @@ export function getPromptForReportType(
   const ragSection = ragContext ? `
 MARCO METODOLÓGICO FERTYFIT:
 La metodología FertyFit se basa en 4 pilares (Function, Food, Flora, Flow) y la siguiente documentación científica.
-USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL, pero puedes complementar con conocimiento médico general cuando sea apropiado para dar una respuesta completa y útil.
+USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL. Solo puedes complementar con conocimiento médico general cuando el contexto FertyFit no cubra un punto muy específico; ese conocimiento general es solo de apoyo y NO debe aparecer listado como bibliografía.
 
 CONTEXTO METODOLÓGICO FERTYFIT (${ragChunksCount} fragmentos de documentación - fuente autorizada):
 ${ragContext}
 
 IMPORTANTE - CITACIÓN DE FUENTES:
-- DEBES citar información de AL MENOS 5 fuentes diferentes del contexto FertyFit en tu análisis.
-- Si un tema (como cannabis, alcohol, sueño, estrés, disruptores endocrinos) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..." o "La evidencia científica indica...".
-- Al final, en la sección de Bibliografía, lista TODAS las fuentes que usaste.
+- DEBES citar información de AL MENOS 8 fuentes diferentes del contexto FertyFit en tu análisis (idealmente priorizando siempre el documento de metodología core si está disponible).
+- Si un tema (como cannabis, alcohol, sueño, estrés, disruptores endocrinos) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..." o "La evidencia científica indica...". Este conocimiento general NO se lista como referencia bibliográfica.
+- Al final, en la sección de Bibliografía, lista SOLO las fuentes de la base de conocimiento FertyFit que realmente hayas usado (no incluyas "conocimientos generales" ni "formularios" como fuentes).
 
 ` : '';
 
@@ -350,17 +350,26 @@ Construye un INFORME NARRATIVO CONCISO (máximo 1200 palabras) formateado en Mar
    - Específicas para mejorar el seguimiento y la interpretación de biomarcadores
    - Concretas y accionables
 
-## 6. BIBLIOGRAFÍA CONSULTADA
-   ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0 ? `
-   DEBES incluir referencias exactas de los ${ragChunksCount} fragmentos utilizados del contexto FertyFit.
-   Metadatos de las fuentes consultadas:
-   ${ragChunksMetadata.map((meta, idx) =>
-        `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'}" | Índice del fragmento: ${meta.chunk_index}`
-      ).join('\n')}
+## 6. Bibliografía consultada
+   ${
+     ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
+       ? `
+   DEBES utilizar información de los ${ragChunksCount} fragmentos del contexto FertyFit proporcionado.
+   Metadatos de las fuentes disponibles:
+   ${ragChunksMetadata
+     .map(
+       (meta, idx) =>
+         `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${
+           meta.document_title || 'Sin título'
+         }" | Índice del fragmento: ${meta.chunk_index}`
+     )
+     .join('\n')}
    
-   Formato para cada referencia:
-   "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: [cita breve del contenido relevante usado]"
-   ` : '- Si no hay contexto FertyFit, indica claramente: "No se utilizó bibliografía específica de FertyFit en este informe."'}
+   Al final del informe, incluye una lista numerada SOLO con las fuentes de la base de conocimiento FertyFit que REALMENTE hayas usado (no incluyas "conocimientos generales" ni "formularios" como fuentes), con este formato:
+   "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
+   `
+       : ''
+   }
 
 INSTRUCCIONES IMPORTANTES:
 - Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario. Usa un tono empático, claro y educativo.
