@@ -1,11 +1,15 @@
-import { CheckCircle, Lock, PlayCircle, FileText as PdfIcon } from 'lucide-react';
+import { CheckCircle, Lock, PlayCircle, FileText as PdfIcon, Crown } from 'lucide-react';
 import { BRAND_ASSETS } from '../../constants';
 import { CourseModule, Lesson } from '../../types';
+import { canAccessModule } from '../../services/tierGuards';
 
 interface EducationViewProps {
   courseModules: CourseModule[];
   onSelectLesson: (lesson: Lesson) => void;
+  user_type?: string;
+  onNavigate?: (view: any) => void;
 }
+
 
 const phaseMeta = [
   { id: 0, title: 'Bienvenida', range: 'Inicio', icon: BRAND_ASSETS.phase0 },
@@ -14,7 +18,7 @@ const phaseMeta = [
   { id: 3, title: 'Fase 3: Impulso', range: 'Semana 9-12', icon: BRAND_ASSETS.phase3 }
 ];
 
-const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) => {
+const EducationView = ({ courseModules, onSelectLesson, user_type, onNavigate }: EducationViewProps) => {
   // Ensure courseModules is always an array
   const safeCourseModules = Array.isArray(courseModules) ? courseModules : [];
 
@@ -29,14 +33,26 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
         });
         if (phaseModules.length === 0 && phase.id !== 0) return null;
 
+        // Verificar acceso por tier
+        const hasAccess = canAccessModule(user_type, phase.id);
+
         return (
           <div key={phase.id} className="space-y-4">
             <div className="rounded-2xl p-1 flex items-center gap-4">
-              <img src={phase.icon} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm border-2 border-white" />
-              <div>
+              <img src={phase.icon} alt="" className={`w-12 h-12 rounded-full object-cover shadow-sm border-2 border-white ${!hasAccess ? 'grayscale opacity-50' : ''}`} />
+              <div className="flex-1">
                 <h3 className="font-bold text-lg text-ferty-dark">{phase.title}</h3>
                 <p className="text-xs text-ferty-gray uppercase font-medium tracking-wider">{phase.range}</p>
               </div>
+              {!hasAccess && (
+                <button
+                  onClick={() => onNavigate?.('CHECKOUT')}
+                  className="flex items-center gap-1 text-xs bg-ferty-rose text-white px-3 py-1.5 rounded-full font-bold hover:opacity-90 transition-opacity"
+                >
+                  <Crown size={12} />
+                  Desbloquear
+                </button>
+              )}
             </div>
             <div className="space-y-3 pl-2">
               {phaseModules.map((module) => {
@@ -47,12 +63,12 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
                 return (
                   <div
                     key={module.id}
-                    className={`relative bg-white border rounded-xl p-5 transition-all ${module.isLocked ? 'opacity-60 grayscale' : 'shadow-[0_2px_15px_rgba(0,0,0,0.03)] border-ferty-beige'}`}
+                    className={`relative bg-white border rounded-xl p-5 transition-all ${!hasAccess || module.isLocked ? 'opacity-60 grayscale' : 'shadow-[0_2px_15px_rgba(0,0,0,0.03)] border-ferty-beige'}`}
                   >
-                    {module.isLocked && (
+                    {(!hasAccess || module.isLocked) && (
                       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl">
                         <div className="bg-ferty-dark/80 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg backdrop-blur-sm">
-                          <Lock size={14} /> Bloqueado
+                          <Lock size={14} /> {!hasAccess ? 'Requiere plan Premium o VIP' : 'Bloqueado'}
                         </div>
                       </div>
                     )}
@@ -63,7 +79,7 @@ const EducationView = ({ courseModules, onSelectLesson }: EducationViewProps) =>
                       )}
                     </div>
                     <p className="text-xs text-ferty-gray mb-4 leading-relaxed">{module.description}</p>
-                    {!module.isLocked && (
+                    {!module.isLocked && hasAccess && (
                       <div className="space-y-2">
                         {safeLessons.map((lesson) => {
                           const isCompleted = safeCompletedLessons.includes(lesson.id);

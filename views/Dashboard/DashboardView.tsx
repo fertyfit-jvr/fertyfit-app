@@ -1,4 +1,4 @@
-import { Activity, BookOpen, Plus } from 'lucide-react';
+import { Activity, BookOpen, Plus, Crown, Star } from 'lucide-react';
 import { NotificationList } from '../../components/NotificationSystem';
 import { MedicalReport } from '../../components/MedicalReport';
 import LogHistoryItem from '../../components/common/LogHistoryItem';
@@ -112,16 +112,28 @@ const DashboardView = ({
               </div>
               <h3 className="text-2xl font-bold mb-2">¡Comienza Tu Viaje!</h3>
               <p className="text-sm opacity-90 mb-6 leading-relaxed">
-                Inicia el Método FertyFit y empieza a registrar tu progreso hacia la fertilidad óptima.
+                Activa el Método FertyFit con un plan Premium o VIP y desbloquea todos los módulos, informes y seguimiento personalizado.
               </p>
               <button
-                onClick={onStartMethod}
+                onClick={() => onNavigate('CHECKOUT')}
                 className="bg-white text-ferty-rose px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
               >
-                <Activity size={20} />
-                Iniciar Método
+                <Crown size={20} />
+                Ver Planes y Precios
               </button>
+              <p className="text-xs opacity-70 mt-3">Premium desde 49€/mes · VIP desde 99€/mes</p>
             </div>
+          </div>
+        )}
+
+        {/* Badge de tier activo (solo si ya tiene plan) */}
+        {user.methodStartDate && user.user_type && user.user_type !== 'free' && (
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold w-fit ${user.user_type === 'vip'
+              ? 'bg-amber-100 text-amber-700 border border-amber-200'
+              : 'bg-ferty-rose/10 text-ferty-rose border border-ferty-rose/20'
+            }`}>
+            {user.user_type === 'vip' ? <Crown size={14} /> : <Star size={14} />}
+            Plan {user.user_type === 'vip' ? 'VIP' : 'Premium'} activo
           </div>
         )}
 
@@ -136,7 +148,7 @@ const DashboardView = ({
           />
 
           <div className="mt-8 bg-[#F9F6F4] p-4 rounded-xl border border-ferty-beige">
-            <ProgressBar 
+            <ProgressBar
               percentage={progressPercent}
               color="rose-gradient"
               height="md"

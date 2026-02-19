@@ -25,6 +25,7 @@ const AnalyticsView = lazy(() => import('./views/Analytics/AnalyticsView'));
 const ReportsView = lazy(() => import('./views/Reports/ReportsView'));
 const ChatView = lazy(() => import('./views/Chat/ChatView'));
 const ConsentView = lazy(() => import('./views/Auth/ConsentView'));
+const CheckoutView = lazy(() => import('./views/Checkout/CheckoutView'));
 
 function AppContent() {
   const {
@@ -258,6 +259,8 @@ function AppContent() {
                 <EducationView
                   courseModules={Array.isArray(courseModules) ? courseModules : []}
                   onSelectLesson={setActiveLesson}
+                  user_type={user?.user_type}
+                  onNavigate={setView}
                 />
               </Suspense>
             )}
@@ -323,6 +326,15 @@ function AppContent() {
               user={user}
               showNotif={showNotif}
               setView={setView}
+            />
+          </Suspense>
+        )}
+        {view === 'CHECKOUT' && user && (
+          <Suspense fallback={<ViewLoading />}>
+            <CheckoutView
+              user={user}
+              onNavigate={setView}
+              showNotif={showNotif}
             />
           </Suspense>
         )}
