@@ -1,30 +1,36 @@
 /**
  * Stripe Client — FertyFit
- * Inicialización del cliente de Stripe para uso en el servidor (API routes)
+ * Inicialización lazy del cliente de Stripe para uso en API routes.
+ * No lanza errores a nivel de módulo para evitar FUNCTION_INVOCATION_FAILED.
  */
 
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY no está configurada en las variables de entorno');
+/**
+ * Devuelve el cliente de Stripe inicializado.
+ * Usa lazy init para que el error sea capturado por el handler, no al importar.
+ */
+export function getStripeClient(): Stripe {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+        throw new Error('[Stripe] STRIPE_SECRET_KEY no configurada en variables de entorno');
+    }
+    return new Stripe(key, {
+        apiVersion: '2026-01-28.clover',
+    });
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-01-28.clover',
-});
-
 /**
- * IDs de los productos/precios en Stripe.
- * IMPORTANTE: Estos IDs se generan cuando creas los productos en el dashboard de Stripe.
- * Rellena los campos vacíos con los Price IDs reales de tu cuenta Stripe Live.
- * 
- * Cómo obtenerlos: Dashboard Stripe → Products → [Product] → [Price] → copiar "Price ID" (price_xxx)
+ * IDs de Price en Stripe (se configuran como env vars en Vercel).
+ * Valores reales añadidos en las variables de entorno del proyecto.
  */
-export const STRIPE_PRICE_IDS = {
-    premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY || '',  // ej: price_xxx
-    premium_full: process.env.STRIPE_PRICE_PREMIUM_FULL || '',  // ej: price_xxx
-    vip_monthly: process.env.STRIPE_PRICE_VIP_MONTHLY || '',  // ej: price_xxx
-    vip_full: process.env.STRIPE_PRICE_VIP_FULL || '',  // ej: price_xxx
-} as const;
+export function getStripePriceIds() {
+    return {
+        premium_monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY || '',
+        premium_full: process.env.STRIPE_PRICE_PREMIUM_FULL || '',
+        vip_monthly: process.env.STRIPE_PRICE_VIP_MONTHLY || '',
+        vip_full: process.env.STRIPE_PRICE_VIP_FULL || '',
+    } as const;
+}
 
-export type StripePlanKey = keyof typeof STRIPE_PRICE_IDS;
+export type StripePlanKey = 'premium_monthly' | 'premium_full' | 'vip_monthly' | 'vip_full';

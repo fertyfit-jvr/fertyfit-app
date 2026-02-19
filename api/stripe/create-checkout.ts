@@ -7,7 +7,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { stripe, STRIPE_PRICE_IDS } from '../../server/lib/stripe.js';
+import { getStripeClient, getStripePriceIds } from '../../server/lib/stripe.js';
 import { createClient } from '@supabase/supabase-js';
 import type { StripePlanKey } from '../../server/lib/stripe.js';
 
@@ -29,6 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
+        const stripe = getStripeClient();
+        const STRIPE_PRICE_IDS = getStripePriceIds();
+
         const { planId, userId, userEmail } = req.body as {
             planId: StripePlanKey;
             userId: string;
@@ -48,6 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Determinar si es pago único o suscripción mensual
         const isMonthly = planId.endsWith('_monthly');
+
 
         // Obtener o crear el stripe_customer_id del usuario
         const { data: profile } = await supabase

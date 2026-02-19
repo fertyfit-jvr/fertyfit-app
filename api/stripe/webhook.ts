@@ -11,7 +11,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { stripe } from '../../server/lib/stripe.js';
+import { getStripeClient } from '../../server/lib/stripe.js';
 import { createClient } from '@supabase/supabase-js';
 import type Stripe from 'stripe';
 
@@ -57,6 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let event: Stripe.Event;
     try {
+        const stripe = getStripeClient();
         const rawBody = await getRawBody(req);
         const signature = req.headers['stripe-signature'] as string;
         event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
