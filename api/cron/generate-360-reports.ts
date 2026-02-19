@@ -13,7 +13,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { logger } from '../../server/lib/logger.js';
-import { getUsersWithMethodStartDate, shouldGenerate360 } from '../analysis/reportRules.js';
+import { getUsersWithMethodStartDate, shouldGenerate360 } from '../../server/lib/reportRules.js';
 
 export const config = {
   maxDuration: 300, // 5 minutos máximo

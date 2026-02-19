@@ -12,7 +12,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
 import { logger } from '../../server/lib/logger.js';
-import { getReportWarnings } from './reportRules.js';
+import { getReportWarnings } from '../../server/lib/reportRules.js';
 
 // CORS helper
 function setCORSHeaders(res: VercelResponse, origin: string): string {

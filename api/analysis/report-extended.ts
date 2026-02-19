@@ -12,8 +12,8 @@ import {
   getRAGQueryForReportType,
   getReportTitle,
   type ReportType,
-} from './report-helpers.js';
-import { canGenerateBasic } from './reportRules.js';
+} from '../../server/lib/report-helpers.js';
+import { canGenerateBasic } from '../../server/lib/reportRules.js';
 import { serializeFormsForBasicReport } from '../../services/reportFormSerializer.js';
 
 // Supabase client para entorno serverless (usar process.env, no import.meta.env)

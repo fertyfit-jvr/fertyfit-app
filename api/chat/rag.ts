@@ -4,7 +4,7 @@ import { ai } from '../../server/lib/ai.js';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
 import { logger } from '../../server/lib/logger.js';
-import { calcularDiaDelCiclo, calcularVentanaFertil } from './cycle_utils.js';
+import { calcularDiaDelCiclo, calcularVentanaFertil } from '../../server/lib/cycle_utils.js';
 
 type ChatRequest = {
   userId: string;
