@@ -31,14 +31,13 @@ async function listAvailableModels() {
 }
 
 async function embedQuery(query: string): Promise<number[]> {
-    await listAvailableModels();
     try {
-        console.log('Generating embedding using GoogleGenAI SDK (text-embedding-004)...');
+        console.log('Generating embedding using models/gemini-embedding-001...');
         const resp = await (ai as any).models.embedContent({
-            model: 'models/text-embedding-004',
-            contents: [query],
+            model: 'models/gemini-embedding-001',
+            contents: query,
         });
-        const values = resp?.embeddings?.[0]?.values;
+        const values = (resp as any)?.embedding?.values ?? (resp as any)?.embeddings?.[0]?.values;
         if (!values) throw new Error('No embedding values returned');
         return values;
     } catch (error: any) {

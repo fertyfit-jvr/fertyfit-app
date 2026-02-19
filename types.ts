@@ -13,7 +13,16 @@ export interface UserProfile {
   timeTryingInitialMonths?: number; // Initial months value at registration
   treatments: string[];
   isOnboarded: boolean;
-  role?: 'user'; // User role only - admin/specialist managed in separate app
+  role?: 'user' | 'especialista' | 'admin'; // Role en la plataforma
+  user_type?: 'free' | 'premium' | 'vip'; // Tier de acceso
+
+  // Stripe / Suscripción
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  subscription_status?: 'active' | 'inactive' | 'past_due' | 'canceled' | 'trialing';
+  payment_mode?: 'monthly' | 'full';
+  subscription_start?: string;
+  subscription_end?: string;
 
   // Basic profile fields from F0
   mainObjective?: string; // Concepción natural vs RA (q4_objective)
@@ -170,7 +179,25 @@ export interface AppNotification {
   metadata?: NotificationMetadata;
 }
 
-export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'MY_PROFILE' | 'ANALYTICS' | 'REPORTS' | 'CHAT';
+export type ViewState = 'ONBOARDING' | 'DISCLAIMER' | 'DASHBOARD' | 'TRACKER' | 'EDUCATION' | 'CONSULTATIONS' | 'PROFILE' | 'MY_PROFILE' | 'ANALYTICS' | 'REPORTS' | 'CHAT' | 'CHECKOUT';
+
+// ============================================================
+// TIPOS DE SUSCRIPCIÓN
+// ============================================================
+
+export type UserTier = 'free' | 'premium' | 'vip';
+
+export type PlanId = 'premium_monthly' | 'premium_full' | 'vip_monthly' | 'vip_full';
+
+export interface SubscriptionPlan {
+  id: PlanId;
+  name: string;
+  tier: 'premium' | 'vip';
+  paymentMode: 'monthly' | 'full';
+  priceMonths: number; // número de meses cubiertos
+  stripePriceId?: string; // se añadirá cuando esté Stripe configurado
+}
+
 
 /**
  * Helper function to check if a notification type is an AI-generated notification
