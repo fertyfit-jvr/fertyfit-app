@@ -11,11 +11,7 @@ import { getStripeClient, getStripePriceIds } from '../../server/lib/stripe.js';
 import { createClient } from '@supabase/supabase-js';
 import type { StripePlanKey } from '../../server/lib/stripe.js';
 
-const supabase = createClient(
-    process.env.VITE_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-);
+
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     // CORS
@@ -29,6 +25,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
+        const supabase = createClient(
+            process.env.VITE_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+            { auth: { persistSession: false, autoRefreshToken: false } }
+        );
         const stripe = getStripeClient();
         const STRIPE_PRICE_IDS = getStripePriceIds();
 

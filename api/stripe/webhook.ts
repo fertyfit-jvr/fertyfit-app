@@ -15,11 +15,7 @@ import { getStripeClient } from '../../server/lib/stripe.js';
 import { createClient } from '@supabase/supabase-js';
 import type Stripe from 'stripe';
 
-const supabase = createClient(
-    process.env.VITE_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-);
+
 
 // Mapeo de planId a user_type
 const PLAN_TO_TIER: Record<string, 'premium' | 'vip'> = {
@@ -54,6 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('[WEBHOOK] STRIPE_WEBHOOK_SECRET no configurado');
         return res.status(500).json({ error: 'Webhook secret not configured' });
     }
+
+    const supabase = createClient(
+        process.env.VITE_SUPABASE_URL || '',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+        { auth: { persistSession: false, autoRefreshToken: false } }
+    );
 
     let event: Stripe.Event;
     try {
