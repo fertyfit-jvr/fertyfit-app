@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const supabase = createClient(
-            process.env.VITE_SUPABASE_URL || '',
+            process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
             process.env.SUPABASE_SERVICE_ROLE_KEY || '',
             { auth: { persistSession: false, autoRefreshToken: false } }
         );
