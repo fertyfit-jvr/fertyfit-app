@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import { X, Printer, Mail, Download } from 'lucide-react';
+import { X, Mail, Download } from 'lucide-react';
 import { AppNotification } from '../types';
 import { generateStructuredReportHtml } from '../services/reportHtmlGenerator';
 
@@ -176,10 +176,6 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
       .trim();
   };
 
-  const handlePrint = () => {
-    // La impresión ahora se maneja principalmente por CSS @media print
-    window.print();
-  };
 
   const handleDownloadDoc = () => {
     try {
@@ -255,14 +251,6 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
 
           {/* Action Buttons */}
           <div className="bg-ferty-beigeLight border-b border-ferty-beige p-4 flex flex-wrap gap-2 print:hidden">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-xs sm:text-sm font-bold text-ferty-dark shadow-sm"
-              title="Permite imprimir o guardar como PDF"
-            >
-              <Printer size={16} />
-              Imprimir / PDF
-            </button>
             <button
               onClick={handleDownloadDoc}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-xs sm:text-sm font-bold text-ferty-dark shadow-sm"
@@ -345,76 +333,6 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
         </div>
       </div>
 
-      {/* Print Styles */}
-      <style>{`
-        @media print {
-          @page {
-            margin: 1.5cm;
-            size: A4;
-          }
-          
-          /* Ocultar todo el body por defecto */
-          body * {
-            visibility: hidden !important;
-          }
-          
-          /* Seleccionamos específicamente el contenedor del informe para mostrarlo */
-          /* Suponemos que el modal con fondo blanco es .bg-white interior */
-          .bg-white, .bg-white * {
-            visibility: visible !important;
-          }
-
-          /* Reset de posicionamiento para impresión */
-          .bg-white {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
-            max-width: none !important;
-            overflow: visible !important;
-            display: block !important;
-            box-shadow: none !important;
-            border: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          /* Ocultar elementos de UI */
-          .print\\:hidden {
-            display: none !important;
-          }
-
-          /* Forzar scroll visible en contenedores intermedios */
-          div {
-            overflow: visible !important;
-            max-height: none !important;
-          }
-
-          /* Estilos de contenido */
-          .prose {
-            max-width: 100% !important;
-            font-size: 12pt !important;
-            line-height: 1.5 !important;
-          }
-
-          /* Evitar cortes feos */
-          h1, h2, h3, h4 {
-            page-break-after: avoid !important;
-          }
-          
-          p, li {
-            page-break-inside: avoid !important;
-          }
-
-          /* Colores precisos */
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-      `}</style>
     </>
   );
 };
