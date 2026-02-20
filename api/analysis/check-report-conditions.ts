@@ -93,11 +93,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Tier validation
     const { data: profile } = await supabase
       .from('profiles')
-      .select('subscription_tier')
+      .select('user_type')
       .eq('id', userId)
       .single();
 
-    const isPremiumOrVip = profile?.subscription_tier === 'premium' || profile?.subscription_tier === 'vip';
+    const isPremiumOrVip = profile?.user_type === 'premium' || profile?.user_type === 'vip';
 
     // Obtener advertencias
     const warnings = await getReportWarnings(userId, reportType);

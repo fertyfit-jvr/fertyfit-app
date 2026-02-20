@@ -166,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Tier validation: ONLY Premium/VIP can generate any report
     // EXCEPTION: Free users can generate exactly ONE Daily Report and ONE Basic Report
-    const isPremiumOrVip = profile.subscription_tier === 'premium' || profile.subscription_tier === 'vip';
+    const isPremiumOrVip = profile.user_type === 'premium' || profile.user_type === 'vip';
 
     if (!isPremiumOrVip) {
       if (reportType === 'DAILY' || reportType === 'BASIC') {

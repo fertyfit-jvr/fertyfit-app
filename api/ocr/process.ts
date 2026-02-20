@@ -297,11 +297,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('subscription_tier')
+      .select('user_type')
       .eq('id', userId)
-      .single() as { data: { subscription_tier: string | null } | null };
+      .single() as { data: { user_type: string | null } | null };
 
-    if (!profile || (profile.subscription_tier !== 'premium' && profile.subscription_tier !== 'vip')) {
+    if (!profile || (profile.user_type !== 'premium' && profile.user_type !== 'vip')) {
       throw createError(
         'El análisis inteligente de exámenes médicos (OCR) es una función exclusiva para usuarias Premium y VIP.',
         403,

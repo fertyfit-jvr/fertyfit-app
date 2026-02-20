@@ -225,11 +225,11 @@ export async function canGenerateBasic(userId: string): Promise<ReportValidation
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('subscription_tier')
+    .select('user_type')
     .eq('id', userId)
     .single();
 
-  const userTier = profile?.subscription_tier || 'free';
+  const userTier = profile?.user_type || 'free';
 
   // Regla para BASIC:
   // - Premium/VIP: Ilimitado (siempre que tengan formularios)
@@ -275,11 +275,11 @@ export async function shouldGenerateDaily(userId: string): Promise<DailyReportCh
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('subscription_tier, method_start_date')
+    .select('user_type, method_start_date')
     .eq('id', userId)
     .single();
 
-  const userTier = profile?.subscription_tier || 'free';
+  const userTier = profile?.user_type || 'free';
 
   // Lógica para USUARIAS FREE (Una sola vez con 7 registros)
   if (userTier === 'free') {
@@ -365,11 +365,11 @@ export async function shouldGenerateDaily(userId: string): Promise<DailyReportCh
 export async function shouldGenerateLabs(userId: string, examId?: number): Promise<boolean> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('subscription_tier')
+    .select('user_type')
     .eq('id', userId)
     .single();
 
-  if (profile?.subscription_tier !== 'premium' && profile?.subscription_tier !== 'vip') {
+  if (profile?.user_type !== 'premium' && profile?.user_type !== 'vip') {
     return false;
   }
 
@@ -382,11 +382,11 @@ export async function shouldGenerateLabs(userId: string, examId?: number): Promi
 export async function shouldGenerate360(userId: string): Promise<Report360Check> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('subscription_tier')
+    .select('user_type')
     .eq('id', userId)
     .single();
 
-  if (profile?.subscription_tier !== 'premium' && profile?.subscription_tier !== 'vip') {
+  if (profile?.user_type !== 'premium' && profile?.user_type !== 'vip') {
     return {
       shouldGenerate: false,
       reason: 'Funcionalidad exclusiva para Premium/VIP',
@@ -449,8 +449,8 @@ export async function getReportWarnings(
   reportType: 'BASIC' | 'DAILY' | 'LABS' | '360'
 ): Promise<string[]> {
   const warnings: string[] = [];
-  const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', userId).single();
-  const userTier = profile?.subscription_tier || 'free';
+  const { data: profile } = await supabase.from('profiles').select('user_type').eq('id', userId).single();
+  const userTier = profile?.user_type || 'free';
 
   switch (reportType) {
     case 'BASIC': {

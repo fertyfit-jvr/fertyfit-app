@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --------------------------------------------------------------------------
     // 1.5 CHECK LIMITS BASED ON TIER
     // --------------------------------------------------------------------------
-    const isPremiumOrVip = profile?.subscription_tier === 'premium' || profile?.subscription_tier === 'vip';
+    const isPremiumOrVip = profile?.user_type === 'premium' || profile?.user_type === 'vip';
 
     try {
       if (isPremiumOrVip) {

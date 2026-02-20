@@ -127,11 +127,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('age, subscription_tier')
+        .select('age, user_type')
         .eq('id', userId)
         .single();
 
-      if (!profile || (profile.subscription_tier !== 'premium' && profile.subscription_tier !== 'vip')) {
+      if (!profile || (profile.user_type !== 'premium' && profile.user_type !== 'vip')) {
         throw createError(
           'La interpretación inteligente de analíticas es una función exclusiva para usuarias Premium y VIP.',
           403,
