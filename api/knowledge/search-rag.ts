@@ -46,9 +46,9 @@ async function embedQuery(query: string): Promise<number[]> {
   try {
     logger.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
 
-    // @google/genai v1.x: usar models/gemini-embedding-001 para 3072 dimensiones
+    // @google/genai v1.x: usar text-embedding-004
     const resp = await (ai as any).models.embedContent({
-      model: 'models/gemini-embedding-001',
+      model: 'text-embedding-004',
       contents: query,
     });
 
