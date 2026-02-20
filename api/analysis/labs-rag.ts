@@ -127,15 +127,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('age')
+        .select('age, subscription_tier')
         .eq('id', userId)
         .single();
+
+      if (!profile || (profile.subscription_tier !== 'premium' && profile.subscription_tier !== 'vip')) {
+        throw createError(
+          'La interpretación inteligente de analíticas es una función exclusiva para usuarias Premium y VIP.',
+          403,
+          'FORBIDDEN_TIER'
+        );
+      }
 
       if (profile?.age) {
         age = profile.age;
       }
-    } catch (profileError) {
-      // Si falla, continuamos sin edad
+    } catch (profileError: any) {
+      if (profileError.code === 'FORBIDDEN_TIER') {
+        throw profileError;
+      }
+      // Si falla por otro motivo, continuamos sin edad
       logger.warn('No se pudo cargar la edad del perfil:', profileError);
     }
 

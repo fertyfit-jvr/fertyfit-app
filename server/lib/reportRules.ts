@@ -207,35 +207,21 @@ export async function canGenerateBasic(userId: string): Promise<ReportValidation
   logger.log(`[BASIC] Checking rules for user ${userId}`);
 
   // 0. Obtener el tier del usuario
-  let userTier = 'free';
   const { data: profile } = await supabase
     .from('profiles')
-    .select('user_type')
+    .select('subscription_tier')
     .eq('id', userId)
     .single();
 
-  if (profile?.user_type) {
-    userTier = profile.user_type;
-  }
+  const userTier = profile?.subscription_tier || 'free';
 
-  // 1. Verificar que existan todos los formularios
-  const hasAllForms = await hasAllBasicForms(userId);
-  if (!hasAllForms) {
+  // 1. Verificar si es Premium/VIP (NUEVA REGLA: Free ya no tiene acceso a BASIC después de la primera o en absoluto)
+  // El usuario dijo: "para las usuarias Free estan totalmente cerradas [...] solo esta disponible para usuarias Premium y VIP"
+  if (userTier !== 'premium' && userTier !== 'vip') {
     return {
       canGenerate: false,
-      reason: 'Faltan formularios básicos. Necesitas completar F0 y los 4 pilares (Function, Food, Flora, Flow).',
+      reason: 'El Informe Básico de Preconsulta es una función exclusiva para usuarias Premium y VIP.',
     };
-  }
-
-  // 2. Verificar límite según el tier (Free = 1 total, Premium/VIP = sin límite)
-  if (userTier === 'free') {
-    const totalReports = await getTotalBasicReports(userId);
-    if (totalReports >= 1) {
-      return {
-        canGenerate: false,
-        reason: 'Límite alcanzado: Las usuarias Free solo pueden generar 1 Informe Básico. Actualiza a Premium para generar informes ilimitados al actualizar tus datos.',
-      };
-    }
   }
 
   logger.log(`[BASIC] ✅ Can generate. Tier: ${userTier}`);
@@ -254,8 +240,31 @@ export async function canGenerateBasic(userId: string): Promise<ReportValidation
 export async function shouldGenerateDaily(userId: string): Promise<DailyReportCheck> {
   logger.log(`[DAILY] Checking rules for user ${userId}`);
 
+  // 0. Comprobar tier de usuario (Free no tiene DAILY)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_tier, method_start_date')
+    .eq('id', userId)
+    .single();
+
+  if (profile?.subscription_tier !== 'premium' && profile?.subscription_tier !== 'vip') {
+    return {
+      shouldGenerate: false,
+      reason: 'Funcionalidad exclusiva para Premium/VIP',
+    };
+  }
+
   // 1. Verificar que exista method_start_date
-  const daysSinceMethodStart = await getDaysSinceMethodStart(userId);
+  const daysSinceMethodStart = (function () {
+    if (!profile?.method_start_date) return null;
+    const methodStart = new Date(profile.method_start_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    methodStart.setHours(0, 0, 0, 0);
+    const diffTime = today.getTime() - methodStart.getTime();
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  })();
+
   if (daysSinceMethodStart === null) {
     return {
       shouldGenerate: false,
@@ -300,7 +309,20 @@ export async function shouldGenerateDaily(userId: string): Promise<DailyReportCh
  */
 export async function shouldGenerateLabs(userId: string, examId?: number): Promise<boolean> {
   logger.log(`[LABS] Checking rules for user ${userId}, exam ${examId}`);
-  // Sin restricciones por ahora - siempre generar
+
+  // 0. Comprobar tier de usuario
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', userId)
+    .single();
+
+  if (profile?.subscription_tier !== 'premium' && profile?.subscription_tier !== 'vip') {
+    logger.info(`[LABS_BLOCKED] User ${userId} is not Premium/VIP`);
+    return false;
+  }
+
+  // Sin restricciones adicionales por ahora
   return true;
 }
 
@@ -318,11 +340,11 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
   // 0. Comprobar tier de usuario (Free no tiene 360)
   const { data: profile } = await supabase
     .from('profiles')
-    .select('user_type')
+    .select('subscription_tier')
     .eq('id', userId)
     .single();
 
-  if (profile?.user_type === 'free') {
+  if (profile?.subscription_tier !== 'premium' && profile?.subscription_tier !== 'vip') {
     return {
       shouldGenerate: false,
       reason: 'Funcionalidad exclusiva para Premium/VIP',

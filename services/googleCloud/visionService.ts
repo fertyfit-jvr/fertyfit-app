@@ -7,7 +7,8 @@ import { logger } from '../../lib/logger';
 
 export interface OCRRequest {
   images: string[]; // Base64 encoded images
-  examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio';
+  examType: 'hormonal' | 'metabolic' | 'vitamin_d' | 'ecografia' | 'hsg' | 'espermio' | string;
+  userId?: string;
 }
 
 export interface OCRResponse {
@@ -39,7 +40,8 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
     logger.log('🔍 Calling OCR API:', {
       url: apiUrl,
       examType: request.examType,
-      hasCustomApiUrl: !!customApiUrl
+      hasCustomApiUrl: !!customApiUrl,
+      userId: request.userId
     });
 
     const response = await fetch(apiUrl, {
@@ -50,6 +52,7 @@ export async function processImageOCR(request: OCRRequest): Promise<OCRResponse>
       body: JSON.stringify({
         images: request.images,
         examType: request.examType,
+        userId: request.userId,
       }),
     });
 

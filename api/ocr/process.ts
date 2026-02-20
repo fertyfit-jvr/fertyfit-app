@@ -7,6 +7,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 import { OCRRequestSchema } from '../../server/lib/validation.js';
 import { ocrRateLimiter, rateLimitMiddleware } from '../../server/lib/rateLimiter.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
@@ -14,6 +15,17 @@ import { applySecurityHeaders, validateImageUpload } from '../../server/lib/secu
 import { validateExtractedData, getErrorMessage } from '../../server/lib/medicalValidation.js';
 import { ai } from '../../server/lib/ai.js';
 import { logger } from '../../server/lib/logger.js';
+
+// Supabase client
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+let supabase: ReturnType<typeof createClient>;
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 // Extracción estructurada con Gemini 2.5 Flash
 async function extractStructuredDataWithGemini(
@@ -271,8 +283,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Validate input
     const validatedData = OCRRequestSchema.parse(req.body);
-    const { images, examType } = validatedData;
+    const { images, examType, userId } = validatedData;
     // Note: images is now string[]
+
+    // Tier validation
+    if (!userId) {
+      throw createError('Debes iniciar sesión para analizar exámenes médicos', 401, 'UNAUTHORIZED');
+    }
+
+    if (!supabase) {
+      throw createError('Error de configuración del servidor', 500, 'CONFIG_ERROR');
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', userId)
+      .single() as { data: { subscription_tier: string | null } | null };
+
+    if (!profile || (profile.subscription_tier !== 'premium' && profile.subscription_tier !== 'vip')) {
+      throw createError(
+        'El análisis inteligente de exámenes médicos (OCR) es una función exclusiva para usuarias Premium y VIP.',
+        403,
+        'FORBIDDEN_TIER'
+      );
+    }
 
     const validImages: string[] = [];
 

@@ -170,7 +170,8 @@ export function useExamScanner(options: UseExamScannerOptions = {}): UseExamScan
 
       const ocrResult = await processImageOCR({
         images: optimizedImages,
-        examType: examType || 'hormonal'
+        examType: examType || 'hormonal',
+        userId: user?.id,
       });
 
       logger.log('📄 OCR Result:', {

@@ -156,6 +156,7 @@ export const OCRRequestSchema = z.object({
     .min(1, 'Debes subir al menos una imagen')
     .max(5, 'Máximo 5 imágenes permitidas'),
   examType: z.string().optional(), // Acepta cualquier tipo de examen o undefined para detección automática
+  userId: z.string().optional(),
 });
 
 

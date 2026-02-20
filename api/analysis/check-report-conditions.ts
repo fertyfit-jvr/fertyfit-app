@@ -9,10 +9,19 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../../server/lib/security.js';
 import { sendErrorResponse, createError } from '../../server/lib/errorHandler.js';
 import { logger } from '../../server/lib/logger.js';
 import { getReportWarnings } from '../../server/lib/reportRules.js';
+
+// Supabase client
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl!, supabaseServiceRoleKey!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
 // CORS helper
 function setCORSHeaders(res: VercelResponse, origin: string): string {
@@ -81,8 +90,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     logger.log(`[CHECK_CONDITIONS] Checking ${reportType} for user ${userId}`);
 
-    // Obtener advertencias (no bloquea)
+    // Tier validation
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', userId)
+      .single();
+
+    const isPremiumOrVip = profile?.subscription_tier === 'premium' || profile?.subscription_tier === 'vip';
+
+    // Obtener advertencias
     const warnings = await getReportWarnings(userId, reportType);
+
+    if (!isPremiumOrVip) {
+      warnings.unshift('Esta funcionalidad es exclusiva para usuarias Premium y VIP.');
+    }
 
     logger.log(`[CHECK_CONDITIONS] Warnings for ${reportType}: ${warnings.length}`);
 
@@ -90,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       warnings,
       reportType,
-      canContinue: true, // Siempre true - solo informativo
+      canContinue: isPremiumOrVip,
     });
   } catch (error: any) {
     setCORSHeaders(res, origin);

@@ -155,12 +155,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .single() as { data: any | null, error: any };
 
     if (profileError || !profile) {
       sendProgress(res, 'ERROR', 'No se encontró el perfil de la usuaria', {
         error: profileError?.message,
       });
+      return res.end();
+    }
+
+    // Tier validation: ONLY Premium/VIP can generate any report
+    if (profile.subscription_tier !== 'premium' && profile.subscription_tier !== 'vip') {
+      sendProgress(res, 'ERROR', 'Acceso restringido', {
+        error: 'La generación de informes (Básico, Diario, 360 y Analíticas) es una función exclusiva para usuarias Premium y VIP.',
+      });
+      // Also return the error via standard JSON if possible before closing
+      // But since we are streaming, sendProgress is the primary way
       return res.end();
     }
 
