@@ -205,7 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       logger.error('Stack:', ragError?.stack);
     }
 
-    // Construir prompt para Gemini
+    const maxCitations = Math.min(ragChunksCount, 5);
     const prompt = `
 Eres experto en fertilidad siguiendo la metodología FertyFit.
 
@@ -215,13 +215,13 @@ IMPORTANTE: Escribe la explicación en formato Markdown. Usa:
 - Formatea los párrafos de manera clara
 
 ${ragContext ? `MARCO METODOLÓGICO FERTYFIT:
-La metodología FertyFit se basa en 4 pilares (Function, Food, Flora, Flow) y la siguiente documentación científica.
-USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL, pero puedes complementar con conocimiento médico general cuando sea apropiado para dar una respuesta completa y útil.
+La metodología FertyFit se basa en 4 pilares (Function, Food, Flora, Flow) y la siguiente documentación científica autorizada.
+USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL.
 
-CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de ${new Set(ragChunks.map(c => c.metadata?.document_id)).size} fuentes diferentes):
+CONTEXTO MÉDICO FERTYFIT (${ragChunksCount} fragmentos de fuentes autorizadas):
 ${ragContext}
 
-FUENTES CONSULTADAS (DEBES CITAR AL MENOS 5 DIFERENTES):
+FUENTES DISPONIBLES (PARA CITAR):
 ${ragChunks.map((c, idx) =>
       `${idx + 1}. ${c.metadata?.document_title || 'Documento sin título'} (ID: ${c.metadata?.document_id || 'N/A'})`
     ).join('\n')}
@@ -254,10 +254,11 @@ Escribe una explicación CONCISA en formato Markdown (máximo 3 párrafos breves
    - Qué aspectos debe comentar en su próxima consulta
 
 ${ragContext ? `
-IMPORTANTE - CITACIÓN DE FUENTES:
-- DEBES citar información de AL MENOS 5 fuentes diferentes del contexto FertyFit.
-- Al final, incluye una sección "📚 Fuentes consultadas:" listando las fuentes que usaste.
-- Si un tema (como cannabis, alcohol, sueño, estrés) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..."` : ''}
+IMPORTANTE - REGLAS DE CITACIÓN Y BIBLIOGRAFÍA:
+- DEBES citar al menos ${maxCitations > 0 ? maxCitations : 1} fuentes de la lista de Contexto FertyFit arriba proporcionada.
+- PROHIBICIÓN ESTRICTA: NO inventes ni cites autores externos (ej. Lara Briden, Jorge Chavarro, etc.) como si fueran parte de la metodología FertyFit.
+- Al final, incluye una sección "📚 Fuentes consultadas:" listando ÚNICAMENTE las fuentes del contexto FertyFit arriba proporcionado que hayas usado.
+- Si un tema no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..." y NO lo incluyas en la bibliografía.` : ''}
 
 INSTRUCCIONES:
 - Máximo 3 párrafos breves (cada párrafo máximo 4-5 líneas)

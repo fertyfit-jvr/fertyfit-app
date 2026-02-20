@@ -132,19 +132,21 @@ export function getPromptForReportType(
   hasPreviousReports: boolean,
   ragChunksMetadata?: Array<{ document_id?: string; document_title?: string; chunk_index?: number }>
 ): string {
+  const maxCitations = Math.min(ragChunksCount, 8);
   const ragSection = ragContext ? `
 MARCO METODOLÓGICO FERTYFIT:
-La metodología FertyFit se basa en 4 pilares (Function, Food, Flora, Flow) y la siguiente documentación científica.
-USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL. Solo puedes complementar con conocimiento médico general cuando el contexto FertyFit no cubra un punto muy específico; ese conocimiento general es solo de apoyo y NO debe aparecer listado como bibliografía.
+La metodología FertyFit se basa en 4 pilares (Function, Food, Flora, Flow) y la siguiente documentación científica autorizada.
+USA ESTA INFORMACIÓN COMO TU FUENTE PRINCIPAL. 
 
-CONTEXTO METODOLÓGICO FERTYFIT (${ragChunksCount} fragmentos de documentación - fuente autorizada):
+CONTEXTO METODOLÓGICO FERTYFIT (${ragChunksCount} fragmentos de documentación):
 ${ragContext}
 
-IMPORTANTE - CITACIÓN DE FUENTES:
-- DEBES citar información de AL MENOS 8 fuentes diferentes del contexto FertyFit en tu análisis (idealmente priorizando siempre el documento de metodología core si está disponible).
-- Si un tema (como cannabis, alcohol, sueño, estrés, disruptores endocrinos) no está cubierto específicamente en el contexto, puedes usar conocimiento médico general pero acláralo diciendo "Según evidencia médica general..." o "La evidencia científica indica...". Este conocimiento general NO se lista como referencia bibliográfica.
-- Al final, en la sección de Bibliografía, lista SOLO las fuentes de la base de conocimiento FertyFit que realmente hayas usado (no incluyas "conocimientos generales" ni "formularios" como fuentes).
-
+IMPORTANTE - REGLAS DE CITACIÓN Y BIBLIOGRAFÍA:
+- DEBES citar al menos ${maxCitations > 0 ? maxCitations : 1} fuentes de la lista anterior si son relevantes.
+- PROHIBICIÓN ESTRICTA: NO inventes ni cites autores externos (ej. Lara Briden, Jorge Chavarro, etc.) como si fueran parte de la metodología FertyFit.
+- Si un tema NO está cubierto en el contexto FertyFit arriba proporcionado, usa conocimiento médico general pero acláralo: "Según evidencia médica general...". 
+- Al final, en la sección de Bibliografía, lista ÚNICAMENTE las fuentes del contexto FertyFit que están arriba (con sus Documento ID). NO incluyas fuentes externas ni conocimientos generales en la lista de bibliografía.
+- Si no hay fragmentos disponibles, indica: "No hay bibliografía de FertyFit disponible para este punto específico."
 ` : '';
 
   switch (reportType) {

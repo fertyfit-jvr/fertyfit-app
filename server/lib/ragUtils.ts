@@ -32,15 +32,15 @@ async function embedQuery(query: string): Promise<number[]> {
   try {
     console.log(`[RAG] Generando embedding para: "${query.substring(0, 80)}..."`);
 
-    // @google/genai v1.x: usar text-embedding-004
+    // Use models/gemini-embedding-001 to match existing database vectors (3072 dimensions)
     const resp = await (ai as any).models.embedContent({
-      model: 'text-embedding-004',
+      model: 'models/gemini-embedding-001',
       contents: query,
     });
 
     console.log('[RAG] Embedding response keys:', resp ? Object.keys(resp) : 'null');
 
-    // La respuesta puede tener .embedding.values o .embeddings[0].values
+    // Handle different SDK response formats (.embedding.values or .embeddings[0].values)
     const embedding =
       (resp as any)?.embedding?.values ??
       (resp as any)?.embeddings?.[0]?.values;
