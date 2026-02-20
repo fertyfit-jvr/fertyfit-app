@@ -72,6 +72,25 @@ async function getTotalBasicReports(userId: string): Promise<number> {
 }
 
 /**
+ * Cuenta cuántos informes DAILY se han generado históricamente (Total)
+ */
+async function getTotalDailyReports(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('type', 'REPORT')
+    .contains('metadata', { report_type: 'DAILY' });
+
+  if (error) {
+    logger.error('Error counting total DAILY reports:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+/**
  * Verifica si todos los formularios básicos existen (F0 + 4 pilares)
  */
 async function hasAllBasicForms(userId: string): Promise<boolean> {
@@ -198,15 +217,12 @@ async function getMethodStartDate(userId: string): Promise<Date | null> {
  * 
  * Reglas:
  * - Todos los formularios deben existir (F0 + Function + Food + Flora + Flow)
- * - Usuarios Free: Máximo 1 informe en total (histórico)
+ * - Usuarios Free: BLOQUEADO (Antes era 1 total, ahora cerrado para favorecer Premium)
  * - Usuarios Premium/VIP: Sin límite (se genera al actualizar formularios)
- * 
- * Esta función evalúa si es posible generar el informe. La detección de actualizaciones recientes se hace en el cliente.
  */
 export async function canGenerateBasic(userId: string): Promise<ReportValidationResult> {
   logger.log(`[BASIC] Checking rules for user ${userId}`);
 
-  // 0. Obtener el tier del usuario
   const { data: profile } = await supabase
     .from('profiles')
     .select('subscription_tier')
@@ -215,12 +231,18 @@ export async function canGenerateBasic(userId: string): Promise<ReportValidation
 
   const userTier = profile?.subscription_tier || 'free';
 
-  // 1. Verificar si es Premium/VIP (NUEVA REGLA: Free ya no tiene acceso a BASIC después de la primera o en absoluto)
-  // El usuario dijo: "para las usuarias Free estan totalmente cerradas [...] solo esta disponible para usuarias Premium y VIP"
   if (userTier !== 'premium' && userTier !== 'vip') {
     return {
       canGenerate: false,
       reason: 'El Informe Básico de Preconsulta es una función exclusiva para usuarias Premium y VIP.',
+    };
+  }
+
+  const hasAllForms = await hasAllBasicForms(userId);
+  if (!hasAllForms) {
+    return {
+      canGenerate: false,
+      reason: 'Faltan formularios básicos. Necesitas completar F0 y los 4 pilares (Function, Food, Flora, Flow).',
     };
   }
 
@@ -234,27 +256,55 @@ export async function canGenerateBasic(userId: string): Promise<ReportValidation
  * INFORME DIARIO (DAILY)
  * 
  * Reglas:
- * - Cada 15 días desde method_start_date
- * - Al menos 7 registros en daily_logs de los últimos 15 días
+ * - Premium/VIP: Cada 15 días desde method_start_date y 7 registros.
+ * - Free: UNA SOLA VEZ cuando alcance 7 registros totales.
  */
 export async function shouldGenerateDaily(userId: string): Promise<DailyReportCheck> {
   logger.log(`[DAILY] Checking rules for user ${userId}`);
 
-  // 0. Comprobar tier de usuario (Free no tiene DAILY)
   const { data: profile } = await supabase
     .from('profiles')
     .select('subscription_tier, method_start_date')
     .eq('id', userId)
     .single();
 
-  if (profile?.subscription_tier !== 'premium' && profile?.subscription_tier !== 'vip') {
+  const userTier = profile?.subscription_tier || 'free';
+
+  // Lógica para USUARIAS FREE (Una sola vez con 7 registros)
+  if (userTier === 'free') {
+    const totalDailyReports = await getTotalDailyReports(userId);
+    if (totalDailyReports >= 1) {
+      return {
+        shouldGenerate: false,
+        reason: 'Límite alcanzado: Las usuarias Free solo pueden generar 1 Informe Diario gratuito. Actualiza a Premium para informes ilimitados.',
+      };
+    }
+
+    // Para Free miramos el historial total reciente (100 días)
+    const logsCount = await countRecentDailyLogs(userId, 100);
+    if (logsCount < 7) {
+      return {
+        shouldGenerate: false,
+        reason: `Como usuaria Free, necesitas al menos 7 registros para tu informe gratuito. Llevas ${logsCount}/7.`,
+        logsCount,
+      };
+    }
+
+    logger.log(`[DAILY] ✅ Free user eligible for ONE-TIME report. Logs: ${logsCount}`);
+    return {
+      shouldGenerate: true,
+      logsCount,
+    };
+  }
+
+  // Lógica para PREMIUM/VIP (Periodicidad de 15 días)
+  if (userTier !== 'premium' && userTier !== 'vip') {
     return {
       shouldGenerate: false,
       reason: 'Funcionalidad exclusiva para Premium/VIP',
     };
   }
 
-  // 1. Verificar que exista method_start_date
   const daysSinceMethodStart = (function () {
     if (!profile?.method_start_date) return null;
     const methodStart = new Date(profile.method_start_date);
@@ -272,7 +322,6 @@ export async function shouldGenerateDaily(userId: string): Promise<DailyReportCh
     };
   }
 
-  // 2. Verificar si es día de generación (múltiplo de 15)
   if (daysSinceMethodStart % 15 !== 0) {
     return {
       shouldGenerate: false,
@@ -281,7 +330,6 @@ export async function shouldGenerateDaily(userId: string): Promise<DailyReportCh
     };
   }
 
-  // 3. Verificar que haya al menos 7 registros en los últimos 15 días
   const logsCount = await countRecentDailyLogs(userId, 15);
   if (logsCount < 7) {
     return {
@@ -302,15 +350,8 @@ export async function shouldGenerateDaily(userId: string): Promise<DailyReportCh
 
 /**
  * INFORME DE ANALÍTICAS (LABS)
- * 
- * Reglas:
- * - Siempre se genera al subir nueva analítica
- * - Sin restricciones adicionales
  */
 export async function shouldGenerateLabs(userId: string, examId?: number): Promise<boolean> {
-  logger.log(`[LABS] Checking rules for user ${userId}, exam ${examId}`);
-
-  // 0. Comprobar tier de usuario
   const { data: profile } = await supabase
     .from('profiles')
     .select('subscription_tier')
@@ -318,26 +359,16 @@ export async function shouldGenerateLabs(userId: string, examId?: number): Promi
     .single();
 
   if (profile?.subscription_tier !== 'premium' && profile?.subscription_tier !== 'vip') {
-    logger.info(`[LABS_BLOCKED] User ${userId} is not Premium/VIP`);
     return false;
   }
 
-  // Sin restricciones adicionales por ahora
   return true;
 }
 
 /**
  * INFORME 360
- * 
- * Reglas:
- * - Mensual, el mismo día del mes que method_start_date
- * - Si el día no existe (ej: 31 en febrero), usar último día del mes
- * - No generar más de 1 por mes
  */
 export async function shouldGenerate360(userId: string): Promise<Report360Check> {
-  logger.log(`[360] Checking rules for user ${userId}`);
-
-  // 0. Comprobar tier de usuario (Free no tiene 360)
   const { data: profile } = await supabase
     .from('profiles')
     .select('subscription_tier')
@@ -351,7 +382,6 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
     };
   }
 
-  // 1. Obtener method_start_date
   const methodStartDate = await getMethodStartDate(userId);
   if (!methodStartDate) {
     return {
@@ -360,7 +390,6 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
     };
   }
 
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -368,14 +397,10 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
   const todayDayOfMonth = today.getDate();
   const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
 
-  // 2. Determinar si hoy es el día correcto
   let isCorrectDay = false;
-
   if (targetDayOfMonth <= lastDayOfMonth) {
-    // El día existe en este mes
     isCorrectDay = todayDayOfMonth === targetDayOfMonth;
   } else {
-    // El día no existe (ej: 31 en febrero), usar último día del mes
     isCorrectDay = todayDayOfMonth === lastDayOfMonth;
   }
 
@@ -387,7 +412,6 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
     };
   }
 
-  // 3. Verificar que no se haya generado ya este mes
   const alreadyGenerated = await wasReportGeneratedThisMonth(userId, '360');
   if (alreadyGenerated) {
     return {
@@ -398,7 +422,6 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
     };
   }
 
-  logger.log(`[360] ✅ Should generate. Target day: ${targetDayOfMonth}, today: ${todayDayOfMonth}`);
   return {
     shouldGenerate: true,
     dayOfMonth: targetDayOfMonth,
@@ -410,78 +433,67 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
 // FUNCIONES PARA ADVERTENCIAS (botones manuales)
 // ============================================================================
 
-/**
- * Genera advertencias para generación manual (no bloquea, solo informa)
- */
 export async function getReportWarnings(
   userId: string,
   reportType: 'BASIC' | 'DAILY' | 'LABS' | '360'
 ): Promise<string[]> {
   const warnings: string[] = [];
+  const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', userId).single();
+  const userTier = profile?.subscription_tier || 'free';
 
   switch (reportType) {
     case 'BASIC': {
-      let userTier = 'free';
-      const { data: profile } = await supabase.from('profiles').select('user_type').eq('id', userId).single();
-      if (profile?.user_type) userTier = profile.user_type;
-
-      const hasAllForms = await hasAllBasicForms(userId);
-      if (!hasAllForms) {
-        warnings.push('⚠️ Faltan algunos formularios básicos. El informe podría estar incompleto.');
-      }
-
-      if (userTier === 'free') {
-        const totalReports = await getTotalBasicReports(userId);
-        if (totalReports >= 1) {
-          warnings.push('⚠️ Has alcanzado el límite de 1 Informe Básico para cuentas gratuitas. Cambia a Premium para generar más informes.');
-        } else {
-          warnings.push('ℹ️ Como usuaria Free, este será tu único Informe Básico gratuito.');
+      if (userTier !== 'premium' && userTier !== 'vip') {
+        warnings.push('⚠️ El Informe Básico es exclusivo para usuarias Premium.');
+      } else {
+        const hasAllForms = await hasAllBasicForms(userId);
+        if (!hasAllForms) {
+          warnings.push('⚠️ Faltan formularios básicos. El informe podría estar incompleto.');
         }
       }
       break;
     }
 
     case 'DAILY': {
-      const logsCount = await countRecentDailyLogs(userId, 15);
-      if (logsCount < 7) {
-        warnings.push(`⚠️ Solo tienes ${logsCount} registros diarios en los últimos 15 días (recomendado: 7+).`);
-      }
-
-      const daysSinceMethodStart = await getDaysSinceMethodStart(userId);
-      if (daysSinceMethodStart === null) {
-        warnings.push('⚠️ No tienes configurada la fecha de inicio del método.');
-      } else if (daysSinceMethodStart % 15 !== 0) {
-        warnings.push(
-          `ℹ️ Normalmente se genera cada 15 días. Llevas ${daysSinceMethodStart} días desde el inicio.`
-        );
+      if (userTier === 'free') {
+        const totalReports = await getTotalDailyReports(userId);
+        if (totalReports >= 1) {
+          warnings.push('⚠️ Ya has generado tu único Informe Diario gratuito. Actualiza a Premium para informes ilimitados.');
+        } else {
+          const count = await countRecentDailyLogs(userId, 100);
+          if (count < 7) {
+            warnings.push(`ℹ️ Como usuaria Free, obtendrás 1 informe de regalo al llegar a 7 registros. Llevas ${count}/7.`);
+          } else {
+            warnings.push('✨ ¡Listo! Haz completado los 7 registros necesarios para tu informe gratuito.');
+          }
+        }
+      } else {
+        const logsCount = await countRecentDailyLogs(userId, 15);
+        if (logsCount < 7) {
+          warnings.push(`⚠️ Solo tienes ${logsCount} registros en los últimos 15 días (recomendado: 7+).`);
+        }
+        const days = await getDaysSinceMethodStart(userId);
+        if (days !== null && days % 15 !== 0) {
+          warnings.push(`ℹ️ Normalmente se genera cada 15 días. Llevas ${days} días.`);
+        }
       }
       break;
     }
 
     case '360': {
-      // Si es usuaria free, el 360 es invisible, sin advertencias
-      let userTier = 'free';
-      const { data: profile } = await supabase.from('profiles').select('user_type').eq('id', userId).single();
-      if (profile?.user_type) userTier = profile.user_type;
-
       if (userTier === 'free') {
-        break;
-      }
-
-      const alreadyGenerated = await wasReportGeneratedThisMonth(userId, '360');
-      if (alreadyGenerated) {
-        warnings.push('⚠️ Ya generaste un informe 360 este mes. Los informes 360 son mensuales.');
-      }
-
-      const methodStartDate = await getMethodStartDate(userId);
-      if (!methodStartDate) {
-        warnings.push('⚠️ No tienes configurada la fecha de inicio del método.');
+        warnings.push('⚠️ El Informe 360 es exclusivo para usuarias Premium.');
+      } else {
+        const already = await wasReportGeneratedThisMonth(userId, '360');
+        if (already) warnings.push('⚠️ Ya generaste un informe 360 este mes.');
       }
       break;
     }
 
     case 'LABS': {
-      // Sin advertencias por ahora
+      if (userTier !== 'premium' && userTier !== 'vip') {
+        warnings.push('⚠️ La interpretación de analíticas es exclusiva para usuarias Premium.');
+      }
       break;
     }
   }

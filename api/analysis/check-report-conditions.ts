@@ -101,8 +101,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Obtener advertencias
     const warnings = await getReportWarnings(userId, reportType);
+    let canContinue = isPremiumOrVip;
 
-    if (!isPremiumOrVip) {
+    // Exception for Free users and DAILY report
+    if (!isPremiumOrVip && reportType === 'DAILY') {
+      const { shouldGenerate } = await (await import('../../server/lib/reportRules.js')).shouldGenerateDaily(userId);
+      if (shouldGenerate) {
+        canContinue = true;
+      }
+    }
+
+    if (!canContinue && !isPremiumOrVip) {
       warnings.unshift('Esta funcionalidad es exclusiva para usuarias Premium y VIP.');
     }
 
@@ -112,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       warnings,
       reportType,
-      canContinue: isPremiumOrVip,
+      canContinue,
     });
   } catch (error: any) {
     setCORSHeaders(res, origin);

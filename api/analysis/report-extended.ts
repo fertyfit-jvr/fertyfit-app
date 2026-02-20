@@ -165,13 +165,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Tier validation: ONLY Premium/VIP can generate any report
-    if (profile.subscription_tier !== 'premium' && profile.subscription_tier !== 'vip') {
-      sendProgress(res, 'ERROR', 'Acceso restringido', {
-        error: 'La generación de informes (Básico, Diario, 360 y Analíticas) es una función exclusiva para usuarias Premium y VIP.',
-      });
-      // Also return the error via standard JSON if possible before closing
-      // But since we are streaming, sendProgress is the primary way
-      return res.end();
+    // EXCEPTION: Free users can generate exactly ONE Daily Report if they have enough logs
+    const isPremiumOrVip = profile.subscription_tier === 'premium' || profile.subscription_tier === 'vip';
+
+    if (!isPremiumOrVip) {
+      if (reportType === 'DAILY') {
+        const { shouldGenerate, reason } = await (await import('../../server/lib/reportRules.js')).shouldGenerateDaily(userId);
+        if (!shouldGenerate) {
+          sendProgress(res, 'ERROR', 'Acceso restringido', {
+            error: reason || 'Como usuaria Free, ya has agotado tu informe diario gratuito o aún no tienes suficientes registros.',
+          });
+          return res.end();
+        }
+        // If shouldGenerate is true, we allow the Free user to proceed
+      } else {
+        sendProgress(res, 'ERROR', 'Acceso restringido', {
+          error: 'La generación de informes (Básico, 360 y Analíticas) es una función exclusiva para usuarias Premium y VIP.',
+        });
+        return res.end();
+      }
     }
 
     const userProfile: UserProfile = {
