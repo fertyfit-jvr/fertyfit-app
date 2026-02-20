@@ -130,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       healthContext = `
 - Edad: ${profile.age || 'No especificada'}
 - Objetivo: ${profile.main_objective || 'General'}
-- Diagnósticos: ${profile.diagnoses ? profile.diagnoses.join(', ') : 'Ninguno'}
+- Diagnósticos: ${profile.diagnoses ? (Array.isArray(profile.diagnoses) ? profile.diagnoses.join(', ') : profile.diagnoses) : 'Ninguno'}
 - Tratamientos: ${profile.fertility_treatments || 'Ninguno'}
 `;
     }
@@ -139,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let recentSymptoms = 'No hay registros recientes.';
     if (recentLogs.length > 0) {
       recentSymptoms = recentLogs.map((log: any) =>
-        `- Día ${log.date} (CD ${log.cycle_day}): ${log.symptoms?.join(', ') || 'Sin síntomas'}, BBT: ${log.bbt || 'N/A'}`
+        `- Día ${log.date} (CD ${log.cycle_day}): ${log.symptoms ? (Array.isArray(log.symptoms) ? log.symptoms.join(', ') : log.symptoms) : 'Sin síntomas'}, BBT: ${log.bbt || 'N/A'}`
       ).join('\n');
     }
 
