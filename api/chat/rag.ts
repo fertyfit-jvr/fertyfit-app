@@ -52,35 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw createError('Falta la pregunta del usuario', 400, 'BAD_REQUEST');
     }
 
-    // Verificar límite diario de chat (5 para free)
-    const dailyChatLimit = 5;
-
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const { count, error: countError } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('type', 'CHAT')
-        .gte('created_at', `${today}T00:00:00.000Z`)
-        .lt('created_at', `${today}T23:59:59.999Z`);
-
-      if (countError) {
-        logger.warn('Error al verificar límite diario de chat:', countError);
-      } else if (count !== null && count >= dailyChatLimit) {
-        throw createError(
-          `Has alcanzado tu límite diario de ${dailyChatLimit} preguntas. Vuelve mañana o actualiza a premium para más preguntas.`,
-          429,
-          'DAILY_LIMIT_EXCEEDED'
-        );
-      }
-    } catch (limitError: any) {
-      if (limitError.code === 'DAILY_LIMIT_EXCEEDED') {
-        throw limitError;
-      }
-      logger.warn('Error al verificar límite de chat:', limitError);
-    }
-
+    // We will check limits AFTER fetching the profile
     // --------------------------------------------------------------------------
     // 1. DATA FETCHING: Perfil, Logs recientes, Informes previos
     // --------------------------------------------------------------------------
@@ -104,6 +76,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const profile = profileResult.data;
     const recentLogs = logsResult.data || [];
     const recentReports = reportsResult.data || [];
+
+    // --------------------------------------------------------------------------
+    // 1.5 CHECK LIMITS BASED ON TIER
+    // --------------------------------------------------------------------------
+    const isPremiumOrVip = profile?.subscription_tier === 'premium' || profile?.subscription_tier === 'vip';
+
+    try {
+      if (isPremiumOrVip) {
+        // Premium/VIP limit: 5 chats PER DAY
+        const today = new Date().toISOString().split('T')[0];
+        const { count, error: countError } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('type', 'CHAT')
+          .gte('created_at', `${today}T00:00:00.000Z`)
+          .lt('created_at', `${today}T23:59:59.999Z`);
+
+        if (countError) {
+          logger.warn('Error al verificar límite diario de chat (Premium/VIP):', countError);
+        } else if (count !== null && count >= 5) {
+          throw createError(
+            'Has alcanzado tu límite seguro diario de 5 preguntas. Por favor, vuelve mañana.',
+            429,
+            'DAILY_LIMIT_EXCEEDED'
+          );
+        }
+      } else {
+        // Free limit: 5 chats TOTAL (lifetime)
+        const { count, error: countError } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('type', 'CHAT');
+
+        if (countError) {
+          logger.warn('Error al verificar límite total de chat (Free):', countError);
+        } else if (count !== null && count >= 5) {
+          throw createError(
+            'Has alcanzado el límite total de 5 preguntas para cuentas gratuitas. Actualiza tu suscripción para seguir chateando.',
+            403,
+            'LIFETIME_LIMIT_EXCEEDED'
+          );
+        }
+      }
+    } catch (limitError: any) {
+      if (limitError.code === 'DAILY_LIMIT_EXCEEDED' || limitError.code === 'LIFETIME_LIMIT_EXCEEDED') {
+        throw limitError;
+      }
+      logger.warn('Error al verificar límites de chat:', limitError);
+    }
 
     // --------------------------------------------------------------------------
     // 2. CONTEXT BUILDING: Calcular estado del ciclo
