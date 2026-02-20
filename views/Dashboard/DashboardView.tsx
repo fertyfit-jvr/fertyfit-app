@@ -110,18 +110,36 @@ const DashboardView = ({
               <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
                 <Activity size={32} className="text-white" />
               </div>
-              <h3 className="text-2xl font-bold mb-2">¡Comienza Tu Viaje!</h3>
+              <h3 className="text-2xl font-bold mb-2">
+                {user.user_type === 'premium' || user.user_type === 'vip' ? '¡Tu Plan está listo!' : '¡Comienza Tu Viaje!'}
+              </h3>
               <p className="text-sm opacity-90 mb-6 leading-relaxed">
-                Activa el Método FertyFit con un plan Premium o VIP y desbloquea todos los módulos, informes y seguimiento personalizado.
+                {user.user_type === 'premium' || user.user_type === 'vip'
+                  ? 'Activa el Método FertyFit para comenzar tu seguimiento de 90 días y desbloquear todas las funciones.'
+                  : 'Activa el Método FertyFit con un plan Premium o VIP y desbloquea todos los módulos, informes y seguimiento personalizado.'}
               </p>
-              <button
-                onClick={() => onNavigate('CHECKOUT')}
-                className="bg-white text-ferty-rose px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
-              >
-                <Crown size={20} />
-                Ver Planes y Precios
-              </button>
-              <p className="text-xs opacity-70 mt-3">Premium desde 49€/mes · VIP desde 99€/mes</p>
+
+              {user.user_type === 'premium' || user.user_type === 'vip' ? (
+                <button
+                  onClick={onStartMethod}
+                  className="bg-white text-ferty-rose px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
+                >
+                  <Activity size={20} />
+                  Activar Método
+                </button>
+              ) : (
+                <button
+                  onClick={() => onNavigate('CHECKOUT')}
+                  className="bg-white text-ferty-rose px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform flex items-center gap-2 mx-auto"
+                >
+                  <Crown size={20} />
+                  Ver Planes y Precios
+                </button>
+              )}
+
+              {!user.user_type || user.user_type === 'free' ? (
+                <p className="text-xs opacity-70 mt-3">Premium desde 49€/mes · VIP desde 99€/mes</p>
+              ) : null}
             </div>
           </div>
         )}
@@ -129,8 +147,8 @@ const DashboardView = ({
         {/* Badge de tier activo (solo si ya tiene plan) */}
         {user.methodStartDate && user.user_type && user.user_type !== 'free' && (
           <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold w-fit ${user.user_type === 'vip'
-              ? 'bg-amber-100 text-amber-700 border border-amber-200'
-              : 'bg-ferty-rose/10 text-ferty-rose border border-ferty-rose/20'
+            ? 'bg-amber-100 text-amber-700 border border-amber-200'
+            : 'bg-ferty-rose/10 text-ferty-rose border border-ferty-rose/20'
             }`}>
             {user.user_type === 'vip' ? <Crown size={14} /> : <Star size={14} />}
             Plan {user.user_type === 'vip' ? 'VIP' : 'Premium'} activo
