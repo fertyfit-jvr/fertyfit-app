@@ -144,15 +144,24 @@ No añadas nada fuera del JSON.`;
 
   // Validar y extraer texto de respuesta de forma segura
   let jsonText: string;
+  let responseText: string | undefined;
   if (response && typeof response === 'object') {
-    // Intentar acceder a .text de forma segura
-    const responseText = (response as { text?: string }).text;
-    if (typeof responseText === 'string' && responseText.length > 0) {
-      jsonText = responseText;
-    } else {
-      // Fallback: intentar stringify si no hay .text
-      jsonText = JSON.stringify(response);
+    if (typeof (response as any).text === 'string') {
+      responseText = (response as any).text;
     }
+    if (!responseText) {
+      const candidates = (response as any).candidates;
+      if (candidates && candidates[0]?.content?.parts?.[0]?.text) {
+        responseText = candidates[0].content.parts[0].text;
+      }
+    }
+  }
+
+  if (typeof responseText === 'string' && responseText.length > 0) {
+    jsonText = responseText;
+  } else if (response && typeof response === 'object') {
+    // Fallback: intentar stringify si no hay .text
+    jsonText = JSON.stringify(response);
   } else {
     throw new Error('Respuesta inválida de Gemini: formato desconocido');
   }

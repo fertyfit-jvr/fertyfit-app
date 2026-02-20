@@ -276,22 +276,28 @@ INSTRUCCIONES:
       contents,
     } as any);
 
-    // Validar respuesta de Gemini de forma segura (preservar contexto RAG)
+    // @google/genai v1.x: response.text is a string getter
     let explanation: string;
+    let responseText: string | undefined;
     if (response && typeof response === 'object') {
-      const responseText = (response as { text?: string }).text;
-      if (typeof responseText === 'string' && responseText.length > 0) {
-        explanation = responseText;
-      } else {
-        logger.error('❌ Respuesta de Gemini sin texto válido:', {
-          hasText: 'text' in response,
-          textType: typeof (response as { text?: unknown }).text,
-          responseKeys: Object.keys(response),
-        });
-        explanation = 'No se pudo generar la explicación. Por favor, intenta de nuevo.';
+      if (typeof (response as any).text === 'string') {
+        responseText = (response as any).text;
       }
+      if (!responseText) {
+        const candidates = (response as any).candidates;
+        if (candidates && candidates[0]?.content?.parts?.[0]?.text) {
+          responseText = candidates[0].content.parts[0].text;
+        }
+      }
+    }
+
+    if (typeof responseText === 'string' && responseText.length > 0) {
+      explanation = responseText;
     } else {
-      logger.error('❌ Respuesta de Gemini inválida:', typeof response);
+      logger.error('❌ Respuesta de Gemini sin texto válido:', {
+        hasText: 'text' in response,
+        responseKeys: response ? Object.keys(response) : null,
+      });
       explanation = 'No se pudo generar la explicación. Por favor, intenta de nuevo.';
     }
 

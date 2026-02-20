@@ -196,21 +196,27 @@ Responde priorizando los datos personales de la usuaria.
         contents: prompt,
       } as any);
 
-      // Validar respuesta de Gemini de forma segura (preservar contexto RAG)
+      // @google/genai v1.x: response.text is a string getter
+      let responseText: string | undefined;
       if (response && typeof response === 'object') {
-        const responseText = (response as { text?: string }).text;
-        if (typeof responseText === 'string' && responseText.length > 0) {
-          answer = responseText;
-        } else {
-          logger.error('❌ Respuesta de Gemini sin texto válido para chat:', {
-            hasText: 'text' in response,
-            textType: typeof (response as { text?: unknown }).text,
-            responseKeys: Object.keys(response),
-          });
-          answer = 'No se pudo generar una respuesta. Por favor, intenta de nuevo.';
+        if (typeof (response as any).text === 'string') {
+          responseText = (response as any).text;
         }
+        if (!responseText) {
+          const candidates = (response as any).candidates;
+          if (candidates && candidates[0]?.content?.parts?.[0]?.text) {
+            responseText = candidates[0].content.parts[0].text;
+          }
+        }
+      }
+
+      if (typeof responseText === 'string' && responseText.length > 0) {
+        answer = responseText;
       } else {
-        logger.error('❌ Respuesta de Gemini inválida para chat:', typeof response);
+        logger.error('❌ Respuesta de Gemini sin texto válido para chat:', {
+          hasText: 'text' in response,
+          responseKeys: response ? Object.keys(response) : null,
+        });
         answer = 'No se pudo generar una respuesta. Por favor, intenta de nuevo.';
       }
       logger.log(`[CHAT] Respuesta generada exitosamente (${answer.length} caracteres)`);
