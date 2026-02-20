@@ -315,6 +315,20 @@ export async function shouldGenerateLabs(userId: string, examId?: number): Promi
 export async function shouldGenerate360(userId: string): Promise<Report360Check> {
   logger.log(`[360] Checking rules for user ${userId}`);
 
+  // 0. Comprobar tier de usuario (Free no tiene 360)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('user_type')
+    .eq('id', userId)
+    .single();
+
+  if (profile?.user_type === 'free') {
+    return {
+      shouldGenerate: false,
+      reason: 'Funcionalidad exclusiva para Premium/VIP',
+    };
+  }
+
   // 1. Obtener method_start_date
   const methodStartDate = await getMethodStartDate(userId);
   if (!methodStartDate) {
@@ -323,6 +337,7 @@ export async function shouldGenerate360(userId: string): Promise<Report360Check>
       reason: 'Usuario no tiene method_start_date configurado',
     };
   }
+
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -422,6 +437,15 @@ export async function getReportWarnings(
     }
 
     case '360': {
+      // Si es usuaria free, el 360 es invisible, sin advertencias
+      let userTier = 'free';
+      const { data: profile } = await supabase.from('profiles').select('user_type').eq('id', userId).single();
+      if (profile?.user_type) userTier = profile.user_type;
+
+      if (userTier === 'free') {
+        break;
+      }
+
       const alreadyGenerated = await wasReportGeneratedThisMonth(userId, '360');
       if (alreadyGenerated) {
         warnings.push('⚠️ Ya generaste un informe 360 este mes. Los informes 360 son mensuales.');

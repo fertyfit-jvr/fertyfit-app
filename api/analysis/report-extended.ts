@@ -340,10 +340,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('user_id', userId)
         .eq('type', 'REPORT')
         .order('created_at', { ascending: false })
-        .limit(3);
+        .limit(20);
 
-      if (!reportsError && reportsData) {
-        previousReports = reportsData as AppNotification[];
+      if (!reportsError && reportsData && reportsData.length > 0) {
+        const allReports = reportsData as AppNotification[];
+
+        const basicReports = allReports.filter(r => r.metadata?.report_type === 'BASIC').slice(0, 1);
+        const labsReports = allReports.filter(r => r.metadata?.report_type === 'LABS').slice(0, 2);
+        const dailyReports = allReports.filter(r => r.metadata?.report_type === 'DAILY').slice(0, 2);
+
+        previousReports = [...basicReports, ...labsReports, ...dailyReports];
+
+        // Si tenemos informes DAILY previos recientes, no necesitamos todos los logs crudos
+        if (dailyReports.length > 0) {
+          logger.info(`[REPORT 360] Found ${dailyReports.length} DAILY reports, skipping raw daily_logs to save tokens.`);
+          logs = [];
+        }
       }
     }
 
@@ -490,7 +502,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         console.log(`[REPORT] Gemini attempt ${attempt}/${MAX_RETRIES}`);
         const response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-1.5-flash',
           contents: prompt + '\n\n---DATOS DE LA USUARIA---\n\n' + JSON.stringify(context),
         });
 

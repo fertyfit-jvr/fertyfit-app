@@ -60,14 +60,13 @@ export function buildReportContext(
         fecha_informe: new Date().toISOString(),
       };
 
-      // Si hay informes previos, incluir los últimos 3
+      // Si hay informes previos, incluir todos los filtrados por el endpoint
       if (previousReports && previousReports.length > 0) {
-        context.informes_previos = previousReports
-          .slice(0, 3)
-          .map(r => ({
-            fecha: r.created_at,
-            contenido: r.message,
-          }));
+        context.informes_previos = previousReports.map(r => ({
+          tipo: r.metadata?.report_type || 'Historial',
+          fecha: r.created_at,
+          contenido: r.message,
+        }));
       }
 
       return context;
@@ -167,57 +166,52 @@ Recibirás un JSON con:
 - Historial completo de registros diarios (temperatura, moco, sueño, estrés, hábitos).
 - Formulario F0 y todos los formularios de pilares (Function, Food, Flora, Flow).
 - Todos los exámenes médicos guardados (analíticas y ecografías).
-${hasPreviousReports ? '- Informes previos generados anteriormente (para contexto histórico).' : ''}
-
+${hasPreviousReports ? '- **Informes previos**: Verás el último Informe Básico, informes de Analíticas (Labs) y de Registros (Daily) recientes. Tu tarea es cruzarlos para evaluar el progreso global.\n' : ''}
 TAREA:
-Construye un INFORME 360º COMPLETO pero CONCISO (máximo 1800 palabras) formateado en Markdown, con el siguiente esquema obligatorio:
+Construye un INFORME 360º MENSUAL COMPLETO (máximo 1800 palabras) formateado en Markdown. Este es un informe superior de META-ANÁLISIS; tu trabajo es sintetizar la evolución de la usuaria durante este mes utilizando todos los informes previos como base y señalando cualquier tendencia detectada.
 
-## 1. Resumen ejecutivo (máximo 200 palabras)
-   - Síntesis clara de la situación reproductiva actual de la paciente.
-   - Menciona 3-5 ideas clave: principales riesgos, fortalezas y prioridades.
+Esquema obligatorio:
 
-## 2. Análisis integral
-   - Perfil general y contexto (edad, tiempo intentando, objetivo, antecedentes relevantes) en 1-2 párrafos.
-   - Ciclo y biomarcadores: comenta solo los patrones más relevantes (regularidad, posibles ovulaciones, etc.). Si NO hay suficientes datos de ciclo en el JSON, indícalo de forma suave.
-   - Exámenes y analíticas: resume solo los hallazgos relevantes para fertilidad, sin listar todos los valores.
-   - Pilares FertyFit (Function, Food, Flora, Flow): describe de forma breve el estado de cada pilar y cómo impacta la fertilidad de esta paciente.
-   ${hasPreviousReports ? '- Evolución respecto a informes anteriores: comenta solo cambios significativos.' : ''}
+## 1. Resumen de Evolución Mensual (máximo 200 palabras)
+   - Síntesis clara de la situación reproductiva de la paciente tras el último mes de método FertyFit.
+   - Destaca 3-5 ideas clave o cambios respecto a su Informe Básico o mediciones recientes.
 
-## 3. Aspectos destacados (máximo 300 palabras)
-   - Lista numerada de 5-7 aspectos clave que mezclen:
-     - Factores de riesgo o alerta.
-     - Fortalezas importantes a mantener.
-   - Cada punto debe ser específico y accionable, evitando frases genéricas.
+## 2. Análisis Integral 360º
+   - Analiza en conjunto el impacto del último mes en sus pilares biológicos (Function, Food, Flora, Flow).
+   ${hasPreviousReports ? '- Integra las observaciones de los Informes Diarios (DAILY) y Analíticas (LABS) si los hay, detectando tendencias y cruces (ej: cómo su ciclo se relacionó con su nutrición y descanso).' : '- Ciclo y biomarcadores: comenta los patrones (regularidad, posibles ovulaciones, etc.).'}
+   - Evolución respecto a sus prioridades establecidas en el Informe Básico.
 
-## 4. Preguntas para el médico (máximo 200 palabras)
-   - Lista de 4-6 preguntas muy concretas para llevar a la consulta médica.
-   - Las preguntas deben salir directamente de los hallazgos (posibles diagnósticos, pruebas, tratamientos, tiempos recomendados para consultar, etc.).
+## 3. Aspectos destacados y Alertas (máximo 300 palabras)
+   - Lista numerada de 5-7 aspectos detectados en los datos de este mes.
+   - Mezcla factores de riesgo/alerta a corregir con fortalezas importantes a mantener.
+   - Cada punto debe ser específico y accionable.
 
-## 5. Recomendaciones prácticas de alto impacto (máximo 300 palabras)
-   - Lista numerada de 5-7 recomendaciones priorizadas por impacto en la fertilidad.
-   - Incluye acciones relacionadas con los pilares Function, Food, Flora y Flow solo cuando estén respaldadas por los datos del JSON.
-   - Deben ser concretas, realistas y medibles cuando sea posible.
+## 4. Preguntas para el equipo médico (máximo 200 palabras)
+   - Lista de 4-6 preguntas muy concretas para llevar a la siguiente consulta médica.
+   - Basado en los patrones del mes y los analíticos que presenten discrepancias.
+
+## 5. Próximos Pasos Recomendados (máximo 300 palabras)
+   - Lista numerada de 5-7 recomendaciones estratégicas para el siguiente mes de su recorrido fertil.
+   - Priorizadas según su impacto potencial.
 
 ## 6. Bibliografía consultada
-   ${
-     ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
-       ? `
+   ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
+          ? `
    DEBES utilizar información de los ${ragChunksCount} fragmentos del contexto FertyFit proporcionado.
    Metadatos de las fuentes disponibles:
    ${ragChunksMetadata
-     .map(
-       (meta, idx) =>
-         `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${
-           meta.document_title || 'Sin título'
-         }" | Índice del fragmento: ${meta.chunk_index}`
-     )
-     .join('\n')}
+            .map(
+              (meta, idx) =>
+                `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'
+                }" | Índice del fragmento: ${meta.chunk_index}`
+            )
+            .join('\n')}
    
    Al final del informe, incluye una lista numerada SOLO con las fuentes de la base de conocimiento FertyFit que REALMENTE hayas usado (no incluyas \"conocimientos generales\" ni \"formularios\" como fuentes), con este formato:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
    `
-       : ''
-   }
+          : ''
+        }
 
 INSTRUCCIONES IMPORTANTES:
 - Prioriza SIEMPRE la información del contexto FertyFit cuando esté disponible. Solo usa conocimiento médico general para complementar, indicando expresiones como "Según evidencia médica general...".
@@ -273,25 +267,23 @@ Construye un INFORME NARRATIVO MUY CONCRETO (máximo 1000 palabras) formateado e
    - Evita frases comerciales vacías; enfócate en qué cambios concretos podría trabajar con la app (ej: mejorar sueño, reducir café, trabajar el estrés, mejorar alimentación, etc.).
 
 ## 5. Bibliografía consultada
-   ${
-     ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
-       ? `
+   ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
+          ? `
    DEBES utilizar información de los ${ragChunksCount} fragmentos del contexto FertyFit proporcionado.
    Metadatos de las fuentes disponibles:
    ${ragChunksMetadata
-     .map(
-       (meta, idx) =>
-         `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${
-           meta.document_title || 'Sin título'
-         }" | Índice del fragmento: ${meta.chunk_index}`
-     )
-     .join('\n')}
+            .map(
+              (meta, idx) =>
+                `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'
+                }" | Índice del fragmento: ${meta.chunk_index}`
+            )
+            .join('\n')}
    
    Al final del informe, incluye una lista numerada SOLO con las fuentes de la base de conocimiento FertyFit que REALMENTE hayas usado (no incluyas \"conocimientos generales\" ni \"formularios\" como fuentes), con este formato:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
    `
-       : ''
-   }
+          : ''
+        }
 
 INSTRUCCIONES IMPORTANTES:
 - Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario. Usa un tono empático, claro y educativo.
@@ -351,25 +343,23 @@ Construye un INFORME NARRATIVO CONCISO (máximo 1200 palabras) formateado en Mar
    - Concretas y accionables
 
 ## 6. Bibliografía consultada
-   ${
-     ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
-       ? `
+   ${ragContext && ragChunksMetadata && ragChunksMetadata.length > 0
+          ? `
    DEBES utilizar información de los ${ragChunksCount} fragmentos del contexto FertyFit proporcionado.
    Metadatos de las fuentes disponibles:
    ${ragChunksMetadata
-     .map(
-       (meta, idx) =>
-         `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${
-           meta.document_title || 'Sin título'
-         }" | Índice del fragmento: ${meta.chunk_index}`
-     )
-     .join('\n')}
+            .map(
+              (meta, idx) =>
+                `   - Fragmento ${idx + 1}: Documento ID "${meta.document_id || 'N/A'}" | Título: "${meta.document_title || 'Sin título'
+                }" | Índice del fragmento: ${meta.chunk_index}`
+            )
+            .join('\n')}
    
    Al final del informe, incluye una lista numerada SOLO con las fuentes de la base de conocimiento FertyFit que REALMENTE hayas usado (no incluyas "conocimientos generales" ni "formularios" como fuentes), con este formato:
    "[Número]. [Título del documento] | Documento ID: [document_id] | Fragmento: cita breve del contenido relevante usado"
    `
-       : ''
-   }
+          : ''
+        }
 
 INSTRUCCIONES IMPORTANTES:
 - Prioriza la información del contexto FertyFit, pero complementa con conocimiento médico general cuando sea necesario. Usa un tono empático, claro y educativo.
