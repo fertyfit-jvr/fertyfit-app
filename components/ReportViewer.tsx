@@ -21,10 +21,10 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
     const htmlLines: string[] = [];
     let inList = false;
     let listType: 'ul' | 'ol' | null = null;
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       if (!line) {
         if (inList) {
           htmlLines.push(`</${listType}>`);
@@ -33,7 +33,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
         }
         continue;
       }
-      
+
       // Headers
       if (line.startsWith('### ')) {
         if (inList) {
@@ -45,7 +45,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
         htmlLines.push(`<h3 style="font-size: 18px; font-weight: bold; color: #2d3748; margin-top: 20px; margin-bottom: 10px;">${text}</h3>`);
         continue;
       }
-      
+
       if (line.startsWith('## ')) {
         if (inList) {
           htmlLines.push(`</${listType}>`);
@@ -56,7 +56,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
         htmlLines.push(`<h2 style="font-size: 20px; font-weight: bold; color: #1a202c; margin-top: 24px; margin-bottom: 12px;">${text}</h2>`);
         continue;
       }
-      
+
       if (line.startsWith('# ')) {
         if (inList) {
           htmlLines.push(`</${listType}>`);
@@ -67,7 +67,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
         htmlLines.push(`<h1 style="font-size: 24px; font-weight: bold; color: #000; margin-top: 28px; margin-bottom: 16px;">${text}</h1>`);
         continue;
       }
-      
+
       // Listas numeradas
       const numberedMatch = line.match(/^\d+\.\s+(.+)$/);
       if (numberedMatch) {
@@ -85,7 +85,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
         htmlLines.push(`<li style="margin-bottom: 8px; color: #4a5568;">${itemText}</li>`);
         continue;
       }
-      
+
       // Listas con viñetas
       const bulletMatch = line.match(/^[-*+]\s+(.+)$/);
       if (bulletMatch) {
@@ -103,27 +103,27 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
         htmlLines.push(`<li style="margin-bottom: 8px; color: #4a5568;">${itemText}</li>`);
         continue;
       }
-      
+
       // Párrafo normal
       if (inList) {
         htmlLines.push(`</${listType}>`);
         inList = false;
         listType = null;
       }
-      
+
       let paraText = line;
       paraText = paraText.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: bold; color: #2d3748;">$1</strong>');
       paraText = paraText.replace(/\*(.*?)\*/g, '<em style="font-style: italic; color: #c53030;">$1</em>');
       htmlLines.push(`<p style="margin-bottom: 12px; color: #4a5568; line-height: 1.6;">${paraText}</p>`);
     }
-    
+
     // Cerrar lista si queda abierta
     if (inList && listType) {
       htmlLines.push(`</${listType}>`);
     }
-    
+
     const htmlContent = htmlLines.join('\n');
-    
+
     // Estructura HTML completa básica (se usará solo como respaldo)
     return `<!DOCTYPE html>
 <html>
@@ -138,10 +138,10 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
     </h1>
     <p style="color: #718096; font-size: 12px; margin-bottom: 24px;">
       ${new Date(report.created_at).toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })}
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })}
     </p>
     <div style="color: #4a5568;">
       ${htmlContent}
@@ -177,76 +177,38 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
   };
 
   const handlePrint = () => {
-    // Asegurar que el contenido completo sea visible antes de imprimir
-    const contentElement = document.querySelector('.prose');
-    if (contentElement) {
-      // Remover restricciones de altura temporalmente
-      const modalContent = contentElement.closest('.bg-white');
-      if (modalContent) {
-        (modalContent as HTMLElement).style.maxHeight = 'none';
-        (modalContent as HTMLElement).style.overflow = 'visible';
-      }
-      
-      // Asegurar que el contenedor de scroll esté expandido
-      const scrollContainer = contentElement.closest('.flex-1');
-      if (scrollContainer) {
-        (scrollContainer as HTMLElement).style.overflow = 'visible';
-        (scrollContainer as HTMLElement).style.maxHeight = 'none';
-      }
-    }
-    
-    // Pequeño delay para asegurar que el DOM se actualice
-    setTimeout(() => {
-      window.print();
-      
-      // Restaurar estilos después de imprimir (si el usuario cancela)
-      setTimeout(() => {
-        const modalContent = contentElement?.closest('.bg-white');
-        if (modalContent) {
-          (modalContent as HTMLElement).style.maxHeight = '';
-          (modalContent as HTMLElement).style.overflow = '';
-        }
-        const scrollContainer = contentElement?.closest('.flex-1');
-        if (scrollContainer) {
-          (scrollContainer as HTMLElement).style.overflow = '';
-          (scrollContainer as HTMLElement).style.maxHeight = '';
-        }
-      }, 100);
-    }, 100);
+    // La impresión ahora se maneja principalmente por CSS @media print
+    window.print();
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadDoc = () => {
     try {
-      const response = await fetch('/api/reports/generate-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId: report.id }),
+      const htmlContent = buildExportHtml();
+
+      // Creamos un Blob con el contenido HTML y el tipo MIME de MS Word
+      // Usamos el BOM (\ufeff) para asegurar que Word detecte correctamente el mapa de caracteres (UTF-8)
+      const blob = new Blob(['\ufeff', htmlContent], {
+        type: 'application/msword'
       });
 
-      if (!response.ok) {
-        console.error('Error al generar PDF:', await response.text());
-        alert('No se pudo generar el PDF. Intenta de nuevo más tarde.');
-        return;
-      }
-
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${report.title.replace(/[^a-zA-Z0-9-_]/g, '_') || 'informe-fertyfit'}.pdf`;
+      link.download = `${report.title.replace(/[^a-zA-Z0-9-_]/g, '_') || 'informe-fertyfit'}.doc`;
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Error inesperado al descargar PDF:', err);
-      alert('Ocurrió un error al descargar el PDF.');
+      console.error('Error al exportar a Word:', err);
+      alert('No se pudo generar el archivo Word.');
     }
   };
 
   const handleEmail = () => {
     const subject = encodeURIComponent(report.title);
-    
+
     if (isMarkdown) {
       // Usar solo texto plano para que sea sencillo para la usuaria
       const plainText = convertMarkdownToPlainText(content);
@@ -292,24 +254,26 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
           </div>
 
           {/* Action Buttons */}
-          <div className="bg-ferty-beigeLight border-b border-ferty-beige p-4 flex gap-3 print:hidden">
+          <div className="bg-ferty-beigeLight border-b border-ferty-beige p-4 flex flex-wrap gap-2 print:hidden">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-sm font-bold text-ferty-dark"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-xs sm:text-sm font-bold text-ferty-dark shadow-sm"
+              title="Permite imprimir o guardar como PDF"
             >
               <Printer size={16} />
-              Imprimir
+              Imprimir / PDF
             </button>
             <button
-              onClick={handleDownloadPdf}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-sm font-bold text-ferty-dark"
+              onClick={handleDownloadDoc}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-xs sm:text-sm font-bold text-ferty-dark shadow-sm"
+              title="Descarga el informe en formato Word"
             >
               <Download size={16} />
-              Descargar PDF
+              Exportar a Word
             </button>
             <button
               onClick={handleEmail}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-sm font-bold text-ferty-dark"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-ferty-beige rounded-xl hover:bg-ferty-beige transition-colors text-xs sm:text-sm font-bold text-ferty-dark shadow-sm"
             >
               <Mail size={16} />
               Enviar por correo
@@ -385,96 +349,72 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onClose }) =
       <style>{`
         @media print {
           @page {
-            margin: 2cm;
+            margin: 1.5cm;
             size: A4;
           }
           
-          /* Ocultar todo excepto el contenido del informe */
+          /* Ocultar todo el body por defecto */
           body * {
-            visibility: hidden;
+            visibility: hidden !important;
           }
           
-          /* Mostrar solo el modal y su contenido */
-          .bg-white,
-          .bg-white * {
-            visibility: visible;
+          /* Seleccionamos específicamente el contenedor del informe para mostrarlo */
+          /* Suponemos que el modal con fondo blanco es .bg-white interior */
+          .bg-white, .bg-white * {
+            visibility: visible !important;
           }
-          
-          /* Estilos para el contenedor principal */
+
+          /* Reset de posicionamiento para impresión */
           .bg-white {
             position: absolute !important;
-            left: 0 !important;
             top: 0 !important;
+            left: 0 !important;
             width: 100% !important;
-            max-width: 100% !important;
+            height: auto !important;
             max-height: none !important;
+            max-width: none !important;
+            overflow: visible !important;
+            display: block !important;
             box-shadow: none !important;
             border: none !important;
-            padding: 1cm !important;
             margin: 0 !important;
-            overflow: visible !important;
-            page-break-inside: auto !important;
+            padding: 0 !important;
           }
-          
-          /* Ocultar elementos no necesarios en impresión */
+
+          /* Ocultar elementos de UI */
           .print\\:hidden {
             display: none !important;
           }
-          
-          /* Asegurar que el contenido sea visible */
-          .flex-1 {
+
+          /* Forzar scroll visible en contenedores intermedios */
+          div {
             overflow: visible !important;
             max-height: none !important;
-            height: auto !important;
           }
-          
-          /* Estilos para el contenido del informe */
+
+          /* Estilos de contenido */
           .prose {
             max-width: 100% !important;
-            color: #000 !important;
-            overflow: visible !important;
+            font-size: 12pt !important;
+            line-height: 1.5 !important;
           }
-          
-          /* Encabezados */
-          h1, h2, h3, h4, h5, h6 {
+
+          /* Evitar cortes feos */
+          h1, h2, h3, h4 {
             page-break-after: avoid !important;
-            color: #000 !important;
-            margin-top: 1em !important;
-            margin-bottom: 0.5em !important;
           }
           
-          /* Párrafos y listas - evitar cortes */
-          p {
+          p, li {
             page-break-inside: avoid !important;
-            orphans: 3 !important;
-            widows: 3 !important;
-            margin-bottom: 0.75em !important;
           }
-          
-          li {
-            page-break-inside: avoid !important;
-            orphans: 2 !important;
-            widows: 2 !important;
-          }
-          
-          ul, ol {
-            page-break-inside: avoid !important;
-            margin-bottom: 1em !important;
-          }
-          
-          /* Asegurar que las listas no se corten */
-          li + li {
-            margin-top: 0.25em !important;
-          }
-          
-          /* Mejorar legibilidad */
+
+          /* Colores precisos */
           * {
-            color-adjust: exact !important;
             -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
     </>
   );
 };
-
