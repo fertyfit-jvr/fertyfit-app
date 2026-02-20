@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react';
-import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Smile, Meh, Frown, Angry, XCircle, Heart } from 'lucide-react';
+import { Award, Check, Edit2, FileText, LogOut, AlertCircle, X, Download, Loader2, ChevronDown, ChevronUp, CheckCircle, Smile, Meh, Frown, Angry, XCircle, Heart, Crown, Star } from 'lucide-react';
 import { AppNotification, ConsultationForm, DailyLog, UserProfile, NotificationAction, ViewState, FormAnswer } from '../../types';
 
 // Type for form answers dictionary (questionId -> answer value)
@@ -66,9 +66,23 @@ const ProfileHeader = React.memo(({ user, logs, logsCount, scores, submittedForm
           </div>
           <div>
             <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
-            <div className="flex items-center gap-1 text-rose-50 bg-black/10 px-3 py-1 rounded-full w-fit mt-1 backdrop-blur-sm">
-              <Award size={12} />
-              <span className="text-xs font-medium">Nivel {level}</span>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-1 text-rose-50 bg-black/10 px-3 py-1 rounded-full w-fit backdrop-blur-sm">
+                <Award size={12} />
+                <span className="text-xs font-medium">Nivel {level}</span>
+              </div>
+              {/* Membership Tier Badge */}
+              <div className={`flex items-center gap-1 px-3 py-1 rounded-full w-fit backdrop-blur-sm border ${user.user_type === 'vip'
+                ? 'bg-amber-500/20 text-amber-100 border-amber-500/30'
+                : user.user_type === 'premium'
+                  ? 'bg-rose-400/20 text-rose-50 border-rose-400/30'
+                  : 'bg-white/10 text-white/80 border-white/20'
+                }`}>
+                {user.user_type === 'vip' ? <Crown size={12} className="text-amber-300" /> : <Star size={12} />}
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {user.user_type === 'vip' ? 'Plan VIP' : user.user_type === 'premium' ? 'Plan Premium' : 'Plan Básico'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
