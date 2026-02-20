@@ -82,6 +82,7 @@ export function useAuth() {
             fertilityTreatments: profile.fertility_treatments,
             diagnoses: profile.diagnoses, // TEXT field from F0
             role: (profile.role as 'user') || 'user',
+            user_type: profile.user_type as 'free' | 'premium' | 'vip',
             cycleRegularity: (profile.cycle_regularity as 'Regular' | 'Irregular') || undefined,
             cycleLength: profile.cycle_length,
             lastPeriodDate: profile.last_period_date,
@@ -186,6 +187,7 @@ export function useAuth() {
           cycleLength: profile.cycle_length,
           cycleRegularity: (profile.cycle_regularity as 'Regular' | 'Irregular') || undefined,
           periodHistory: profile.period_history || [],
+          user_type: profile.user_type as 'free' | 'premium' | 'vip',
         };
         setUser(updatedUser);
       }
