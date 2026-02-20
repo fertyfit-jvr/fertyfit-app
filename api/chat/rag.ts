@@ -82,20 +82,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // --------------------------------------------------------------------------
-    // 1. DATA FETCHING: Perfil + Logs recientes
+    // 1. DATA FETCHING: Perfil, Logs recientes, Informes previos
     // --------------------------------------------------------------------------
-    const [profileResult, logsResult] = await Promise.all([
+    const [profileResult, logsResult, reportsResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
       supabase
         .from('daily_logs')
         .select('*')
         .eq('user_id', userId)
         .order('date', { ascending: false })
-        .limit(7)
+        .limit(7),
+      supabase
+        .from('notifications')
+        .select('title, message, created_at, metadata')
+        .eq('user_id', userId)
+        .eq('type', 'REPORT')
+        .order('created_at', { ascending: false })
+        .limit(3)
     ]);
 
     const profile = profileResult.data;
     const recentLogs = logsResult.data || [];
+    const recentReports = reportsResult.data || [];
 
     // --------------------------------------------------------------------------
     // 2. CONTEXT BUILDING: Calcular estado del ciclo
@@ -143,6 +151,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ).join('\n');
     }
 
+    // Resumir últimos informes generados
+    let reportsContext = 'No hay informes recientes generados.';
+    if (recentReports.length > 0) {
+      reportsContext = recentReports.map((report: any) => {
+        const type = report.metadata?.report_type || 'General';
+        const date = report.created_at ? new Date(report.created_at).toLocaleDateString('es-ES') : 'Fecha desconocida';
+        // Truncate message to avoid extremely huge context blocks if there are 3 giant reports
+        const content = report.message ? report.message.substring(0, 3000) + (report.message.length > 3000 ? '...\n(Texto truncado)' : '') : 'Sin contenido';
+        return `### Informe ${type} (${date})\nTÍTULO: ${report.title}\nCONTENIDO:\n${content}`;
+      }).join('\n\n---\n\n');
+    }
+
     // --------------------------------------------------------------------------
     // 3. PROMPT CONSTRUCTION
     // --------------------------------------------------------------------------
@@ -153,9 +173,13 @@ ESTADO DEL CICLO ACTUAL:
 ${cycleContext}
 REGISTROS RECIENTES (Últimos 7 días):
 ${recentSymptoms}
+INFORMES RECIENTES GENERADOS POR EL SISTEMA PARA ELLA:
+${reportsContext}
+
 PROFILAXIS:
 Si la usuaria pregunta por su estado actual, usa estos datos.
 Si sus síntomas coinciden con su fase del ciclo, explícalo.
+Si pregunta por alguna analítica o recomendación, revisa los INFERMES RECIENTES.
 Adaptate a su objetivo (${profile?.main_objective || 'general'}).
 `;
 
