@@ -192,7 +192,7 @@ Responde priorizando los datos personales de la usuaria.
     try {
       logger.log(`[CHAT] Generando respuesta con Gemini para query: "${query.substring(0, 50)}..."`);
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
       } as any);
 
