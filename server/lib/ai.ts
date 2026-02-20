@@ -11,8 +11,8 @@ export const ai = new GoogleGenAI({
   apiKey,
 });
 
-// Helper para obtener un modelo concreto (por defecto, gemini-2.5-flash)
-export function getModel(modelName = 'gemini-1.5-flash') {
+// Helper para obtener un modelo concreto (por defecto, gemini-2.0-flash)
+export function getModel(modelName = 'gemini-2.0-flash') {
   // Mantener helper por compatibilidad; actualmente no se usa.
   return (ai as any).models?.get({ model: modelName });
 }
