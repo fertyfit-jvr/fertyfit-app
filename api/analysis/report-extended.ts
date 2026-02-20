@@ -165,22 +165,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Tier validation: ONLY Premium/VIP can generate any report
-    // EXCEPTION: Free users can generate exactly ONE Daily Report if they have enough logs
+    // EXCEPTION: Free users can generate exactly ONE Daily Report and ONE Basic Report
     const isPremiumOrVip = profile.subscription_tier === 'premium' || profile.subscription_tier === 'vip';
 
     if (!isPremiumOrVip) {
-      if (reportType === 'DAILY') {
-        const { shouldGenerate, reason } = await (await import('../../server/lib/reportRules.js')).shouldGenerateDaily(userId);
-        if (!shouldGenerate) {
+      if (reportType === 'DAILY' || reportType === 'BASIC') {
+        const rules = await import('../../server/lib/reportRules.js');
+        const checkResult = reportType === 'DAILY'
+          ? await rules.shouldGenerateDaily(userId)
+          : await rules.canGenerateBasic(userId);
+
+        const canWork = 'shouldGenerate' in checkResult ? checkResult.shouldGenerate : checkResult.canGenerate;
+        const reason = checkResult.reason;
+
+        if (!canWork) {
           sendProgress(res, 'ERROR', 'Acceso restringido', {
-            error: reason || 'Como usuaria Free, ya has agotado tu informe diario gratuito o aún no tienes suficientes registros.',
+            error: reason || `Como usuaria Free, ya has agotado tu informe ${reportType.toLowerCase()} gratuito o aún no cumples los requisitos.`,
           });
           return res.end();
         }
-        // If shouldGenerate is true, we allow the Free user to proceed
+        // If canWork is true, we allow the Free user to proceed
       } else {
         sendProgress(res, 'ERROR', 'Acceso restringido', {
-          error: 'La generación de informes (Básico, 360 y Analíticas) es una función exclusiva para usuarias Premium y VIP.',
+          error: 'La generación de informes (360 y Analíticas) es una función exclusiva para usuarias Premium y VIP.',
         });
         return res.end();
       }

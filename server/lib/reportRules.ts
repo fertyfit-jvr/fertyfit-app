@@ -231,10 +231,21 @@ export async function canGenerateBasic(userId: string): Promise<ReportValidation
 
   const userTier = profile?.subscription_tier || 'free';
 
-  if (userTier !== 'premium' && userTier !== 'vip') {
+  // Regla para BASIC:
+  // - Premium/VIP: Ilimitado (siempre que tengan formularios)
+  // - Free: 1 SOLA VEZ (al registrarse y rellenar formularios)
+  if (userTier === 'free') {
+    const totalBasicReports = await getTotalBasicReports(userId);
+    if (totalBasicReports >= 1) {
+      return {
+        canGenerate: false,
+        reason: 'Límite alcanzado: Las usuarias Free solo pueden generar 1 Informe Básico. Actualiza a Premium para generar informes ilimitados al actualizar tus datos.',
+      };
+    }
+  } else if (userTier !== 'premium' && userTier !== 'vip') {
     return {
       canGenerate: false,
-      reason: 'El Informe Básico de Preconsulta es una función exclusiva para usuarias Premium y VIP.',
+      reason: 'El Informe Básico de Preconsulta es una función exclusiva para usuarias registradas.',
     };
   }
 
@@ -443,8 +454,20 @@ export async function getReportWarnings(
 
   switch (reportType) {
     case 'BASIC': {
-      if (userTier !== 'premium' && userTier !== 'vip') {
-        warnings.push('⚠️ El Informe Básico es exclusivo para usuarias Premium.');
+      if (userTier === 'free') {
+        const totalReports = await getTotalBasicReports(userId);
+        if (totalReports >= 1) {
+          warnings.push('⚠️ Has alcanzado el límite de 1 Informe Básico para cuentas gratuitas. Cambia a Premium para generar más informes.');
+        } else {
+          const hasForms = await hasAllBasicForms(userId);
+          if (!hasForms) {
+            warnings.push('ℹ️ Como usuaria Free, podrás generar tu único Informe Básico gratuito una vez rellenes los 4 pilares.');
+          } else {
+            warnings.push('✨ ¡Listo! Puedes generar tu único Informe Básico gratuito ahora.');
+          }
+        }
+      } else if (userTier !== 'premium' && userTier !== 'vip') {
+        warnings.push('⚠️ El Informe Básico es exclusivo para usuarias del Método FertyFit.');
       } else {
         const hasAllForms = await hasAllBasicForms(userId);
         if (!hasAllForms) {

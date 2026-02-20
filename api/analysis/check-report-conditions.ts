@@ -103,10 +103,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const warnings = await getReportWarnings(userId, reportType);
     let canContinue = isPremiumOrVip;
 
-    // Exception for Free users and DAILY report
-    if (!isPremiumOrVip && reportType === 'DAILY') {
-      const { shouldGenerate } = await (await import('../../server/lib/reportRules.js')).shouldGenerateDaily(userId);
-      if (shouldGenerate) {
+    // Exception for Free users and DAILY/BASIC reports
+    if (!isPremiumOrVip && (reportType === 'DAILY' || reportType === 'BASIC')) {
+      const rules = await import('../../server/lib/reportRules.js');
+      const checkResult = reportType === 'DAILY'
+        ? await rules.shouldGenerateDaily(userId)
+        : await rules.canGenerateBasic(userId);
+
+      const canWork = 'shouldGenerate' in checkResult ? checkResult.shouldGenerate : checkResult.canGenerate;
+      if (canWork) {
         canContinue = true;
       }
     }
