@@ -274,9 +274,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // 2. Registros diarios (usados en 360, DAILY y también para resumen médico en BASIC)
+    // 2. Registros diarios (usados en 360, DAILY)
     let logs: DailyLog[] = [];
-    if (reportType === '360' || reportType === 'DAILY' || reportType === 'BASIC') {
+    if (reportType === '360' || reportType === 'DAILY') {
       sendProgress(res, 'COLLECTING_LOGS', 'Recopilando tus registros diarios...');
       const { data: logsData, error: logsError } = await supabase
         .from('daily_logs')

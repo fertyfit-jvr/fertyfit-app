@@ -53,23 +53,18 @@ export interface Report360Check {
 // ============================================================================
 
 /**
- * Cuenta cuántos informes BASIC se han generado este mes
+ * Cuenta cuántos informes BASIC se han generado históricamente (Total)
  */
-async function getBasicReportsThisMonth(userId: string): Promise<number> {
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
+async function getTotalBasicReports(userId: string): Promise<number> {
   const { count, error } = await supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('type', 'REPORT')
-    .contains('metadata', { report_type: 'BASIC' })
-    .gte('created_at', startOfMonth.toISOString());
+    .contains('metadata', { report_type: 'BASIC' });
 
   if (error) {
-    logger.error('Error counting BASIC reports:', error);
+    logger.error('Error counting total BASIC reports:', error);
     return 0;
   }
 
@@ -203,12 +198,25 @@ async function getMethodStartDate(userId: string): Promise<Date | null> {
  * 
  * Reglas:
  * - Todos los formularios deben existir (F0 + Function + Food + Flora + Flow)
- * - Máximo 4 informes BASIC por mes
+ * - Usuarios Free: Máximo 1 informe en total (histórico)
+ * - Usuarios Premium/VIP: Sin límite (se genera al actualizar formularios)
  * 
- * Esta función NO verifica si hubo actualización reciente - eso se maneja en el frontend
+ * Esta función evalúa si es posible generar el informe. La detección de actualizaciones recientes se hace en el cliente.
  */
 export async function canGenerateBasic(userId: string): Promise<ReportValidationResult> {
   logger.log(`[BASIC] Checking rules for user ${userId}`);
+
+  // 0. Obtener el tier del usuario
+  let userTier = 'free';
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('user_type')
+    .eq('id', userId)
+    .single();
+
+  if (profile?.user_type) {
+    userTier = profile.user_type;
+  }
 
   // 1. Verificar que existan todos los formularios
   const hasAllForms = await hasAllBasicForms(userId);
@@ -219,19 +227,20 @@ export async function canGenerateBasic(userId: string): Promise<ReportValidation
     };
   }
 
-  // 2. Verificar límite mensual (máximo 4)
-  const reportsThisMonth = await getBasicReportsThisMonth(userId);
-  if (reportsThisMonth >= 4) {
-    return {
-      canGenerate: false,
-      reason: `Límite mensual alcanzado: ya tienes ${reportsThisMonth} informes BASIC este mes (máximo 4).`,
-    };
+  // 2. Verificar límite según el tier (Free = 1 total, Premium/VIP = sin límite)
+  if (userTier === 'free') {
+    const totalReports = await getTotalBasicReports(userId);
+    if (totalReports >= 1) {
+      return {
+        canGenerate: false,
+        reason: 'Límite alcanzado: Las usuarias Free solo pueden generar 1 Informe Básico. Actualiza a Premium para generar informes ilimitados al actualizar tus datos.',
+      };
+    }
   }
 
-  logger.log(`[BASIC] ✅ Can generate. Reports this month: ${reportsThisMonth}/4`);
+  logger.log(`[BASIC] ✅ Can generate. Tier: ${userTier}`);
   return {
     canGenerate: true,
-    warnings: reportsThisMonth >= 3 ? ['Estás cerca del límite mensual (4 informes BASIC).'] : undefined,
   };
 }
 
@@ -375,16 +384,22 @@ export async function getReportWarnings(
 
   switch (reportType) {
     case 'BASIC': {
+      let userTier = 'free';
+      const { data: profile } = await supabase.from('profiles').select('user_type').eq('id', userId).single();
+      if (profile?.user_type) userTier = profile.user_type;
+
       const hasAllForms = await hasAllBasicForms(userId);
       if (!hasAllForms) {
         warnings.push('⚠️ Faltan algunos formularios básicos. El informe podría estar incompleto.');
       }
 
-      const reportsThisMonth = await getBasicReportsThisMonth(userId);
-      if (reportsThisMonth >= 4) {
-        warnings.push(`⚠️ Ya tienes ${reportsThisMonth} informes BASIC este mes (límite recomendado: 4).`);
-      } else if (reportsThisMonth >= 3) {
-        warnings.push(`⚠️ Tienes ${reportsThisMonth} informes BASIC este mes. Estás cerca del límite (4).`);
+      if (userTier === 'free') {
+        const totalReports = await getTotalBasicReports(userId);
+        if (totalReports >= 1) {
+          warnings.push('⚠️ Has alcanzado el límite de 1 Informe Básico para cuentas gratuitas. Cambia a Premium para generar más informes.');
+        } else {
+          warnings.push('ℹ️ Como usuaria Free, este será tu único Informe Básico gratuito.');
+        }
       }
       break;
     }
